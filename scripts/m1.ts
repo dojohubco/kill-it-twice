@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import pg from 'pg';
 import { command, redact } from './support.ts';
+import { migrateSource } from './migrate.ts';
 
 const runId = `m1-${new Date().toISOString().replace(/[^0-9]/g, '')}-${randomBytes(4).toString('hex')}`;
 const artifactDir = resolve('artifacts/m1', runId);
@@ -56,6 +57,8 @@ try {
     assert.match(settings.server_version as string, /^18\.6(?:\s|$)/);
     for (const name of ['fsync', 'synchronous_commit', 'full_page_writes']) assert.equal(settings[name], 'on');
     manifest.postgres = settings;
+    await migrateSource(admin, writerPassword);
+    manifest.migration = '001-source.sql committed';
   } finally { await admin.end(); }
   const testEnv = { ...env, M1_RUN_ID: runId, M1_ARTIFACT_DIR: artifactDir, M1_PORT: String(port), M1_ADMIN_PASSWORD: adminPassword, M1_WRITER_PASSWORD: writerPassword };
   const output = await record('tests', process.execPath, ['--test', '--test-concurrency=1', '--test-timeout=60000', '--test-reporter=spec', '--test-reporter-destination=stdout', '--test-reporter=junit', `--test-reporter-destination=${join(artifactDir, 'tests.xml')}`, 'tests/integration/*.test.ts'], testEnv, 180_000);
