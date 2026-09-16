@@ -40,13 +40,19 @@ for (const scenario of [
     );
     const query = mock.method(pg.Client.prototype, 'query', (sql: string) => {
       commands.push(sql);
-      if (sql === 'BEGIN' && scenario === 'begin')
+      if (
+        sql === 'BEGIN ISOLATION LEVEL READ COMMITTED' &&
+        scenario === 'begin'
+      )
         return Promise.reject(primary);
       if (sql === 'COMMIT' && scenario === 'commit')
         return Promise.reject(primary);
       if (sql === 'ROLLBACK' && scenario === 'rollback')
         return Promise.reject(cleanup);
-      return Promise.resolve({ command: sql, rows: [] });
+      return Promise.resolve({
+        command: sql.startsWith('BEGIN') ? 'BEGIN' : sql,
+        rows: [],
+      });
     });
     const end = mock.method(pg.Client.prototype, 'end', () =>
       ['connect', 'begin', 'rollback', 'close'].includes(scenario)
@@ -84,7 +90,11 @@ for (const scenario of [
             assert.deepEqual(error.cleanupErrors, [cleanup, cleanup]);
           }
           if (scenario === 'commit') {
-            assert.deepEqual(commands, ['BEGIN', 'COMMIT', 'ROLLBACK']);
+            assert.deepEqual(commands, [
+              'BEGIN ISOLATION LEVEL READ COMMITTED',
+              'COMMIT',
+              'ROLLBACK',
+            ]);
             assert.deepEqual(error.cleanupErrors, []);
           }
           return true;

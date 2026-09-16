@@ -23,6 +23,18 @@ export interface SourceRow {
 export interface Revision extends SourceRow {
   allocation_id: string;
 }
+export interface SourceCommand {
+  sourceEpoch: string;
+  commandId: string;
+  contractVersion: number;
+  operation: 'create' | 'update' | 'delete' | 'restore';
+  entityId: string | null;
+  payloadJson: string | null;
+}
+export interface CommandReply {
+  result: SourceRow;
+  replayed: boolean;
+}
 interface Session {
   pid: number;
   xid: string;
@@ -35,6 +47,7 @@ interface Inspection {
   outbox: Revision[];
 }
 export interface SourceWork {
+  command(request: SourceCommand): Promise<CommandReply>;
   create(payloadJson: string): Promise<SourceRow>;
   mutate(
     id: string,
@@ -59,6 +72,8 @@ export class SourceTransactionError extends Error {
   readonly completionTag: string | undefined;
   readonly sqlState: string | undefined;
   readonly phase: string;
+  readonly kind:
+    'idempotency_conflict' | 'source_epoch_mismatch' | 'transaction_failure';
   constructor(
     cause: unknown,
     outcome: Outcome,
@@ -74,6 +89,12 @@ export class SourceTransactionError extends Error {
     this.cleanupErrors = cleanupErrors;
     this.completionTag = completionTag;
     this.sqlState = cause instanceof pg.DatabaseError ? cause.code : undefined;
+    this.kind =
+      this.sqlState === 'P2001'
+        ? 'idempotency_conflict'
+        : this.sqlState === 'P2002'
+          ? 'source_epoch_mismatch'
+          : 'transaction_failure';
   }
 }
 const columns =
@@ -123,6 +144,9 @@ export class Source {
         'Supply connection configuration, never an externally managed client',
       );
     this.#config = { ...config };
+  }
+  command(request: SourceCommand): Promise<CommandReply> {
+    return this.transaction((tx) => tx.command(request));
   }
   async transaction<T>(work: (tx: SourceWork) => Promise<T>): Promise<T> {
     if (this.#state !== 'ready')
@@ -175,6 +199,43 @@ export class Source {
       }
     };
     const tx: SourceWork = Object.freeze({
+      command: (request: SourceCommand) =>
+        operation(async () => {
+          if (
+            typeof request.sourceEpoch !== 'string' ||
+            typeof request.commandId !== 'string' ||
+            !(
+              request.payloadJson === null ||
+              typeof request.payloadJson === 'string'
+            )
+          )
+            throw new TypeError(
+              'Command identity must be text and payload must be JSON text or SQL NULL',
+            );
+          const query = await client.query<Record<string, unknown>>(
+            `SELECT entity_id::text, source_epoch::text, entity_version::text, change_id::text,
+                  recorded_at, is_deleted, payload_json, replayed
+           FROM source.execute_command($1::uuid,$2::uuid,$3::integer,$4::text,$5::bigint,$6::jsonb)`,
+            [
+              request.sourceEpoch,
+              request.commandId,
+              request.contractVersion,
+              request.operation,
+              request.entityId === null
+                ? null
+                : positiveBigint(request.entityId),
+              request.payloadJson,
+            ],
+          );
+          const row = query.rows[0];
+          if (
+            query.rows.length !== 1 ||
+            !row ||
+            typeof row['replayed'] !== 'boolean'
+          )
+            throw new TypeError('Expected one complete command reply');
+          return { result: sourceRow(row), replayed: row['replayed'] };
+        }),
       create: (payloadJson: string) =>
         operation(async () =>
           one(
@@ -242,7 +303,10 @@ export class Source {
     try {
       await client.connect();
       phase = 'begin';
-      if ((await client.query('BEGIN')).command !== 'BEGIN')
+      if (
+        (await client.query('BEGIN ISOLATION LEVEL READ COMMITTED')).command !==
+        'BEGIN'
+      )
         throw new Error('BEGIN completion was not BEGIN');
       began = true;
       outcome = 'unknown';
