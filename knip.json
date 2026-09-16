@@ -5,7 +5,8 @@
     "tests/support/writer-child.ts",
     "tests/support/group-child.ts",
     "tests/support/command-child.ts",
-    "tests/support/staging-child.ts"
+    "tests/support/staging-child.ts",
+    "tests/support/capture-child.ts"
   ],
   "project": ["src/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts", "*.js"]
 }

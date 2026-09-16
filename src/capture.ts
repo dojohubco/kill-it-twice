@@ -21,7 +21,7 @@ export interface CaptureOptions {
   renewalMs: number;
   idleMs: number;
 }
-export const captureDefaults: Readonly<CaptureOptions> = Object.freeze({
+const captureDefaults: Readonly<CaptureOptions> = Object.freeze({
   claimCount: 16,
   leaseMs: 30000,
   renewalMs: 5000,
@@ -299,6 +299,8 @@ export class Capture {
             );
           } catch (error) {
             cleanup.push(error);
+            // A disconnected source cannot release the rest either. Leave those leases to expire.
+            if (stateCode(error) !== 'P4002') break;
           }
         }
       }

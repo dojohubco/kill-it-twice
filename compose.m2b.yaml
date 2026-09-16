@@ -6,7 +6,7 @@ services:
       POSTGRES_DB: pipeline_m2b
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
-    ports: ['127.0.0.1::5432']
+    ports: ['127.0.0.1:${M2C_PIPELINE_PORT:-0}:5432']
     volumes:
       - pipeline-data:/var/lib/postgresql
       - ${M2B_PASSWORD_FILE:?Use npm run test:integration:m2b}:/run/secrets/postgres_password:ro,Z

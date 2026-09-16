@@ -23,7 +23,9 @@
     "review:summary": "node scripts/review.ts summary",
     "test:integration:m2a": "node scripts/m1.ts m2a",
     "test:integration:m2b": "node scripts/m1.ts m2b",
-    "stage": "node scripts/stage.ts"
+    "stage": "node scripts/stage.ts",
+    "test:integration:m2c": "node scripts/m1.ts m2c",
+    "capture": "node scripts/capture.ts"
   },
   "dependencies": {
     "pg": "8.23.0"
