@@ -1,0 +1,43 @@
+# ADR 010 — Elasticsearch projection and durable delivery
+
+Date: 2026-09-17. Status: authorized design; implementation and real acceptance pending.
+
+## Content and protocol
+
+Canonical events are unchanged. Search-v1 uses `_id=source_epoch:entity_id`, full-state index operations with strict `version_type=external`, including indexed tombstones. The projection contains only projection_schema, source_epoch, entity_id, entity_version (strings), is_deleted (boolean), canonical_body_json (exact UTF-8 canonical body), content_sha256, and search_fields. PostgreSQL extracts optional top-level name/country/loyalty_points from retained payload JSONB into bounded JSON text; missing fields are omitted, explicit null preserved, tombstone search_fields is empty. No arbitrary payload number enters JavaScript Number.
+
+Strict mapping: metadata identifiers/hash keyword; is_deleted boolean; canonical_body_json keyword with index=false/doc_values=false; search_fields dynamic=strict, name text, country keyword, loyalty_points integer with coerce=false/ignore_malformed=false. Normal stored _source. Invalid numeric values reach the actual mapper. Other fields remain in canonical_body_json, deliberately unindexed.
+
+Select ES 9.5.4 and JS client 9.5.1, exact image/version pins in milestone. Use the documented Serializer hook with lossless-json 4.3.1 for responses and pre-serialized NDJSON for requests. Version tokens are positive signed-BIGINT decimal strings rendered as raw numeric tokens, never Number. All returned version tokens are narrowed/validated. Disable transport retries/sniffing. Native SHA-256 is evidence consistency, not authenticity. First run an isolated real protocol experiment; if this fails, record it before changing the boundary.
+
+## Receiver registration and assumptions
+
+One retained single-node ES service, request translog durability, bounded 2 GiB container / 1 GiB heap, loopback published ports. Authentication is required; setup and worker credentials are separate. TLS, when configured, uses explicit CA validation. Runtime cannot create/delete/configure/rebind indexes. No node-loss HA promise. Toxiproxy is only a test network boundary.
+
+Controlled setup chooses a unique concrete index, records expected pipeline/epoch, registration UUID, projection version and mapping/settings fingerprint before binding completes. A recoverable preparation record cannot admit delivery. Create/verify that same index and registration metadata, then persist actual cluster UUID and index UUID once against the existing destination ID/generation. Restart never adopts another receiver. UUID/configuration checks before request and before settlement detect replacement; they are not an atomic remote UUID compare-and-write. No concurrent malicious administrator replacement is assumed.
+
+## Forward pipeline schema
+
+Preserve all original identities/created timestamps. Extend delivery_intents in place: ES states pending/leased/retry_wait/satisfied/dead_letter; claim_generation BIGINT >=0 (overflow errors), owner UUID, lease_until TIMESTAMPTZ, next_retry_at TIMESTAMPTZ, bounded error classification, terminal disposition applied/already_applied/superseded, exact remote_version BIGINT, witness_event_id FK events, terminal attempt identity/time. State-dependent CHECKs reject NULL loopholes. RabbitMQ stays pending with no lease/terminal metadata.
+
+Add one ES target registration/runtime record keyed by destination UUID/generation, containing immutable receiver identity/configuration and operational ready/cooldown/blocked state, bounded reason, next admission time, monotonic probe generation/owner/deadline. Registration is privileged; runtime cannot rebind. Add bounded attempt records keyed by UUID with event/destination FKs, owner/generation, start/end times, classification, bounded receiver error and exact remote version; retain at most 32 recent nonterminal attempts per obligation plus immutable terminal evidence. This is a bounded diagnostic window, not a replay history service. Add immutable sink-specific dead letters keyed by event/destination referencing the original event and terminal attempt, with bounded actual error context.
+
+Replace obligation guards deliberately: staging requires two correct structural intents and one consumer row, irrespective of valid ES progress. Rabbit/consumer remain pending; missing relations still fail. Canonical rows cannot change. Runtime role pipeline_es receives only explicit control/read functions, no table DML, cross-sink operations, owner membership or PUBLIC EXECUTE. Definer functions retain fixed safe search_path; grants/revocations occur in the migration transaction. Deferred relational integrity remains.
+
+## Ownership, admission and transactions
+
+READ COMMITTED short transaction: check target admission, SELECT eligible ES rows FOR UPDATE SKIP LOCKED, increment exact generation, persist owner/deadline and attempt, COMMIT. One bulk per worker, up to 500 operations and 4 MiB serialized bytes; 256 KiB per projected operation, response cap 4 MiB, deadline 10 s, lease 30 s, renewal about 5 s via a separate owned session. SQL conditional projection and size metadata bound data before Node transfer. Claims exceeding a transfer batch are partitioned or released; no dropped work. Oversized records have explicit retained failure.
+
+No SQL transaction spans network I/O. Renew and every settlement lock first, then use clock_timestamp and check target generation, owner, claim generation and unexpired deadline. Expiry does not cancel remote writes. Each valid item settles independently so a stale claim cannot roll back unrelated current outcomes. Terminal evidence is immutable. Private fault boundaries are es.after_claim_commit.before_request, es.after_remote_apply.before_local_commit and es.after_local_commit.before_success.
+
+Shared admission cooldown uses persisted positive exponential jitter (1 s base, 30 s cap) and a fenced single recovery probe. Infrastructure failure never becomes per-event dead-letter after an arbitrary count. Auth/config/identity/integrity failures block the target; runtime status is read-only and bounded. Follow waits, honors output backpressure and stops admission on signals while operations finish boundedly or remain recoverable.
+
+## Outcomes
+
+Validate every bulk item and complete correspondence before interpreting outcomes. HTTP 200 alone proves nothing. Confirmed index success -> applied. Strict external conflict -> realtime GET, exact version and complete actual projection comparison against corresponding immutable ledger content. Equal matching content -> already_applied. Higher content -> superseded only with an exact local higher-revision witness for the same epoch/entity/target. Copied hashes, unknown higher revisions, missing/lower state or mismatched fields are integrity failures. Timeout/incomplete response is unknown/retryable. Genuine mapper rejection is a bounded dead letter; new corrected source version is independent. Pre/post target checks are required before satisfaction.
+
+## Evidence and boundaries
+
+Independent ES01-ES14 requirements are committed in M3 scope before protocol execution. Real services, actual TCP loss, process kills, 60-second service outage, lease expiry and retained restart supplement pure parser tests. SQL and receiver oracles compare exact fields/content, not counters alone. Earlier profiles remain separately required. Source ACK still means staged. RabbitMQ/consumer/backfill and full G1-G5 are unfinished. Baseline/no-op receipt FK obligation remains for later seed/activation work.
+
+Official references: [serializer hooks](https://www.elastic.co/docs/reference/elasticsearch/clients/javascript/advanced-config), [bounded client configuration](https://www.elastic.co/docs/reference/elasticsearch/clients/javascript/basic-config), [request options](https://www.elastic.co/docs/reference/elasticsearch/clients/javascript/connecting), [strict external versioning](https://www.elastic.co/guide/en/elasticsearch/reference/8.19/docs-index_.html). Actual selected release behavior must be tested, not inferred from documentation alone.
