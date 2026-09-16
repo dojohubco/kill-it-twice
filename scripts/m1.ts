@@ -28,7 +28,9 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) process.once(signal, () => 
 });
 const clean = (text: string) => redact(text, secrets);
 async function record(name: string, executable: string, args: string[], runEnv = env, timeout = 90_000) {
-  const result = await command(executable, args, runEnv, timeout, name === 'tests');
+  // Docker's CLI can launch a Compose plugin child too. Every command gets its
+  // own group so a timeout cannot leave that command's descendants running.
+  const result = await command(executable, args, runEnv, timeout, true);
   const base = `${String(++sequence).padStart(2, '0')}-${name}`;
   await writeFile(join(artifactDir, `${base}.stdout.log`), clean(result.stdout));
   await writeFile(join(artifactDir, `${base}.stderr.log`), clean(result.stderr));
