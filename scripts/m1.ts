@@ -1,3 +1,12 @@
+import {
+  migrateReader,
+  migratePipeline,
+  sourceSnapshot,
+  pipelineSnapshot,
+} from './migrate-staging.ts';
+import { stagingCases } from './required-staging-cases.ts';
+import { Source } from '../src/source.ts';
+import { randomUUID } from 'node:crypto';
 import { first } from './rows.ts';
 import assert from 'node:assert/strict';
 import { createHash, randomBytes } from 'node:crypto';
@@ -21,11 +30,18 @@ import { Diagnostics } from './finalization.ts';
 import { CleanupFailure } from './support.ts';
 
 const profile = process.argv[2] ?? 'm1';
-assert.ok(['m1', 'm2a'].includes(profile), 'Expected m1 or m2a profile');
+assert.ok(
+  ['m1', 'm2a', 'm2b'].includes(profile),
+  'Expected m1, m2a or m2b profile',
+);
+const upgrade = process.argv[3] === '--upgrade';
+assert.ok(process.argv[3] === undefined || (profile === 'm2b' && upgrade));
 const inventory =
-  profile === 'm2a'
-    ? [...requiredCases, ...commandCases, ...commandFaultCases]
-    : requiredCases;
+  profile === 'm2b'
+    ? stagingCases
+    : profile === 'm2a'
+      ? [...requiredCases, ...commandCases, ...commandFaultCases]
+      : requiredCases;
 const runId = `${profile}-${new Date().toISOString().replace(/[^0-9]/g, '')}-${randomBytes(4).toString('hex')}`;
 const artifactDir = resolve(`artifacts/${profile}`, runId);
 await mkdir(artifactDir, { recursive: true });
@@ -33,12 +49,38 @@ let temporaryDir: string | undefined;
 const adminPassword = randomBytes(24).toString('hex');
 const writerPassword = randomBytes(24).toString('hex');
 const commandPassword = randomBytes(24).toString('hex');
-const secrets = [adminPassword, writerPassword, commandPassword];
-const env = { ...process.env, M1_PASSWORD_FILE: '' };
+const readerPassword = randomBytes(24).toString('hex');
+const pipelinePassword = randomBytes(24).toString('hex');
+const stagerPassword = randomBytes(24).toString('hex');
+const secrets = [
+  adminPassword,
+  writerPassword,
+  commandPassword,
+  readerPassword,
+  pipelinePassword,
+  stagerPassword,
+];
+const env = { ...process.env, M1_PASSWORD_FILE: '', M2B_PASSWORD_FILE: '' };
 const compose = ['compose', '-p', runId, '-f', resolve('compose.m1.yaml')];
+if (profile === 'm2b') compose.push('-f', resolve('compose.m2b.yaml'));
+let pipelinePort = 0;
+let sourceEpoch = '';
+function pipelineAdmin(label: string) {
+  return new pg.Client({
+    host: '127.0.0.1',
+    port: pipelinePort,
+    database: 'pipeline_m2b',
+    user: 'pipeline_admin',
+    password: pipelinePassword,
+    application_name: `${runId}:${label}`,
+    connectionTimeoutMillis: 5000,
+    query_timeout: 10000,
+  });
+}
 const manifest: Record<string, unknown> = {
   runId,
   profile,
+  migrationMode: upgrade ? 'populated M2A upgrade' : 'fresh',
   artifactDir,
   startedAt: new Date().toISOString(),
   status: 'RUNNING',
@@ -110,6 +152,10 @@ try {
   temporaryDir = await mkdtemp(join(tmpdir(), `${runId}-`));
   env.M1_PASSWORD_FILE = join(temporaryDir, 'postgres-password');
   await writeFile(env.M1_PASSWORD_FILE, adminPassword, { mode: 0o600 });
+  if (profile === 'm2b') {
+    env.M2B_PASSWORD_FILE = join(temporaryDir, 'pipeline-password');
+    await writeFile(env.M2B_PASSWORD_FILE, pipelinePassword, { mode: 0o600 });
+  }
   assert.equal(
     process.versions.node,
     (await readFile('.node-version', 'utf8')).trim(),
@@ -204,6 +250,30 @@ try {
   assert.match(address, /^127\.0\.0\.1:\d+$/);
   let port = Number(address.split(':')[1]);
   manifest['port'] = port;
+  if (profile === 'm2b') {
+    const pAddress = await record('pipeline-port', 'docker', [
+      ...compose,
+      'port',
+      'pipeline',
+      '5432',
+    ]);
+    assert.match(pAddress, /^127\.0\.0\.1:\d+$/);
+    pipelinePort = Number(pAddress.split(':')[1]);
+    manifest['pipelinePort'] = pipelinePort;
+    const pContainer = await record('pipeline-container', 'docker', [
+      ...compose,
+      'ps',
+      '-q',
+      'pipeline',
+    ]);
+    manifest['pipelineContainer'] = pContainer;
+    manifest['pipelineImage'] = await record('pipeline-image', 'docker', [
+      'inspect',
+      '--format',
+      '{{.Image}} {{.Config.Image}}',
+      pContainer,
+    ]);
+  }
   const admin = new pg.Client({
     host: '127.0.0.1',
     port,
@@ -240,10 +310,10 @@ try {
     await migrateSource(
       admin,
       writerPassword,
-      profile === 'm2a' ? commandPassword : undefined,
+      profile !== 'm1' ? commandPassword : undefined,
     );
     manifest['migration'] =
-      profile === 'm2a'
+      profile !== 'm1'
         ? '001-source.sql and forward 002-source-commands.sql committed'
         : '001-source.sql committed';
     const initial = first(
@@ -251,14 +321,16 @@ try {
         await admin.query<Record<string, unknown>>(`SELECT source_epoch::text,
       (SELECT count(*)::text FROM source.entities) AS entities,
       (SELECT count(*)::text FROM source.outbox) AS outbox
-      ${profile === 'm2a' ? ', (SELECT count(*)::text FROM source.command_receipts) AS receipts' : ''}
+      ${profile !== 'm1' ? ', (SELECT count(*)::text FROM source.command_receipts) AS receipts' : ''}
       FROM source.source_identity`)
       ).rows,
     );
     assert.equal(initial['entities'], '0');
     assert.equal(initial['outbox'], '0');
-    if (profile === 'm2a') assert.equal(initial['receipts'], '0');
+    if (profile !== 'm1') assert.equal(initial['receipts'], '0');
     manifest['initialState'] = initial;
+    assert.equal(typeof initial['source_epoch'], 'string');
+    sourceEpoch = String(initial['source_epoch']);
     await writeFile(
       join(artifactDir, 'sql-evidence.jsonl'),
       JSON.stringify({
@@ -268,6 +340,75 @@ try {
         data: initial,
       }) + '\n',
     );
+    if (profile === 'm2b') {
+      if (upgrade) {
+        const owner = new Source({
+          host: '127.0.0.1',
+          port,
+          database: 'source_m1',
+          user: 'source_command',
+          password: commandPassword,
+          application_name: `${runId}:upgrade-fixture`,
+        });
+        const common = { sourceEpoch, contractVersion: 1 };
+        const created = await owner.command({
+          ...common,
+          commandId: randomUUID(),
+          operation: 'create',
+          entityId: null,
+          payloadJson: '{"upgrade": 9007199254740993}',
+        });
+        for (const payloadJson of [
+          '{"upgrade": 9007199254740994}',
+          '{ "upgrade":9007199254740994.0 }',
+        ])
+          await owner.command({
+            ...common,
+            commandId: randomUUID(),
+            operation: 'update',
+            entityId: created.result.entity_id,
+            payloadJson,
+          });
+      }
+      const before = await sourceSnapshot(admin);
+      await migrateReader(admin, readerPassword);
+      const after = await sourceSnapshot(admin);
+      assert.deepEqual(after, before);
+      await writeFile(
+        join(artifactDir, 'upgrade-evidence.json'),
+        JSON.stringify(
+          {
+            mode: upgrade ? 'populated' : 'fresh',
+            before,
+            after,
+            unchanged: true,
+          },
+          null,
+          2,
+        ) + '\n',
+      );
+      manifest['readerMigration'] =
+        '003-source-reader.sql committed; source/receipt snapshot unchanged';
+      const pAdmin = pipelineAdmin('pipeline-setup');
+      await withCleanup(
+        async () => {
+          await pAdmin.connect();
+          const settings = (
+            await pAdmin.query(
+              "SELECT version(),current_setting('fsync') AS fsync,current_setting('synchronous_commit') AS synchronous_commit,current_setting('full_page_writes') AS full_page_writes,current_setting('server_encoding') AS server_encoding",
+            )
+          ).rows as Record<string, unknown>[];
+          const setting = first(settings);
+          for (const key of ['fsync', 'synchronous_commit', 'full_page_writes'])
+            assert.equal(setting[key], 'on');
+          assert.equal(setting['server_encoding'], 'UTF8');
+          manifest['pipelinePostgres'] = setting;
+          await migratePipeline(pAdmin, stagerPassword, sourceEpoch);
+          manifest['initialPipeline'] = await pipelineSnapshot(pAdmin);
+        },
+        () => pAdmin.end(),
+      );
+    }
   } catch (error) {
     try {
       await admin.end();
@@ -286,6 +427,11 @@ try {
     M1_WRITER_PASSWORD: writerPassword,
     M2A_COMMAND_PASSWORD: commandPassword,
     SOURCE_PROFILE: profile,
+    SOURCE_EPOCH: sourceEpoch,
+    SOURCE_READER_PASSWORD: readerPassword,
+    PIPELINE_PORT: String(pipelinePort),
+    PIPELINE_ADMIN_PASSWORD: pipelinePassword,
+    PIPELINE_STAGER_PASSWORD: stagerPassword,
   };
   const output = await record(
     'tests',
@@ -329,7 +475,7 @@ try {
             application_name: string;
             state: string;
           }>(
-            "SELECT pid, application_name, state FROM pg_stat_activity WHERE usename IN ('source_writer','source_command')",
+            "SELECT pid, application_name, state FROM pg_stat_activity WHERE usename IN ('source_writer','source_command','source_reader')",
           )
         ).rows;
         assert.deepEqual(sessions, [], 'runtime writer session leaked');
@@ -349,7 +495,7 @@ try {
           )
         ).rows;
         const receipts =
-          profile === 'm2a'
+          profile !== 'm1'
             ? (
                 await connection.query<Record<string, unknown>>(
                   'SELECT source_epoch::text, command_id::text, contract_version, operation, target_id::text, request_payload::text, completed, result_entity_id::text, result_version::text, result_change_id::text, result_recorded_at::text, result_deleted, result_payload::text FROM source.command_receipts ORDER BY source_epoch,command_id',
@@ -363,6 +509,18 @@ try {
       () => connection.end(),
     );
   }
+  async function retainedPipeline() {
+    const c = pipelineAdmin('restart-pipeline');
+    return withCleanup(
+      async () => {
+        await c.connect();
+        return pipelineSnapshot(c);
+      },
+      () => c.end(),
+    );
+  }
+  const pipelineBefore =
+    profile === 'm2b' ? await retainedPipeline() : undefined;
   const beforeRestart = await retainedSnapshot();
   await record('restart', 'docker', [
     ...compose,
@@ -370,6 +528,7 @@ try {
     '--timeout',
     '10',
     'source',
+    ...(profile === 'm2b' ? ['pipeline'] : []),
   ]);
   await record('restart-ready', 'docker', [
     ...compose,
@@ -379,6 +538,7 @@ try {
     '--wait-timeout',
     '60',
     'source',
+    ...(profile === 'm2b' ? ['pipeline'] : []),
   ]);
   const restartedAddress = await record('restart-port', 'docker', [
     ...compose,
@@ -389,6 +549,32 @@ try {
   assert.match(restartedAddress, /^127\.0\.0\.1:\d+$/);
   port = Number(restartedAddress.split(':')[1]);
   manifest['restartPort'] = port;
+  let pipelineAfter;
+  if (profile === 'm2b') {
+    const address = await record('pipeline-restart-port', 'docker', [
+      ...compose,
+      'port',
+      'pipeline',
+      '5432',
+    ]);
+    assert.match(address, /^127\.0\.0\.1:\d+$/);
+    pipelinePort = Number(address.split(':')[1]);
+    pipelineAfter = await retainedPipeline();
+    assert.deepEqual(
+      pipelineAfter,
+      pipelineBefore,
+      'Pipeline data changed across retained-volume restart',
+    );
+    assert.equal(
+      await record('retained-pipeline', 'docker', [
+        ...compose,
+        'ps',
+        '-q',
+        'pipeline',
+      ]),
+      manifest['pipelineContainer'],
+    );
+  }
   const afterRestart = await retainedSnapshot();
   assert.deepEqual(
     afterRestart,
@@ -411,6 +597,8 @@ try {
         test: 'T10-retained-restart',
         beforeRestart,
         afterRestart,
+        pipelineBefore,
+        pipelineAfter,
         unchanged: true,
       },
       null,
@@ -431,6 +619,7 @@ try {
         'logs',
         '--no-color',
         'source',
+        ...(profile === 'm2b' ? ['pipeline'] : []),
       ]),
     );
     await diagnostics.finalize('compose down', () =>
@@ -506,7 +695,9 @@ try {
       JSON.stringify(
         {
           format: 1,
-          milestone: profile === 'm2a' ? 'M2A' : 'M1.1',
+          milestone:
+            profile === 'm2b' ? 'M2B' : profile === 'm2a' ? 'M2A' : 'M1.1',
+          migrationMode: manifest['migrationMode'],
           runId,
           status: manifest['status'],
           head: manifest['head'],
@@ -541,6 +732,7 @@ try {
       'tests.xml',
       'sql-evidence.jsonl',
       'restart-evidence.json',
+      'upgrade-evidence.json',
     ]);
     for (const file of await readdir(artifactDir)) {
       if (
