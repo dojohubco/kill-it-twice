@@ -20,3 +20,7 @@ verify:
 	@echo 'G4 NOT IMPLEMENTED'
 	@echo 'G5 NOT IMPLEMENTED'
 	@exit 1
+
+.PHONY: verify-m2a
+verify-m2a: quality
+	npm run test:integration:m2a

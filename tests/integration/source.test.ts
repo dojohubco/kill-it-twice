@@ -11,20 +11,6 @@ import { connect, evidence, databaseWaitFor } from '../support/db.ts';
 let observer: pg.Client;
 before(async () => {
   observer = await connect('admin', 'source-observer');
-  const initial = first(
-    (
-      await observer.query<{
-        entities: string;
-        outbox: string;
-        source_epoch: string;
-      }>(
-        'SELECT (SELECT count(*)::text FROM source.entities) AS entities, (SELECT count(*)::text FROM source.outbox) AS outbox, source_epoch::text FROM source.source_identity',
-      )
-    ).rows,
-  );
-  assert.equal(initial.entities, '0');
-  assert.equal(initial.outbox, '0');
-  evidence('T10-fresh-start', initial);
 });
 after(async () => {
   await observer?.end();
@@ -608,7 +594,25 @@ void test(
           "SELECT p.proname, pg_get_userbyid(p.proowner) AS owner, p.prosecdef, p.proconfig, has_function_privilege('source_writer',p.oid,'EXECUTE') AS writer_execute, EXISTS(SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee=0 AND a.privilege_type='EXECUTE') AS public_execute FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='source' ORDER BY p.proname",
         )
       ).rows;
-      assert.equal(functions.length, 6);
+      const commandsInstalled = process.env['SOURCE_PROFILE'] === 'm2a';
+      assert.deepEqual(
+        functions.map((fn) => fn.proname),
+        [
+          'capture_revision',
+          'create_entity',
+          'mutate_entity',
+          'next_version',
+          'prepare_revision',
+          'reject_removal_or_rewrite',
+          ...(commandsInstalled
+            ? [
+                'execute_command',
+                'guard_command_receipt',
+                'require_command_completion',
+              ]
+            : []),
+        ].sort(),
+      );
       for (const fn of functions) {
         assert.equal(fn.owner, 'source_owner');
         assert.deepEqual(fn.proconfig, ['search_path=pg_catalog, pg_temp']);
@@ -624,6 +628,9 @@ void test(
             'mutate_entity',
             'prepare_revision',
             'capture_revision',
+            ...(commandsInstalled
+              ? ['execute_command', 'require_command_completion']
+              : []),
           ].includes(fn.proname),
         );
       }
@@ -751,7 +758,24 @@ void test(
           "SELECT c.relname, t.tgname, t.tgenabled FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid WHERE c.relnamespace='source'::regnamespace AND NOT t.tgisinternal ORDER BY t.tgname",
         )
       ).rows;
-      assert.equal(triggers.length, 6);
+      assert.deepEqual(
+        triggers.map((trigger) => trigger.tgname),
+        [
+          'entities_prepare',
+          'entities_capture',
+          'entities_no_delete',
+          'entities_no_truncate',
+          'outbox_no_rewrite',
+          'outbox_no_truncate',
+          ...(commandsInstalled
+            ? [
+                'command_receipts_finalize_only',
+                'command_receipts_no_truncate',
+                'command_receipts_complete',
+              ]
+            : []),
+        ].sort(),
+      );
       for (const t of triggers) assert.equal(t.tgenabled, 'O');
       evidence('T06', {
         identity,

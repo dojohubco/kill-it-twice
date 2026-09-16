@@ -408,7 +408,9 @@ void test(
             callerOutcome:
               'unknown despite independently observed database success',
             mutationRepeated: false,
-            commandIdempotencyImplemented: false,
+            thisMutationHasCommandIdempotency: false,
+            mutationInterface:
+              'legacy source_writer; outside the command receipt contract',
           });
         } finally {
           await reconnect.end();

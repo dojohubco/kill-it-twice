@@ -15,20 +15,30 @@ import pg from 'pg';
 import { command, redact, withCleanup } from './support.ts';
 import { migrateSource } from './migrate.ts';
 import { checkAcceptance } from './acceptance.ts';
+import { requiredCases } from './required-cases.ts';
+import { commandCases, commandFaultCases } from './required-command-cases.ts';
 import { Diagnostics } from './finalization.ts';
 import { CleanupFailure } from './support.ts';
 
-const runId = `m1-${new Date().toISOString().replace(/[^0-9]/g, '')}-${randomBytes(4).toString('hex')}`;
-const artifactDir = resolve('artifacts/m1', runId);
+const profile = process.argv[2] ?? 'm1';
+assert.ok(['m1', 'm2a'].includes(profile), 'Expected m1 or m2a profile');
+const inventory =
+  profile === 'm2a'
+    ? [...requiredCases, ...commandCases, ...commandFaultCases]
+    : requiredCases;
+const runId = `${profile}-${new Date().toISOString().replace(/[^0-9]/g, '')}-${randomBytes(4).toString('hex')}`;
+const artifactDir = resolve(`artifacts/${profile}`, runId);
 await mkdir(artifactDir, { recursive: true });
 let temporaryDir: string | undefined;
 const adminPassword = randomBytes(24).toString('hex');
 const writerPassword = randomBytes(24).toString('hex');
-const secrets = [adminPassword, writerPassword];
+const commandPassword = randomBytes(24).toString('hex');
+const secrets = [adminPassword, writerPassword, commandPassword];
 const env = { ...process.env, M1_PASSWORD_FILE: '' };
 const compose = ['compose', '-p', runId, '-f', resolve('compose.m1.yaml')];
 const manifest: Record<string, unknown> = {
   runId,
+  profile,
   artifactDir,
   startedAt: new Date().toISOString(),
   status: 'RUNNING',
@@ -153,7 +163,9 @@ try {
     'version',
     '--short',
   ]);
-  console.log(`M1 isolated run ${runId}; evidence: ${artifactDir}`);
+  console.log(
+    `${profile.toUpperCase()} isolated run ${runId}; evidence: ${artifactDir}`,
+  );
   started = true;
   await record(
     'up',
@@ -225,8 +237,37 @@ try {
     ] as const)
       assert.equal(settings[name], 'on');
     manifest['postgres'] = settings;
-    await migrateSource(admin, writerPassword);
-    manifest['migration'] = '001-source.sql committed';
+    await migrateSource(
+      admin,
+      writerPassword,
+      profile === 'm2a' ? commandPassword : undefined,
+    );
+    manifest['migration'] =
+      profile === 'm2a'
+        ? '001-source.sql and forward 002-source-commands.sql committed'
+        : '001-source.sql committed';
+    const initial = first(
+      (
+        await admin.query<Record<string, unknown>>(`SELECT source_epoch::text,
+      (SELECT count(*)::text FROM source.entities) AS entities,
+      (SELECT count(*)::text FROM source.outbox) AS outbox
+      ${profile === 'm2a' ? ', (SELECT count(*)::text FROM source.command_receipts) AS receipts' : ''}
+      FROM source.source_identity`)
+      ).rows,
+    );
+    assert.equal(initial['entities'], '0');
+    assert.equal(initial['outbox'], '0');
+    if (profile === 'm2a') assert.equal(initial['receipts'], '0');
+    manifest['initialState'] = initial;
+    await writeFile(
+      join(artifactDir, 'sql-evidence.jsonl'),
+      JSON.stringify({
+        test: 'T10-fresh-start',
+        runId,
+        at: new Date().toISOString(),
+        data: initial,
+      }) + '\n',
+    );
   } catch (error) {
     try {
       await admin.end();
@@ -243,6 +284,8 @@ try {
     M1_PORT: String(port),
     M1_ADMIN_PASSWORD: adminPassword,
     M1_WRITER_PASSWORD: writerPassword,
+    M2A_COMMAND_PASSWORD: commandPassword,
+    SOURCE_PROFILE: profile,
   };
   const output = await record(
     'tests',
@@ -255,7 +298,7 @@ try {
       `--test-reporter-destination=${join(artifactDir, 'tests.json')}`,
       '--test-reporter=junit',
       `--test-reporter-destination=${join(artifactDir, 'tests.xml')}`,
-      'tests/integration/*.test.ts',
+      ...new Set(inventory.map((entry) => entry.file)),
     ],
     testEnv,
     180_000,
@@ -264,6 +307,7 @@ try {
   manifest['acceptance'] = checkAcceptance(
     await readFile(join(artifactDir, 'tests.json'), 'utf8'),
     { code: 0, signal: null, timedOut: false, outputOverflow: false },
+    inventory,
   );
   async function retainedSnapshot() {
     const connection = new pg.Client({
@@ -285,7 +329,7 @@ try {
             application_name: string;
             state: string;
           }>(
-            "SELECT pid, application_name, state FROM pg_stat_activity WHERE usename='source_writer'",
+            "SELECT pid, application_name, state FROM pg_stat_activity WHERE usename IN ('source_writer','source_command')",
           )
         ).rows;
         assert.deepEqual(sessions, [], 'runtime writer session leaked');
@@ -304,7 +348,17 @@ try {
             'SELECT allocation_id::text, entity_id::text, source_epoch::text, entity_version::text, change_id::text, recorded_at::text, is_deleted, payload::text AS payload FROM source.outbox ORDER BY allocation_id',
           )
         ).rows;
-        return { epoch, entities, outbox, sessions };
+        const receipts =
+          profile === 'm2a'
+            ? (
+                await connection.query<Record<string, unknown>>(
+                  'SELECT source_epoch::text, command_id::text, contract_version, operation, target_id::text, request_payload::text, completed, result_entity_id::text, result_version::text, result_change_id::text, result_recorded_at::text, result_deleted, result_payload::text FROM source.command_receipts ORDER BY source_epoch,command_id',
+                )
+              ).rows
+            : [];
+        for (const receipt of receipts)
+          assert.equal(receipt['completed'], true);
+        return { epoch, entities, outbox, receipts, sessions };
       },
       () => connection.end(),
     );
@@ -364,7 +418,7 @@ try {
     ) + '\n',
   );
   manifest['retainedRestart'] =
-    'PASS: identical epoch, entities and immutable outbox; no runtime sessions';
+    'PASS: identical epoch, entities, immutable outbox and command receipts; no runtime sessions';
   manifest['status'] = 'PASS';
 } catch (error) {
   diagnostics.fail(error);
@@ -452,7 +506,7 @@ try {
       JSON.stringify(
         {
           format: 1,
-          milestone: 'M1.1',
+          milestone: profile === 'm2a' ? 'M2A' : 'M1.1',
           runId,
           status: manifest['status'],
           head: manifest['head'],

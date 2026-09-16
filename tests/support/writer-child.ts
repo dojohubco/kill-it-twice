@@ -76,7 +76,7 @@ try {
   assert.ok(
     'runId' in message &&
       typeof message.runId === 'string' &&
-      /^m1-[0-9]+-[a-f0-9]+$/.test(message.runId),
+      /^(m1|m2a)-[0-9]+-[a-f0-9]+$/.test(message.runId),
   );
   assert.ok(
     'barrier' in message &&

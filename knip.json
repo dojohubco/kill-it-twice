@@ -3,7 +3,8 @@
   "entry": [
     "tests/**/*.test.ts",
     "tests/support/writer-child.ts",
-    "tests/support/group-child.ts"
+    "tests/support/group-child.ts",
+    "tests/support/command-child.ts"
   ],
   "project": ["src/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts", "*.js"]
 }

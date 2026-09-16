@@ -24,6 +24,11 @@ export function checkAcceptance(
     timedOut: boolean;
     outputOverflow: boolean;
   },
+  inventory: readonly {
+    id: string;
+    name: string;
+    file: string;
+  }[] = requiredCases,
 ) {
   assert.equal(runner.code, 0, 'Runner exit was nonzero');
   assert.equal(runner.signal, null);
@@ -56,8 +61,8 @@ export function checkAcceptance(
     };
   });
   assert.equal(
-    new Set(requiredCases.map((entry) => entry.id)).size,
-    requiredCases.length,
+    new Set(inventory.map((entry) => entry.id)).size,
+    inventory.length,
     'Duplicate inventory ID',
   );
   const seen = new Set<string>();
@@ -66,7 +71,7 @@ export function checkAcceptance(
     assert.ok(!seen.has(key), `Duplicate result: ${key}`);
     seen.add(key);
     assert.ok(
-      requiredCases.some(
+      inventory.some(
         (required) =>
           required.name === result.name && required.file === result.file,
       ),
@@ -77,7 +82,7 @@ export function checkAcceptance(
     assert.equal(result.todo, false, `Todo: ${key}`);
     assert.equal(result.nesting, 0, `Unexpected nested case: ${key}`);
   }
-  const cases = requiredCases.map((required) => {
+  const cases = inventory.map((required) => {
     assert.ok(
       results.some((r) => r.name === required.name && r.file === required.file),
       `Missing required case: ${required.id}`,
@@ -89,7 +94,7 @@ export function checkAcceptance(
   assert.equal(summary['success'], true, 'Runner summary not successful');
   assert.equal(counts['tests'], results.length);
   assert.equal(counts['passed'], results.length);
-  for (const field of ['cancelled', 'skipped', 'todo', 'suites'])
+  for (const field of ['failed', 'cancelled', 'skipped', 'todo', 'suites'])
     assert.equal(counts[field], 0, `Nonzero ${field}`);
   return {
     cases,

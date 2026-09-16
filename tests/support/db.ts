@@ -12,16 +12,25 @@ export function required(name: string): string {
 }
 
 export async function connect(
-  role: 'admin' | 'writer',
+  role: 'admin' | 'writer' | 'command',
   label: string,
 ): Promise<pg.Client> {
   const client = new pg.Client({
     host: '127.0.0.1',
     port: Number(required('M1_PORT')),
     database: 'source_m1',
-    user: role === 'admin' ? 'm1_admin' : 'source_writer',
+    user:
+      role === 'admin'
+        ? 'm1_admin'
+        : role === 'command'
+          ? 'source_command'
+          : 'source_writer',
     password: required(
-      role === 'admin' ? 'M1_ADMIN_PASSWORD' : 'M1_WRITER_PASSWORD',
+      role === 'admin'
+        ? 'M1_ADMIN_PASSWORD'
+        : role === 'command'
+          ? 'M2A_COMMAND_PASSWORD'
+          : 'M1_WRITER_PASSWORD',
     ),
     application_name: `${required('M1_RUN_ID')}:${label}`,
     connectionTimeoutMillis: 5_000,
@@ -45,13 +54,18 @@ export function evidence(test: string, data: unknown): void {
   );
 }
 
-export function sourceOwner(label: string): Source {
+export function sourceOwner(
+  label: string,
+  role: 'writer' | 'command' = 'writer',
+): Source {
   return new Source({
     host: '127.0.0.1',
     port: Number(required('M1_PORT')),
     database: 'source_m1',
-    user: 'source_writer',
-    password: required('M1_WRITER_PASSWORD'),
+    user: role === 'command' ? 'source_command' : 'source_writer',
+    password: required(
+      role === 'command' ? 'M2A_COMMAND_PASSWORD' : 'M1_WRITER_PASSWORD',
+    ),
     application_name: `${required('M1_RUN_ID')}:${label}`,
   });
 }

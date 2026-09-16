@@ -20,7 +20,8 @@
     "tools:provision": "node scripts/provision-tools.ts",
     "review:capture": "node scripts/review.ts capture",
     "review:bundle": "node scripts/review.ts bundle",
-    "review:summary": "node scripts/review.ts summary"
+    "review:summary": "node scripts/review.ts summary",
+    "test:integration:m2a": "node scripts/m1.ts m2a"
   },
   "dependencies": {
     "pg": "8.23.0"

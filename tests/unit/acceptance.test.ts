@@ -24,6 +24,7 @@ const fixture = () => ({
     counts: {
       tests: requiredCases.length,
       passed: requiredCases.length,
+      failed: 0,
       cancelled: 0,
       skipped: 0,
       todo: 0,
@@ -47,6 +48,7 @@ for (const kind of [
   'empty',
   'malformed',
   'nonzero',
+  'contradictory summary',
 ] as const) {
   void test(`acceptance rejects ${kind} evidence`, () => {
     const report = fixture();
@@ -59,6 +61,7 @@ for (const kind of [
     if (kind === 'cancelled') first.status = 'cancelled';
     if (kind === 'duplicate') report.results.push(first);
     if (kind === 'empty') report.results = [];
+    if (kind === 'contradictory summary') report.summary.counts.failed = 1;
     assert.throws(() =>
       checkAcceptance(
         kind === 'malformed' ? '{broken' : JSON.stringify(report),
