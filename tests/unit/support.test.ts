@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { redact, waitFor } from '../../scripts/support.ts';
+import { command, redact, waitFor } from '../../scripts/support.ts';
 
 test('artifact redaction removes every temporary credential occurrence', () => {
   assert.equal(redact('secret-a secret-b secret-a', ['secret-a', 'secret-b', '']), '[REDACTED] [REDACTED] [REDACTED]');
@@ -13,4 +13,11 @@ test('bounded observation waits for evidence and returns the accepted observatio
 
 test('missing boundary evidence fails with its last observation, never skips', async () => {
   await assert.rejects(waitFor(async () => 'not reached', () => false, 'missing boundary', 1), /Deadline waiting for missing boundary; last observation: "not reached"/);
+});
+
+test('timed-out harness subprocess is killed and reported as a timeout', async () => {
+  const result = await command(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], process.env, 100, true);
+  assert.equal(result.timedOut, true);
+  assert.equal(result.code, null);
+  assert.equal(result.signal, 'SIGKILL');
 });

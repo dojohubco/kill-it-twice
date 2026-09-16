@@ -1,6 +1,6 @@
 # Kill It Twice — M1
 
-The initial SPEC and ADRs were prepared through AI-assisted architectural review before implementation. This repository contains the M1 PostgreSQL harness, source mutation functions, version/capture triggers, restricted runtime role, and source contract tests. Process-death acceptance is pending; no full G1-G5 gate exists.
+The initial SPEC and ADRs were prepared through AI-assisted architectural review before implementation. This repository contains the M1 PostgreSQL harness, source mutation functions, version/capture triggers, restricted runtime role, source contract tests, and private real writer SIGKILL tests. Full M1 acceptance is pending a fresh successful complete run; no full G1-G5 gate exists.
 
 Prerequisites: Node **24.19.0**, npm **12.0.2**, Docker with Compose, Git, and make. No system software is installed by the harness. Node's built-in test runner executes TypeScript directly; TypeScript 5.9.3 checks it separately. The root lockfile pins dependencies.
 
@@ -25,3 +25,5 @@ Initial development check: typecheck/lint and 3 unit tests passed. The first rea
 Source development check: typecheck/lint and 5 unit tests passed. The first source run (`artifacts/m1/m1-20260916160939467-d8ba6031/`) passed 8/9 integration tests. Review of the T06 statement and its real SQL error showed that assigning a GENERATED ALWAYS identity produces `428C9` before the privilege check; the original `42501` expectation was incorrect. The correction asserts exactly `428C9` for that statement and retains rejection/state assertions. The corrected run (`artifacts/m1/m1-20260916161134422-72859062/`) passed 9/9. SQL function/grant details were recorded in `docs/milestones/M1.md` before migration execution.
 
 A later fresh startup (`artifacts/m1/m1-20260916161741493-e9afb166/`) exposed a readiness race: the socket-based health check accepted the image's temporary initialization server. No integration tests ran in that attempt. The health check now requires the TCP listener, which the temporary server does not expose. The SQL connection/settings check still runs before migration; no source mutation is retried on an unknown outcome.
+
+The first complete source/fault test attempt (`artifacts/m1/m1-20260916161845688-0f974b51/`) passed all 12 tests, including actual SIGKILL exits at both private barriers. The later retained-volume restart check failed connecting to the original ephemeral host port. The overall run is FAIL, with fault evidence retained. The restart observer still needs to resolve the published port again after restart; no source schema change is implicated.

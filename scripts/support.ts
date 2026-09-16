@@ -29,11 +29,20 @@ export interface CommandResult {
 
 export function command(
   executable: string, args: string[], env: NodeJS.ProcessEnv = process.env, timeout = 90_000,
+  ownProcessGroup = false,
 ): Promise<CommandResult> {
   return new Promise((resolve, reject) => {
-    const child = spawn(executable, args, { env, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(executable, args, { env, stdio: ['ignore', 'pipe', 'pipe'], detached: ownProcessGroup });
     let stdout = '', stderr = '', timedOut = false;
-    const timer = setTimeout(() => { timedOut = true; child.kill('SIGKILL'); }, timeout);
+    const timer = setTimeout(() => {
+      timedOut = true;
+      // Only the new process group created by this exact spawn is eligible.
+      // Killing a timed-out test runner must also reap its private writer children.
+      if (ownProcessGroup && child.pid) {
+        try { process.kill(-child.pid, 'SIGKILL'); }
+        catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ESRCH') child.kill('SIGKILL'); }
+      } else child.kill('SIGKILL');
+    }, timeout);
     child.stdout.setEncoding('utf8').on('data', (chunk: string) => { stdout += chunk; });
     child.stderr.setEncoding('utf8').on('data', (chunk: string) => { stderr += chunk; });
     child.once('error', (error) => { clearTimeout(timer); reject(error); });
