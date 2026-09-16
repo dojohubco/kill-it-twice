@@ -1,16 +1,18 @@
 import { readFile } from 'node:fs/promises';
 import type pg from 'pg';
+import { CleanupFailure } from './support.ts';
 
 export async function migrateSource(client: pg.Client, temporaryWriterPassword: string): Promise<void> {
   // This value is generated locally, never accepted from source data or logged.
   if (!/^[a-f0-9]{48}$/.test(temporaryWriterPassword)) throw new Error('Invalid temporary password format');
-  await client.query('BEGIN');
   try {
+    if ((await client.query('BEGIN')).command !== 'BEGIN') throw new Error('Migration BEGIN not confirmed');
     await client.query(await readFile(new URL('../migrations/001-source.sql', import.meta.url), 'utf8'));
     await client.query(`ALTER ROLE source_writer LOGIN PASSWORD '${temporaryWriterPassword}'`);
-    await client.query('COMMIT');
+    if ((await client.query('COMMIT')).command !== 'COMMIT') throw new Error('Migration COMMIT not confirmed');
   } catch (error) {
-    await client.query('ROLLBACK');
+    try { if ((await client.query('ROLLBACK')).command !== 'ROLLBACK') throw new Error('Migration ROLLBACK not confirmed'); }
+    catch (cleanup) { throw new CleanupFailure(error, [cleanup]); }
     throw error;
   }
 }

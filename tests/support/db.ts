@@ -34,10 +34,17 @@ export function sourceOwner(label: string): Source {
 // Every resource-bearing polling observation owns disposal of its connection on failure.
 export function databaseWaitFor<T>(client: pg.Client, observe: () => Promise<T>, accept: (value: T) => boolean, label: string, timeout = 10_000): Promise<T> {
   let disposal: Promise<void> | undefined;
+  let configured = false;
   return waitFor(async (signal) => {
     const close = () => { disposal ??= client.end(); void disposal.catch(() => undefined); };
     signal.addEventListener('abort', close, { once: true });
-    try { return await observe(); }
+    try {
+      // Socket disposal alone need not immediately interrupt server-side pg_sleep.
+      // Bound each server observation as well; never queue work after abort.
+      if (!configured) { await client.query('SET statement_timeout = 500'); configured = true; }
+      signal.throwIfAborted();
+      return await observe();
+    }
     finally { signal.removeEventListener('abort', close); }
   }, accept, label, timeout, () => disposal ?? client.end());
 }
