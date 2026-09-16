@@ -10,11 +10,14 @@ import {
   pipelineSnapshot,
   sourceSnapshot,
   registerCapture,
+  migrateCaptureIsolation,
 } from '../../scripts/migrate-staging.ts';
 import { Pipeline, pipelineIdentity } from '../../src/pipeline.ts';
 import { SourceReader } from '../../src/source-reader.ts';
 import type { ConnectionConfig } from '../../src/internal/transaction.ts';
 import { databaseWaitFor } from './db.ts';
+import { registrationSnapshots, transactionSnapshot } from './isolation.ts';
+import { Capture } from '../../src/capture.ts';
 export async function captureSnapshot(c: pg.Client) {
   const rows: Record<string, string[]> = {};
   for (const table of ['capture_binding', 'capture_work'])
@@ -39,6 +42,48 @@ interface Setup {
   pipelineCapturePassword: string;
   epoch: string;
   upgrade: boolean;
+  writerPassword: string;
+  isolation?: 'unregistered' | 'registered';
+}
+async function guardAndCompare(s: pg.Client, p: pg.Client) {
+  const observe = async () => ({
+    source: await sourceSnapshot(s),
+    capture: await captureSnapshot(s),
+    pipeline: await pipelineSnapshot(p),
+  });
+  const catalog = async () =>
+    (
+      await s.query<Record<string, unknown>>(
+        `SELECT p.oid::text,pg_get_userbyid(p.proowner) AS owner,p.prosecdef,p.proconfig,p.proacl::text,t.oid::text AS trigger_oid,pg_get_triggerdef(t.oid) AS trigger FROM pg_proc p JOIN pg_trigger t ON t.tgfoid=p.oid WHERE p.oid='source.enqueue_capture()'::regprocedure`,
+      )
+    ).rows;
+  const definition = async () =>
+    first(
+      (
+        await s.query<{ definition: string }>(
+          "SELECT pg_get_functiondef('source.enqueue_capture()'::regprocedure) AS definition",
+        )
+      ).rows,
+    ).definition;
+  const before = await observe(),
+    catalogBefore = await catalog(),
+    definitionBefore = await definition();
+  assert.doesNotMatch(definitionBefore, /transaction_isolation/);
+  await migrateCaptureIsolation(s);
+  const after = await observe(),
+    catalogAfter = await catalog(),
+    definitionAfter = await definition();
+  assert.match(definitionAfter, /transaction_isolation/);
+  assert.deepEqual(after, before);
+  assert.deepEqual(catalogAfter, catalogBefore);
+  return {
+    before,
+    after,
+    catalogBefore,
+    catalogAfter,
+    definitionBefore,
+    definitionAfter,
+  };
 }
 export async function initializeCaptureFixture(
   s: pg.Client,
@@ -71,6 +116,10 @@ export async function initializeCaptureFixture(
   });
   assert.equal(identity.sourceEpoch, input.epoch);
   await migrateCaptureSource(s, input.capturePassword);
+  const unregisteredMigration =
+    input.isolation === 'unregistered'
+      ? await guardAndCompare(s, p)
+      : undefined;
   const sourceAfterMigration = await sourceSnapshot(s);
   assert.deepEqual(sourceAfterMigration, sourceBefore);
   const pipelineAfterMigration = await pipelineSnapshot(p);
@@ -119,127 +168,185 @@ export async function initializeCaptureFixture(
   });
   const commandA = randomUUID(),
     commandB = randomUUID();
-  return withCleanup(
-    async () => {
-      await a.connect();
-      await registration.connect();
-      await b.connect();
-      const aPid = first(
-        (await a.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows,
-      ).pid;
-      const rPid = first(
-        (
-          await registration.query<{ pid: number }>(
-            'SELECT pg_backend_pid() AS pid',
-          )
-        ).rows,
-      ).pid;
-      const bPid = first(
-        (await b.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows,
-      ).pid;
-      await a.query('BEGIN ISOLATION LEVEL READ COMMITTED');
-      const createdA = first(
-        (
-          await a.query<{ entity_id: string }>(
-            'SELECT entity_id::text FROM source.execute_command($1,$2,1,\'create\',NULL,\'{"registration":"before"}\'::jsonb)',
-            [input.epoch, commandA],
-          )
-        ).rows,
-      );
-      await registration.query('BEGIN ISOLATION LEVEL READ COMMITTED');
-      const registering = registration.query(
-        'SELECT source.register_capture($1,$2,$3)',
-        [identity.pipelineId, input.epoch, identity.codec],
-      );
-      void registering.catch(() => undefined);
-      const waitA = await databaseWaitFor(
-        s,
-        async () =>
+  const register = () =>
+    withCleanup(
+      async () => {
+        await a.connect();
+        await registration.connect();
+        await b.connect();
+        const aPid = first(
+          (await a.query<{ pid: number }>('SELECT pg_backend_pid() AS pid'))
+            .rows,
+        ).pid;
+        const rPid = first(
           (
-            await s.query<{ blockers: number[] }>(
-              'SELECT pg_blocking_pids($1) AS blockers',
-              [rPid],
+            await registration.query<{ pid: number }>(
+              'SELECT pg_backend_pid() AS pid',
             )
           ).rows,
-        (rows) => first(rows).blockers.includes(aPid),
-        'registration waits for committing source writer',
-      );
-      await a.query('COMMIT');
-      await registering;
-      const writingB = b.query<{ entity_id: string }>(
-        'SELECT entity_id::text FROM source.execute_command($1,$2,1,\'create\',NULL,\'{"registration":"during"}\'::jsonb)',
-        [input.epoch, commandB],
-      );
-      void writingB.catch(() => undefined);
-      const waitB = await databaseWaitFor(
-        s,
-        async () =>
+        ).pid;
+        const bPid = first(
+          (await b.query<{ pid: number }>('SELECT pg_backend_pid() AS pid'))
+            .rows,
+        ).pid;
+        await a.query('BEGIN ISOLATION LEVEL READ COMMITTED');
+        const createdA = first(
           (
-            await s.query<{ blockers: number[] }>(
-              'SELECT pg_blocking_pids($1) AS blockers',
-              [bPid],
+            await a.query<{ entity_id: string }>(
+              'SELECT entity_id::text FROM source.execute_command($1,$2,1,\'create\',NULL,\'{"registration":"before"}\'::jsonb)',
+              [input.epoch, commandA],
             )
           ).rows,
-        (rows) => first(rows).blockers.includes(rPid),
-        'source writer waits for registration commit',
-      );
-      await registration.query('COMMIT');
-      const createdB = first((await writingB).rows);
-      const initialized = await captureSnapshot(s);
-      // Identical initialization is repeatable, including after interruption between databases.
-      await registerCapture(s, identity.pipelineId, input.epoch);
-      assert.deepEqual(await captureSnapshot(s), initialized);
-      const rows = (
-        await s.query<Record<string, unknown>>(
-          `SELECT o.source_epoch::text,o.entity_id::text,o.entity_version::text,o.allocation_id::text,w.work_id::text,w.state,w.generation::text,w.pipeline_id::text FROM source.outbox o LEFT JOIN source.capture_work w USING(source_epoch,entity_id,entity_version) ORDER BY o.allocation_id`,
-        )
-      ).rows;
-      assert.equal(rows.length, keys.length + 2);
-      for (const row of rows) {
-        assert.equal(row['state'], 'pending');
-        assert.equal(row['generation'], '0');
-        assert.equal(row['pipeline_id'], identity.pipelineId);
-      }
-      return {
-        pipelineId: identity.pipelineId,
-        identity,
-        mode: input.upgrade ? 'populated M2B' : 'fresh',
-        sourceBefore,
-        sourceAfterMigration,
-        pipelineBefore,
-        pipelineAfterMigration,
-        registration: {
-          commandA,
-          commandB,
-          aPid,
-          rPid,
-          bPid,
-          waitA,
-          waitB,
-          createdA,
-          createdB,
-          rows,
-          initialized,
-          repeatedUnchanged: true,
-        },
-        incompleteSetupRejected: 'P4001',
-      };
-    },
-    async () => {
-      // Closing an owned connection rolls back an open transaction; try every close and retain failures.
-      const closed = await Promise.allSettled([
-        a.end(),
-        registration.end(),
-        b.end(),
-      ]);
-      const failures = closed
-        .filter((r) => r.status === 'rejected')
-        .map((r) => r.reason as unknown);
-      if (failures.length)
-        throw new AggregateError(
-          failures,
-          'Capture initialization connection cleanup failed',
         );
-    },
-  );
+        const registrationBegin = (
+          await registration.query('BEGIN ISOLATION LEVEL READ COMMITTED')
+        ).command;
+        assert.equal(registrationBegin, 'BEGIN');
+        const transaction = await transactionSnapshot(registration);
+        const registering = registration.query(
+          'SELECT source.register_capture($1,$2,$3)',
+          [identity.pipelineId, input.epoch, identity.codec],
+        );
+        void registering.catch(() => undefined);
+        const waitA = await databaseWaitFor(
+          s,
+          async () =>
+            (
+              await s.query<{ blockers: number[] }>(
+                'SELECT pg_blocking_pids($1) AS blockers',
+                [rPid],
+              )
+            ).rows,
+          (rows) => first(rows).blockers.includes(aPid),
+          'registration waits for committing source writer',
+        );
+        await a.query('COMMIT');
+        await registering;
+        const writingB = b.query<{ entity_id: string }>(
+          'SELECT entity_id::text FROM source.execute_command($1,$2,1,\'create\',NULL,\'{"registration":"during"}\'::jsonb)',
+          [input.epoch, commandB],
+        );
+        void writingB.catch(() => undefined);
+        const waitB = await databaseWaitFor(
+          s,
+          async () =>
+            (
+              await s.query<{ blockers: number[] }>(
+                'SELECT pg_blocking_pids($1) AS blockers',
+                [bPid],
+              )
+            ).rows,
+          (rows) => first(rows).blockers.includes(rPid),
+          'source writer waits for registration commit',
+        );
+        const registrationCommit = (await registration.query('COMMIT')).command;
+        assert.equal(registrationCommit, 'COMMIT');
+        const createdB = first((await writingB).rows);
+        const initialized = await captureSnapshot(s);
+        // Identical initialization is repeatable, including after interruption between databases.
+        await registerCapture(s, identity.pipelineId, input.epoch);
+        assert.deepEqual(await captureSnapshot(s), initialized);
+        const rows = (
+          await s.query<Record<string, unknown>>(
+            `SELECT o.source_epoch::text,o.entity_id::text,o.entity_version::text,o.allocation_id::text,w.work_id::text,w.state,w.generation::text,w.pipeline_id::text FROM source.outbox o LEFT JOIN source.capture_work w USING(source_epoch,entity_id,entity_version) ORDER BY o.allocation_id`,
+          )
+        ).rows;
+        assert.equal(
+          rows.length,
+          keys.length + 2 + (input.isolation === 'unregistered' ? 1 : 0),
+        );
+        for (const row of rows) {
+          assert.equal(row['state'], 'pending');
+          assert.equal(row['generation'], '0');
+          assert.equal(row['pipeline_id'], identity.pipelineId);
+        }
+        return {
+          pipelineId: identity.pipelineId,
+          identity,
+          mode: input.upgrade ? 'populated M2B' : 'fresh',
+          sourceBefore,
+          sourceAfterMigration,
+          pipelineBefore,
+          pipelineAfterMigration,
+          registration: {
+            registrationBegin,
+            registrationCommit,
+            transaction,
+            commandA,
+            commandB,
+            aPid,
+            rPid,
+            bPid,
+            waitA,
+            waitB,
+            createdA,
+            createdB,
+            rows,
+            initialized,
+            repeatedUnchanged: true,
+          },
+          incompleteSetupRejected: 'P4001',
+        };
+      },
+      async () => {
+        // Closing an owned connection rolls back an open transaction; try every close and retain failures.
+        const closed = await Promise.allSettled([
+          a.end(),
+          registration.end(),
+          b.end(),
+        ]);
+        const failures = closed
+          .filter((r) => r.status === 'rejected')
+          .map((r) => r.reason as unknown);
+        if (failures.length)
+          throw new AggregateError(
+            failures,
+            'Capture initialization connection cleanup failed',
+          );
+      },
+    );
+  if (input.isolation === 'unregistered') {
+    const result = await registrationSnapshots(
+      s,
+      {
+        ...input.source,
+        user: 'source_writer',
+        password: input.writerPassword,
+      },
+      register,
+    );
+    return {
+      ...result.result,
+      isolation: {
+        mode: 'unregistered',
+        migration: unregisteredMigration,
+        registrationProbe: result.probe,
+      },
+    };
+  }
+  const result = await register();
+  if (input.isolation === 'registered') {
+    const transfer = await new Capture({
+      source: {
+        ...input.source,
+        user: 'source_capture',
+        password: input.capturePassword,
+      },
+      pipeline: {
+        ...input.pipeline,
+        user: 'pipeline_capture',
+        password: input.pipelineCapturePassword,
+      },
+      binding: { pipelineId: identity.pipelineId, sourceEpoch: input.epoch },
+    }).captureOnce();
+    assert.equal(transfer.sourceState.missing, '0');
+    assert.equal(transfer.sourceState.pending_due, '0');
+    assert.ok(transfer.acknowledgements.length >= 2);
+    const migration = await guardAndCompare(s, p);
+    return {
+      ...result,
+      isolation: { mode: 'registered', migration, transfer },
+    };
+  }
+  return result;
 }

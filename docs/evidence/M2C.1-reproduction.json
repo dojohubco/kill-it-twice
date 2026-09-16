@@ -1,0 +1,111 @@
+{
+  "format": 1,
+  "intent": "Historical counterexample reproduced on unchanged source migration 004; this is not corrected acceptance",
+  "reviewedBaseline": "6a908f46d3c690023d204b0fdb785e53d471d207",
+  "testedCode": "8ab152e5b687ca59528876faa773b921855ca17b",
+  "clean": true,
+  "contentSha256": "119170942731d7d5850e53785f7c6c90f871c5dbcd7d0d27abe9b0870b58c96c",
+  "command": "node scripts/m1.ts m2c1-repro",
+  "exit": 0,
+  "runId": "m2c1-repro-20260916223953613-99f59788",
+  "oldWriter": {
+    "role": "source_writer",
+    "isolation": "repeatable read",
+    "snapshot": "757:757:",
+    "xid": "757",
+    "pid": 111,
+    "at": "2026-09-16 22:39:59.397667+00",
+    "source_epoch": "51dcf6b5-8443-49f8-8015-5d82c176c64c"
+  },
+  "outboxLocksBeforeRegistration": [],
+  "registration": {
+    "role": "m1_admin",
+    "isolation": "read committed",
+    "snapshot": "757:757:",
+    "xid": "758",
+    "pid": 112,
+    "at": "2026-09-16 22:39:59.400974+00",
+    "source_epoch": "51dcf6b5-8443-49f8-8015-5d82c176c64c"
+  },
+  "bindingVisibleInOldSnapshot": {
+    "visible": false
+  },
+  "registrationCommit": "COMMIT",
+  "marker": "423d48d4-7feb-4e06-a67f-eb2d0398036f",
+  "outcome": {
+    "operation": "create",
+    "id": null,
+    "payload": "{\"isolationMarker\":\"423d48d4-7feb-4e06-a67f-eb2d0398036f\",\"precise\":\"synthetic\"}",
+    "result": [
+      {
+        "entity_id": "1",
+        "entity_version": "1",
+        "change_id": "f1532a7c-a073-4e3e-95d8-f89082a13278",
+        "payload": "{\"precise\": \"synthetic\", \"isolationMarker\": \"423d48d4-7feb-4e06-a67f-eb2d0398036f\"}"
+      }
+    ],
+    "failure": null,
+    "completion": "COMMIT"
+  },
+  "persistedState": {
+    "entities": [
+      {
+        "entity_id": "1",
+        "source_epoch": "51dcf6b5-8443-49f8-8015-5d82c176c64c",
+        "entity_version": "1",
+        "change_id": "f1532a7c-a073-4e3e-95d8-f89082a13278",
+        "recorded_at": "2026-09-16 22:39:59.414516+00",
+        "is_deleted": false,
+        "payload": "{\"precise\": \"synthetic\", \"isolationMarker\": \"423d48d4-7feb-4e06-a67f-eb2d0398036f\"}"
+      }
+    ],
+    "outbox": [
+      {
+        "allocation_id": "1",
+        "entity_id": "1",
+        "source_epoch": "51dcf6b5-8443-49f8-8015-5d82c176c64c",
+        "entity_version": "1",
+        "change_id": "f1532a7c-a073-4e3e-95d8-f89082a13278",
+        "recorded_at": "2026-09-16 22:39:59.414516+00",
+        "is_deleted": false,
+        "payload": "{\"precise\": \"synthetic\", \"isolationMarker\": \"423d48d4-7feb-4e06-a67f-eb2d0398036f\"}"
+      }
+    ],
+    "work": [],
+    "binding": [
+      {
+        "pipeline_id": "a127a86f-7abf-4c38-94fe-598e0606fa97",
+        "source_epoch": "51dcf6b5-8443-49f8-8015-5d82c176c64c",
+        "payload_encoding": "pg18-jsonb-text/v1",
+        "registered_at": "2026-09-16 22:39:59.403237+00",
+        "xid": "758"
+      }
+    ]
+  },
+  "captureSummary": {
+    "observed_at": "2026-09-16T22:39:59.432117Z",
+    "pending_due": "0",
+    "pending_delayed": "0",
+    "leased_current": "0",
+    "leased_expired": "0",
+    "blocked": "0",
+    "acknowledged": "0",
+    "missing": "1"
+  },
+  "captureFailure": {
+    "fatal": true,
+    "primary": "Required capture work is missing",
+    "cleanupCount": 0
+  },
+  "pipelineEvents": [],
+  "cleanup": {
+    "status": "PASS",
+    "resources": {
+      "container": "",
+      "volume": "",
+      "network": ""
+    }
+  },
+  "localArtifacts": "artifacts/m2c1-repro/m2c1-repro-20260916223953613-99f59788",
+  "remoteEvidence": "Local execution; reviewer had predicted but had not executed this schedule"
+}

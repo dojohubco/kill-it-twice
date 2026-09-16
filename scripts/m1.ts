@@ -5,7 +5,11 @@ import {
 } from '../tests/support/capture-upgrade.ts';
 import { captureCases } from './required-capture-cases.ts';
 import { pipelineIdentity } from '../src/pipeline.ts';
-import { reproductionCases } from './required-isolation-cases.ts';
+import {
+  reproductionCases,
+  isolationCases,
+  registrationCases,
+} from './required-isolation-cases.ts';
 import {
   migrateReader,
   migratePipeline,
@@ -41,11 +45,12 @@ import { CleanupFailure } from './support.ts';
 
 const profile = process.argv[2] ?? 'm1';
 assert.ok(
-  ['m1', 'm2a', 'm2b', 'm2c', 'm2c1-repro'].includes(profile),
+  ['m1', 'm2a', 'm2b', 'm2c', 'm2c1', 'm2c1-repro'].includes(profile),
   'Expected an explicitly supported acceptance or reproduction profile',
 );
 const reproduction = profile === 'm2c1-repro';
-const captureProfile = profile === 'm2c' || reproduction;
+const guarded = profile === 'm2c1';
+const captureProfile = profile === 'm2c' || guarded || reproduction;
 const twoDatabases = profile === 'm2b' || captureProfile;
 const upgrade = process.argv[3] === '--upgrade';
 assert.ok(
@@ -53,13 +58,19 @@ assert.ok(
 );
 const inventory = reproduction
   ? reproductionCases
-  : profile === 'm2c'
-    ? captureCases
-    : profile === 'm2b'
-      ? stagingCases
-      : profile === 'm2a'
-        ? [...requiredCases, ...commandCases, ...commandFaultCases]
-        : requiredCases;
+  : guarded
+    ? [
+        ...captureCases,
+        ...isolationCases,
+        ...(upgrade ? [] : registrationCases),
+      ]
+    : profile === 'm2c'
+      ? captureCases
+      : profile === 'm2b'
+        ? stagingCases
+        : profile === 'm2a'
+          ? [...requiredCases, ...commandCases, ...commandFaultCases]
+          : requiredCases;
 const runId = `${profile}-${new Date().toISOString().replace(/[^0-9]/g, '')}-${randomBytes(4).toString('hex')}`;
 const artifactDir = resolve(`artifacts/${profile}`, runId);
 await mkdir(artifactDir, { recursive: true });
@@ -123,9 +134,11 @@ const manifest: Record<string, unknown> = {
   runId,
   profile,
   migrationMode: upgrade
-    ? profile === 'm2c'
-      ? 'populated M2B upgrade'
-      : 'populated M2A upgrade'
+    ? guarded
+      ? 'populated registered M2C upgrade'
+      : profile === 'm2c'
+        ? 'populated M2B upgrade'
+        : 'populated M2A upgrade'
     : 'fresh',
   artifactDir,
   startedAt: new Date().toISOString(),
@@ -467,7 +480,7 @@ try {
             });
             pipelineId = identity.pipelineId;
             manifest['pipelineId'] = pipelineId;
-          } else if (profile === 'm2c') {
+          } else if (captureProfile) {
             const result = await initializeCaptureFixture(admin, pAdmin, {
               source: {
                 host: '127.0.0.1',
@@ -485,6 +498,14 @@ try {
                 password: pipelinePassword,
                 application_name: `${runId}:capture-setup`,
               },
+              writerPassword,
+              ...(guarded
+                ? {
+                    isolation: upgrade
+                      ? ('registered' as const)
+                      : ('unregistered' as const),
+                  }
+                : {}),
               commandPassword,
               stagerPassword,
               capturePassword,
@@ -798,7 +819,11 @@ try {
       JSON.stringify(
         {
           format: 1,
-          milestone: profile === 'm1' ? 'M1.1' : profile.toUpperCase(),
+          milestone: guarded
+            ? 'M2C.1'
+            : profile === 'm1'
+              ? 'M1.1'
+              : profile.toUpperCase(),
           migrationMode: manifest['migrationMode'],
           runId,
           status: manifest['status'],

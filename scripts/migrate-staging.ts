@@ -95,6 +95,9 @@ export async function migrateCaptureSource(
     );
   });
 }
+export async function migrateCaptureIsolation(client: pg.Client) {
+  await migration(client, '005-capture-mutation-isolation.sql', async () => {});
+}
 export async function migrateCapturePipeline(
   client: pg.Client,
   password: string,
