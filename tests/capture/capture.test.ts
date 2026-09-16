@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { test, mock } from 'node:test';
 import pg from 'pg';
-import { command } from '../../scripts/support.ts';
+import { command, withCleanup } from '../../scripts/support.ts';
 import { first } from '../../scripts/rows.ts';
 import { object } from '../../scripts/acceptance.ts';
 import { Capture, CaptureFailure } from '../../src/capture.ts';
@@ -53,16 +53,19 @@ void test('IC01 atomic fresh and populated capture initialization', async (t) =>
   await s.query(
     `CREATE FUNCTION source.test_work_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'test work insertion failure' USING ERRCODE='P9004'; END $$; CREATE TRIGGER test_work_failure BEFORE INSERT ON source.capture_work FOR EACH ROW EXECUTE FUNCTION source.test_work_failure()`,
   );
-  try {
-    await assert.rejects(execute(command), {
-      sqlState: 'P9004',
-      outcome: 'rolled_back',
-    });
-  } finally {
-    await s.query(
-      'DROP TRIGGER test_work_failure ON source.capture_work; DROP FUNCTION source.test_work_failure()',
-    );
-  }
+  await withCleanup(
+    async () => {
+      await assert.rejects(execute(command), {
+        sqlState: 'P9004',
+        outcome: 'rolled_back',
+      });
+    },
+    async () => {
+      await s.query(
+        'DROP TRIGGER test_work_failure ON source.capture_work; DROP FUNCTION source.test_work_failure()',
+      );
+    },
+  );
   assert.deepEqual(await work(s), before);
   const absent = (
     await s.query<Record<string, unknown>>(`SELECT
@@ -306,16 +309,19 @@ void test('IC05 source clock renewal expiry and generation reject stale transiti
   await s.query(
     'ALTER TABLE source.capture_work DISABLE TRIGGER capture_work_guard',
   );
-  try {
-    await s.query(
-      'UPDATE source.capture_work SET generation=0 WHERE entity_id=$1',
-      [overflow.key.entityId],
-    );
-  } finally {
-    await s.query(
-      'ALTER TABLE source.capture_work ENABLE TRIGGER capture_work_guard',
-    );
-  }
+  await withCleanup(
+    async () => {
+      await s.query(
+        'UPDATE source.capture_work SET generation=0 WHERE entity_id=$1',
+        [overflow.key.entityId],
+      );
+    },
+    async () => {
+      await s.query(
+        'ALTER TABLE source.capture_work ENABLE TRIGGER capture_work_guard',
+      );
+    },
+  );
   await drain();
   evidence('IC05-clock', {
     claim,
@@ -364,60 +370,66 @@ void test('IC13 pipeline instance identity is validated inside staging', async (
     password: required('PIPELINE_ADMIN_PASSWORD'),
   };
   const replacement = new pg.Client(adminConfig);
-  let replacementIdentity;
-  try {
-    await replacement.connect();
-    await replacement.query('BEGIN');
-    for (const migration of ['001-staging.sql', '002-capture-instance.sql']) {
-      const sql = (
-        await readFile(
-          new URL(`../../migrations/pipeline/${migration}`, import.meta.url),
-          'utf8',
-        )
-      )
-        .replace(/^CREATE ROLE .*;$/gm, '')
-        .replaceAll(
-          'ON DATABASE pipeline_m2b',
-          `ON DATABASE ${replacementName}`,
-        );
-      await replacement.query(sql);
-      if (migration === '001-staging.sql')
-        await replacement.query(
-          'INSERT INTO pipeline.source_binding VALUES(true,$1,$2)',
-          [epoch, 'pg18-jsonb-text/v1'],
-        );
-    }
-    await replacement.query('COMMIT');
-    const replacementConfig = { ...cfg.pipeline, database: replacementName };
-    replacementIdentity = await pipelineIdentity(replacementConfig);
-    assert.equal(replacementIdentity.sourceEpoch, epoch);
-    assert.notEqual(replacementIdentity.pipelineId, identity.pipelineId);
-    await assert.rejects(
-      new Capture(
-        { ...cfg, pipeline: replacementConfig },
-        { leaseMs: 1500, renewalMs: 150, idleMs: 100 },
-      ).captureOnce(),
-      (error: unknown) =>
-        error instanceof CaptureFailure &&
-        error.fatal &&
-        error.primary instanceof TransactionError &&
-        error.primary.sqlState === 'P4001',
-    );
-    assert.equal(first(await work(s, f.key.entityId))['state'], 'leased');
-    assert.equal(
-      first(
-        (
-          await replacement.query<{ n: string }>(
-            'SELECT count(*)::text AS n FROM pipeline.events',
+  const replacementIdentity = await withCleanup(
+    async () => {
+      await replacement.connect();
+      await replacement.query('BEGIN');
+      for (const migration of ['001-staging.sql', '002-capture-instance.sql']) {
+        const sql = (
+          await readFile(
+            new URL(`../../migrations/pipeline/${migration}`, import.meta.url),
+            'utf8',
           )
-        ).rows,
-      ).n,
-      '0',
-    );
-  } finally {
-    await replacement.end();
-    await p.query(`DROP DATABASE ${replacementName}`);
-  }
+        )
+          .replace(/^CREATE ROLE .*;$/gm, '')
+          .replaceAll(
+            'ON DATABASE pipeline_m2b',
+            `ON DATABASE ${replacementName}`,
+          );
+        await replacement.query(sql);
+        if (migration === '001-staging.sql')
+          await replacement.query(
+            'INSERT INTO pipeline.source_binding VALUES(true,$1,$2)',
+            [epoch, 'pg18-jsonb-text/v1'],
+          );
+      }
+      await replacement.query('COMMIT');
+      const replacementConfig = { ...cfg.pipeline, database: replacementName };
+      const replacementIdentity = await pipelineIdentity(replacementConfig);
+      assert.equal(replacementIdentity.sourceEpoch, epoch);
+      assert.notEqual(replacementIdentity.pipelineId, identity.pipelineId);
+      await assert.rejects(
+        new Capture(
+          { ...cfg, pipeline: replacementConfig },
+          { leaseMs: 1500, renewalMs: 150, idleMs: 100 },
+        ).captureOnce(),
+        (error: unknown) =>
+          error instanceof CaptureFailure &&
+          error.fatal &&
+          error.primary instanceof TransactionError &&
+          error.primary.sqlState === 'P4001',
+      );
+      assert.equal(first(await work(s, f.key.entityId))['state'], 'leased');
+      assert.equal(
+        first(
+          (
+            await replacement.query<{ n: string }>(
+              'SELECT count(*)::text AS n FROM pipeline.events',
+            )
+          ).rows,
+        ).n,
+        '0',
+      );
+      return replacementIdentity;
+    },
+    () =>
+      withCleanup(
+        () => replacement.end(),
+        async () => {
+          await p.query(`DROP DATABASE ${replacementName}`);
+        },
+      ),
+  );
   await drain();
   await reconcile(s, p, 'IC13');
   evidence('IC13-identity', {

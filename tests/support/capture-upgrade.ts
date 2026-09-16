@@ -85,18 +85,19 @@ export async function initializeCaptureFixture(
     password: input.capturePassword,
   });
   await runtime.connect();
-  try {
-    await assert.rejects(
-      runtime.query('SELECT * FROM source.capture_claim($1,$2,$3,16,30000)', [
-        identity.pipelineId,
-        input.epoch,
-        randomUUID(),
-      ]),
-      { code: 'P4001' },
-    );
-  } finally {
-    await runtime.end();
-  }
+  await withCleanup(
+    async () => {
+      await assert.rejects(
+        runtime.query('SELECT * FROM source.capture_claim($1,$2,$3,16,30000)', [
+          identity.pipelineId,
+          input.epoch,
+          randomUUID(),
+        ]),
+        { code: 'P4001' },
+      );
+    },
+    () => runtime.end(),
+  );
   const a = new pg.Client({
     ...input.source,
     user: 'source_command',

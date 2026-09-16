@@ -4,6 +4,7 @@ import { once } from 'node:events';
 import { mock } from 'node:test';
 import pg from 'pg';
 import { object } from '../../scripts/acceptance.ts';
+import { withCleanup } from '../../scripts/support.ts';
 import {
   Capture,
   CaptureFailure,
@@ -113,22 +114,25 @@ const endMock = mock.method(
   pg.Client.prototype,
   'end',
   async function (this: pg.Client) {
-    try {
-      if (!orphan && boundary) {
-        const observed = (
-          await this.query<{ pid: number; role: string }>(
-            'SELECT pg_backend_pid() AS pid,current_user AS role',
-          )
-        ).rows[0];
-        if (observed?.role === 'pipeline_capture') {
-          pipelinePid = observed.pid;
-          if (inPipeline && staged.length)
-            await barrier('capture.after_pipeline_commit.before_source_ack');
-        } else sourcePid = observed?.pid;
-      }
-    } finally {
-      await (Reflect.apply(originalEnd, this, []) as Promise<void>);
-    }
+    await withCleanup(
+      async () => {
+        if (!orphan && boundary) {
+          const observed = (
+            await this.query<{ pid: number; role: string }>(
+              'SELECT pg_backend_pid() AS pid,current_user AS role',
+            )
+          ).rows[0];
+          if (observed?.role === 'pipeline_capture') {
+            pipelinePid = observed.pid;
+            if (inPipeline && staged.length)
+              await barrier('capture.after_pipeline_commit.before_source_ack');
+          } else sourcePid = observed?.pid;
+        }
+      },
+      async () => {
+        await (Reflect.apply(originalEnd, this, []) as Promise<void>);
+      },
+    );
   },
 );
 function str(value: unknown) {

@@ -448,19 +448,22 @@ if (mode === 'capture') {
     `--output=${join(directory, 'tracked.tar')}`,
     head,
   ]);
-  await writeFile(
-    join(directory, 'since-reviewed.patch'),
-    await checked('git', ['diff', '--binary', baseline, head]),
-  );
-  await writeFile(
-    join(directory, 'since-spec.patch'),
-    await checked('git', [
-      'diff',
-      '--binary',
-      '251cb5a5b095c204dc99985b3eae1e21aac3c6ce',
-      head,
-    ]),
-  );
+  // Full review diffs are file-backed artifacts, not subprocess diagnostic output.
+  // Keep command()'s bounded capture and overflow failure unchanged.
+  await checked('git', [
+    'diff',
+    '--binary',
+    `--output=${join(directory, 'since-reviewed.patch')}`,
+    baseline,
+    head,
+  ]);
+  await checked('git', [
+    'diff',
+    '--binary',
+    `--output=${join(directory, 'since-spec.patch')}`,
+    '251cb5a5b095c204dc99985b3eae1e21aac3c6ce',
+    head,
+  ]);
   await writeFile(
     join(directory, 'commits.txt'),
     await checked('git', [

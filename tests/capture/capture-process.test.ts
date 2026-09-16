@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { first } from '../../scripts/rows.ts';
 import { object } from '../../scripts/acceptance.ts';
-import { command, waitFor } from '../../scripts/support.ts';
+import { command, waitFor, withCleanup } from '../../scripts/support.ts';
 import { setup, fixture, pconnect, snapshot } from '../support/staging.ts';
 import { request, execute } from '../support/commands.ts';
 import { databaseWaitFor, evidence, required } from '../support/db.ts';
@@ -45,50 +45,54 @@ void test(
       required('M1_RUN_ID'),
     );
     await p.end();
-    try {
-      await docker(['stop', '--time', '1', container]);
-      child.release();
-      const deferred = await databaseWaitFor(
-        s,
-        async () =>
-          (
-            await s.query<Record<string, unknown>>(
-              'SELECT state,generation::text,reason,clock_timestamp()::text AS observed_at,next_eligible_at::text, next_eligible_at>clock_timestamp() AS delayed,acknowledged_hash FROM source.capture_work WHERE entity_id=$1',
-              [f.key.entityId],
-            )
-          ).rows,
-        (rows) =>
-          first(rows)['state'] === 'pending' && first(rows)['delayed'] === true,
-        'outage persisted transient delay',
-      );
-      assert.equal(first(deferred)['reason'], 'transient_failure');
-      assert.equal(first(deferred)['acknowledged_hash'], null);
-      await waitFor(
-        () => child.output(),
-        (rows) => rows.some((r) => r['type'] === 'capture-failure'),
-        'outage caller observes failed attempt',
-      );
-      // Let the persisted source clock schedule admit another real attempt while the service remains down.
-      const retry = await databaseWaitFor(
-        s,
-        async () => work(s, f.key.entityId),
-        (rows) => BigInt(String(first(rows)['generation'])) >= 2n,
-        'automatic retry after persisted eligibility',
-        10000,
-      );
-      assert.ok(BigInt(String(first(retry)['generation'])) <= 3n);
-      assert.notEqual(first(retry)['state'], 'acknowledged');
-      evidence('IC12-outage', {
-        container,
-        barrier,
-        before,
-        deferred,
-        retry,
-        outputs: child.output(),
-      });
-    } finally {
-      await docker(['start', container]);
-    }
+    await withCleanup(
+      async () => {
+        await docker(['stop', '--time', '1', container]);
+        child.release();
+        const deferred = await databaseWaitFor(
+          s,
+          async () =>
+            (
+              await s.query<Record<string, unknown>>(
+                'SELECT state,generation::text,reason,clock_timestamp()::text AS observed_at,next_eligible_at::text, next_eligible_at>clock_timestamp() AS delayed,acknowledged_hash FROM source.capture_work WHERE entity_id=$1',
+                [f.key.entityId],
+              )
+            ).rows,
+          (rows) =>
+            first(rows)['state'] === 'pending' &&
+            first(rows)['delayed'] === true,
+          'outage persisted transient delay',
+        );
+        assert.equal(first(deferred)['reason'], 'transient_failure');
+        assert.equal(first(deferred)['acknowledged_hash'], null);
+        await waitFor(
+          () => child.output(),
+          (rows) => rows.some((r) => r['type'] === 'capture-failure'),
+          'outage caller observes failed attempt',
+        );
+        // Let the persisted source clock schedule admit another real attempt while the service remains down.
+        const retry = await databaseWaitFor(
+          s,
+          async () => work(s, f.key.entityId),
+          (rows) => BigInt(String(first(rows)['generation'])) >= 2n,
+          'automatic retry after persisted eligibility',
+          10000,
+        );
+        assert.ok(BigInt(String(first(retry)['generation'])) <= 3n);
+        assert.notEqual(first(retry)['state'], 'acknowledged');
+        evidence('IC12-outage', {
+          container,
+          barrier,
+          before,
+          deferred,
+          retry,
+          outputs: child.output(),
+        });
+      },
+      async () => {
+        await docker(['start', container]);
+      },
+    );
     await waitFor(
       () =>
         docker(['inspect', '--format', '{{.State.Health.Status}}', container]),
