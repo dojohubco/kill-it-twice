@@ -1,4 +1,4 @@
-name: M1.1 local gates
+name: Source M1.1 and M2A gates
 on:
   push:
   pull_request:
@@ -24,14 +24,14 @@ jobs:
       - run: node scripts/ci-step.ts npm ci --no-audit --no-fund
       - run: node scripts/ci-step.ts npm run tools:provision
       - name: Quality and fresh PostgreSQL acceptance
-        run: node scripts/ci-step.ts make verify-m1
+        run: node scripts/ci-step.ts make verify-m2a
       - name: Upload sanitized evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: m1-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          name: source-evidence-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            artifacts/m1/**/public/**
+            artifacts/m2a/**/public/**
             artifacts/ci/public/**
           if-no-files-found: error
           retention-days: 7

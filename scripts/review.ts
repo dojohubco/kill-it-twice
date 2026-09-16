@@ -6,7 +6,12 @@ import { join, resolve } from 'node:path';
 import { command } from './support.ts';
 import { object } from './acceptance.ts';
 
-const baseline = 'f8c2e061822fbb97edf831f23b9611570ccd9ef6';
+const m2a = process.argv.includes('--m2a');
+const milestone = m2a ? 'M2A' : 'M1.1';
+const profile = m2a ? 'm2a' : 'm1.1';
+const baseline = m2a
+  ? 'e5813a4bcd7857ba816ac6ad4537cc7a52f86963'
+  : 'f8c2e061822fbb97edf831f23b9611570ccd9ef6';
 async function checked(executable: string, args: string[]) {
   const result = await command(executable, args, process.env, 30_000, true);
   assert.ok(
@@ -28,7 +33,7 @@ assert.equal(
 const mode = process.argv[2];
 if (mode === 'capture') {
   const directory = resolve(
-    'artifacts/m1.1',
+    `artifacts/${profile}`,
     `acceptance-${new Date().toISOString().replace(/\D/g, '')}-${randomBytes(4).toString('hex')}`,
   );
   await mkdir(directory, { recursive: true });
@@ -47,8 +52,9 @@ if (mode === 'capture') {
     ].map((name) => ['npm', 'run', name]),
     ['make', 'quality'],
     ['npm', 'run', 'test:integration:m1'],
-    ['make', 'verify-m1'],
-    ['make', 'verify-m1'],
+    ...(m2a ? [['npm', 'run', 'test:integration:m2a']] : []),
+    ['make', m2a ? 'verify-m2a' : 'verify-m1'],
+    ['make', m2a ? 'verify-m2a' : 'verify-m1'],
     ['make', 'verify'],
   ];
   const results: Record<string, unknown>[] = [];
@@ -91,7 +97,7 @@ if (mode === 'capture') {
       stderr: `${stem}.stderr.log`,
     });
     for (const match of result.stdout.matchAll(
-      /M1 isolated run (m1-[0-9]+-[a-f0-9]+)/g,
+      /(?:M1|M2A) isolated run ((?:m1|m2a)-[0-9]+-[a-f0-9]+)/g,
     )) {
       if (match[1]) runIds.push(match[1]);
     }
@@ -105,7 +111,8 @@ if (mode === 'capture') {
   }
   const runs: Record<string, unknown>[] = [];
   for (const runId of runIds) {
-    const path = join('artifacts/m1', runId);
+    const isCommandRun = runId.startsWith('m2a-');
+    const path = join(isCommandRun ? 'artifacts/m2a' : 'artifacts/m1', runId);
     const manifest = object(
       JSON.parse(await readFile(join(path, 'run.json'), 'utf8')),
     );
@@ -119,12 +126,40 @@ if (mode === 'capture') {
       .map((line) => object(JSON.parse(line)));
     const signals = sql
       .filter((line) =>
-        ['T08-actual-signal', 'T09-actual-signal'].includes(
-          String(line['test']),
-        ),
+        [
+          'T08-actual-signal',
+          'T09-actual-signal',
+          'C09-actual-signal',
+          'C10-actual-signal',
+        ].includes(String(line['test'])),
       )
-      .map((line) => line['data']);
-    assert.equal(signals.length, 2);
+      .map((line) => {
+        const data = object(line['data']);
+        assert.deepEqual(data['actualExit'], { code: null, signal: 'SIGKILL' });
+        assert.deepEqual(data['endedSession'], []);
+        const isCommand = String(line['test']).startsWith('C');
+        assert.equal(
+          data[isCommand ? 'ordinarySuccessBytes' : 'callerSuccessBytes'],
+          0,
+        );
+        return isCommand
+          ? {
+              case: line['test'],
+              command: data['command'],
+              writerPid: data['pid'],
+              backendPid: data['backendPid'],
+              transactionId: data['transactionId'],
+              entityId: data['entityId'],
+              entityVersion: data['entityVersion'],
+              changeId: data['changeId'],
+              actualExit: data['actualExit'],
+              ordinarySuccessBytes: 0,
+              endedSession: [],
+              recovered: data['recovered'],
+            }
+          : data;
+      });
+    assert.equal(signals.length, isCommandRun ? 4 : 2);
     const restart = object(
       JSON.parse(await readFile(join(path, 'restart-evidence.json'), 'utf8')),
     );
@@ -134,6 +169,12 @@ if (mode === 'capture') {
       head,
       contentSha256: manifest['contentSha256'],
       status: manifest['status'],
+      initialState: manifest['initialState'],
+      node: manifest['node'],
+      npm: manifest['npm'],
+      docker: manifest['docker'],
+      compose: manifest['compose'],
+      imageReference: manifest['imageReference'],
       acceptance: manifest['acceptance'],
       signals,
       cleanup: manifest['cleanup'],
@@ -144,13 +185,13 @@ if (mode === 'capture') {
   }
   assert.equal(
     runIds.length,
-    3,
-    'Expected standalone integration plus two fresh verify-m1 runs',
+    m2a ? 4 : 3,
+    'Expected selected standalone integrations plus two fresh acceptance runs',
   );
-  assert.equal(new Set(runIds).size, 3);
+  assert.equal(new Set(runIds).size, m2a ? 4 : 3);
   assert.equal(
     new Set(runs.map((run) => JSON.stringify(run['epoch']))).size,
-    3,
+    m2a ? 4 : 3,
   );
   assert.equal((await checked('git', ['status', '--porcelain'])).trim(), '');
   await writeFile(
@@ -158,7 +199,7 @@ if (mode === 'capture') {
     JSON.stringify(
       {
         format: 1,
-        milestone: 'M1.1',
+        milestone,
         baseline,
         testedCode: head,
         status: failed ? 'FAIL' : 'PASS',
@@ -181,10 +222,10 @@ if (mode === 'capture') {
     JSON.parse(await readFile(join(capture, 'summary.json'), 'utf8')),
   );
   await writeFile(
-    'docs/evidence/M1.1-summary.json',
+    `docs/evidence/${milestone}-summary.json`,
     JSON.stringify(data, null, 2) + '\n',
   );
-  console.log('docs/evidence/M1.1-summary.json');
+  console.log(`docs/evidence/${milestone}-summary.json`);
 } else if (mode === 'bundle') {
   const capture = process.argv[3];
   assert.ok(capture, 'Supply the acceptance capture directory');
@@ -194,8 +235,9 @@ if (mode === 'capture') {
   assert.equal(acceptance['status'], 'PASS');
   const directory = resolve(
     'artifacts/review',
-    `m1.1-final-${head.slice(0, 12)}`,
+    `${profile}-final-${head.slice(0, 12)}`,
   );
+  await mkdir(resolve('artifacts/review'), { recursive: true });
   await mkdir(directory, { recursive: false });
   await checked('git', [
     'archive',
@@ -225,7 +267,13 @@ if (mode === 'capture') {
       `${baseline}..${head}`,
     ]),
   );
-  await cp('artifacts/m1.1', join(directory, 'm1.1'), { recursive: true });
+  await writeFile(
+    join(directory, 'changed-files.txt'),
+    await checked('git', ['diff', '--name-status', baseline, head]),
+  );
+  await cp(`artifacts/${profile}`, join(directory, profile), {
+    recursive: true,
+  });
   // Retain historical and developmental failures as well as the final acceptance runs.
   await cp('artifacts/m1', join(directory, 'm1'), { recursive: true });
   await writeFile(
