@@ -55,7 +55,7 @@ try {
   manifest.imageReference = await record('image-ref', 'docker', ['inspect', '--format', '{{.Config.Image}}', containerId]);
   const address = await record('port', 'docker', [...compose, 'port', 'source', '5432']);
   assert.match(address, /^127\.0\.0\.1:\d+$/);
-  const port = Number(address.split(':')[1]);
+  let port = Number(address.split(':')[1]);
   manifest.port = port;
   const admin = new pg.Client({ host: '127.0.0.1', port, database: 'source_m1', user: 'm1_admin', password: adminPassword, application_name: `${runId}:setup`, connectionTimeoutMillis: 5_000, query_timeout: 10_000 });
   await admin.connect();
@@ -85,6 +85,10 @@ try {
   const beforeRestart = await retainedSnapshot();
   await record('restart', 'docker', [...compose, 'restart', '--timeout', '10', 'source']);
   await record('restart-ready', 'docker', [...compose, 'up', '-d', '--wait', '--wait-timeout', '60', 'source']);
+  const restartedAddress = await record('restart-port', 'docker', [...compose, 'port', 'source', '5432']);
+  assert.match(restartedAddress, /^127\.0\.0\.1:\d+$/);
+  port = Number(restartedAddress.split(':')[1]);
+  manifest.restartPort = port;
   const afterRestart = await retainedSnapshot();
   assert.deepEqual(afterRestart, beforeRestart, 'source epoch or retained data changed across service restart');
   assert.equal(await record('retained-container', 'docker', [...compose, 'ps', '-q', 'source']), containerId);
