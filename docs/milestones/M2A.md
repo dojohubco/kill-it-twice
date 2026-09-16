@@ -44,3 +44,7 @@ Keep quality read-only and all existing checks. Add bounded `make verify-m2a` in
 Preserve actual developmental failures and corrections. Record input hashes, commands/exits, versions, cleanup and signals, baseline/tested/documentation SHAs, exact changed files and chronological local commits. Produce sanitized compact machine evidence and a checksummed local review bundle. No push, publication, PR, privileged host install or global Git changes are authorized.
 
 Stop after M2A. No canonical pipeline staging, second database, acknowledgements, sink obligations/delivery, activation/seeding, backfill, Elasticsearch, RabbitMQ, consumer, API/UI, deployment, benchmark, general idempotency library or automatic retry scheduler. Receipts have no TTL or GC. Raw database-owner bypass and stable replay of failed responses are outside the guarantee.
+
+## Acceptance recorded after implementation
+
+At clean `6be433da050a1ece890560511e9f957a44dbce16`, npm ci, every quality subcommand, quality, the 22-case M1 profile and three fresh 36-case M2A runs passed. Full verify exited 2 with G1–G5 NOT IMPLEMENTED. [M2A evidence](../evidence/M2A.md) records exact commands, identities, input hashes and cleanup; the later documentation commit does not change tested application or harness code. All local required cases ran; M2A remote CI was not run or pushed.

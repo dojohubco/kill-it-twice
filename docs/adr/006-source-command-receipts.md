@@ -32,3 +32,7 @@ The C01–C12 inventory covers results, equality/conflicts, historical/no-op rep
 No pipeline ledger/acknowledgement, end-to-end exactly-once, retry scheduler, failure-response retention, batching or new transaction manager is added. The existing full-history inspection is only for tiny diagnostic fixtures, not an incremental reader.
 
 References: [READ COMMITTED and ON CONFLICT visibility](https://www.postgresql.org/docs/18/transaction-iso.html), [VOLATILE statement snapshots](https://www.postgresql.org/docs/18/xfunc-volatility.html), [deferred constraint triggers](https://www.postgresql.org/docs/18/sql-createtrigger.html).
+
+## Verification recorded after implementation
+
+Clean tested code `6be433da050a1ece890560511e9f957a44dbce16` passed the original 22-case M1 profile and three fresh 36-case M2A runs. All C01–C12 cases and both new healthy fault controls passed, including actual key-lock waits, commit replay/rollback takeover, real pre/post-COMMIT SIGKILL, successful-only retention and deferred incomplete-receipt rejection. Receipt/source/outbox snapshots survived service restart unchanged; owned resources were removed. See [M2A evidence](../evidence/M2A.md). M2A remote CI and later pipeline guarantees are not claimed.
