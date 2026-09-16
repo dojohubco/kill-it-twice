@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { connect, databaseWaitFor, evidence } from '../support/db.ts';
 
-test('M11-OBSERVE timeout disposes a real in-flight PostgreSQL query and session', async () => {
+void test('M11-OBSERVE timeout disposes a real in-flight PostgreSQL query and session', async () => {
   const slow = await connect('writer', 'observation-slow');
   const observer = await connect('admin', 'observation-observer');
   try {

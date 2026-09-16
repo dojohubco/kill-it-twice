@@ -2,12 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { positiveBigint } from '../../src/source.ts';
 
-test('source identifiers preserve unsafe-Number values and the signed BIGINT maximum', () => {
+void test('source identifiers preserve unsafe-Number values and the signed BIGINT maximum', () => {
   for (const value of ['1', '9007199254740993', '9223372036854775807'])
     assert.equal(positiveBigint(value), value);
 });
 
-test('source identifiers reject numbers, overflow, zero, signs, whitespace and noncanonical decimals', () => {
+void test('source identifiers reject numbers, overflow, zero, signs, whitespace and noncanonical decimals', () => {
   for (const value of [
     1,
     9007199254740992,

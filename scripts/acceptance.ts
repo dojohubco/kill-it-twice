@@ -55,11 +55,23 @@ export function checkAcceptance(
       nesting: r['nesting'],
     };
   });
+  assert.equal(
+    new Set(requiredCases.map((entry) => entry.id)).size,
+    requiredCases.length,
+    'Duplicate inventory ID',
+  );
   const seen = new Set<string>();
   for (const result of results) {
     const key = `${result.file}:${result.name}`;
     assert.ok(!seen.has(key), `Duplicate result: ${key}`);
     seen.add(key);
+    assert.ok(
+      requiredCases.some(
+        (required) =>
+          required.name === result.name && required.file === result.file,
+      ),
+      `Unexpected case: ${key}`,
+    );
     assert.equal(result.status, 'pass', `Failed or cancelled: ${key}`);
     assert.equal(result.skip, false, `Skipped: ${key}`);
     assert.equal(result.todo, false, `Todo: ${key}`);

@@ -23,13 +23,13 @@ export interface SourceRow {
 export interface Revision extends SourceRow {
   allocation_id: string;
 }
-export interface Session {
+interface Session {
   pid: number;
   xid: string;
   session_user: string;
   current_user: string;
 }
-export interface Inspection {
+interface Inspection {
   session: Session;
   entities: SourceRow[];
   outbox: Revision[];
@@ -283,7 +283,9 @@ export class Source {
         try {
           const tag = (await client.query('ROLLBACK')).command;
           if (tag !== 'ROLLBACK')
-            throw new Error(`Unexpected ROLLBACK completion: ${tag}`);
+            throw new Error(`Unexpected ROLLBACK completion: ${tag}`, {
+              cause: error,
+            });
           if (!commitAttempted) {
             outcome = 'rolled_back';
             completionTag = tag;

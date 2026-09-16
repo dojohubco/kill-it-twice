@@ -11,18 +11,18 @@ import {
   errorCode,
 } from '../../scripts/support.ts';
 
-test('artifact redaction removes every temporary credential occurrence', () => {
+void test('artifact redaction removes every temporary credential occurrence', () => {
   assert.equal(
     redact('secret-a secret-b secret-a', ['secret-a', 'secret-b', '']),
     '[REDACTED] [REDACTED] [REDACTED]',
   );
 });
 
-test('bounded observation waits for evidence and returns the accepted observation', async () => {
+void test('bounded observation waits for evidence and returns the accepted observation', async () => {
   let count = 0;
   assert.deepEqual(
     await waitFor(
-      async () => ({ count: ++count }),
+      () => ({ count: ++count }),
       (value) => value.count === 2,
       'unit observation',
       1_000,
@@ -31,10 +31,10 @@ test('bounded observation waits for evidence and returns the accepted observatio
   );
 });
 
-test('missing boundary evidence fails with its last observation, never skips', async () => {
+void test('missing boundary evidence fails with its last observation, never skips', async () => {
   await assert.rejects(
     waitFor(
-      async () => 'not reached',
+      () => 'not reached',
       () => false,
       'missing boundary',
       1,
@@ -43,7 +43,7 @@ test('missing boundary evidence fails with its last observation, never skips', a
   );
 });
 
-test('timed-out harness subprocess is killed and reported as a timeout', async () => {
+void test('timed-out harness subprocess is killed and reported as a timeout', async () => {
   const result = await command(
     process.execPath,
     ['-e', 'setInterval(() => {}, 1000)'],
@@ -56,7 +56,7 @@ test('timed-out harness subprocess is killed and reported as a timeout', async (
   assert.equal(result.signal, 'SIGKILL');
 });
 
-test('never-settling and late observations fail at a monotonic deadline with cleanup', async () => {
+void test('never-settling and late observations fail at a monotonic deadline with cleanup', async () => {
   let disposed = 0;
   let aborted = false;
   const start = performance.now();
@@ -112,7 +112,7 @@ test('never-settling and late observations fail at a monotonic deadline with cle
   await new Promise((resolve) => setTimeout(resolve, 50));
 });
 
-test('observation cleanup failure retains the original deadline', async () => {
+void test('observation cleanup failure retains the original deadline', async () => {
   await assert.rejects(
     waitFor(
       () => new Promise<never>(() => undefined),
@@ -130,7 +130,7 @@ test('observation cleanup failure retains the original deadline', async () => {
   );
 });
 
-test('bounded output fails explicitly and redacts secrets spanning writes and cutoff', async () => {
+void test('bounded output fails explicitly and redacts secrets spanning writes and cutoff', async () => {
   const secret = 'split-secret-token';
   const result = await command(
     process.execPath,
@@ -162,7 +162,7 @@ test('bounded output fails explicitly and redacts secrets spanning writes and cu
   assert.ok(!overflow.stdout.includes('spli'));
 });
 
-test('timeout kills the real owned child and grandchild while unrelated sentinel survives', async () => {
+void test('timeout kills the real owned child and grandchild while unrelated sentinel survives', async (t) => {
   const sentinel = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], {
     stdio: 'ignore',
     detached: true,
@@ -187,10 +187,11 @@ test('timeout kills the real owned child and grandchild while unrelated sentinel
         'child' in pids &&
         'grandchild' in pids,
     );
+    const observations: { pid: number; state: string }[] = [];
     for (const pid of [pids.child, pids.grandchild]) {
       assert.equal(typeof pid, 'number');
       assert.ok(typeof pid === 'number');
-      await waitFor(
+      const state = await waitFor(
         async () => {
           try {
             const stat = await readFile(`/proc/${pid}/stat`, 'utf8');
@@ -207,12 +208,43 @@ test('timeout kills the real owned child and grandchild while unrelated sentinel
         'owned process terminated',
         2_000,
       );
+      observations.push({ pid, state });
     }
+    t.diagnostic(
+      JSON.stringify({
+        owned: observations,
+        requestedSignal: 'SIGKILL',
+        actualParentExit: { code: result.code, signal: result.signal },
+        sentinelPid: sentinel.pid,
+        sentinelAlive: true,
+      }),
+    );
     process.kill(sentinel.pid, 0);
     assert.equal(sentinel.exitCode, null);
     assert.equal(sentinel.signalCode, null);
   } finally {
     sentinel.kill('SIGKILL');
-    await reaped;
+    const exit: unknown[] = await reaped;
+    t.diagnostic(
+      JSON.stringify({ sentinelCleanup: { pid: sentinel.pid, exit } }),
+    );
   }
+});
+
+void test('a slow acceptance predicate cannot return success after the deadline', async () => {
+  await assert.rejects(
+    waitFor(
+      () => true,
+      () => {
+        const end = performance.now() + 25;
+        while (performance.now() < end) {
+          /* controlled predicate */
+        }
+        return true;
+      },
+      'slow predicate',
+      5,
+    ),
+    /Deadline waiting/,
+  );
 });

@@ -1,10 +1,16 @@
-.PHONY: verify-m1 verify
+.PHONY: quality verify-m1 verify
 
-verify-m1:
-	@echo 'M1 ONLY: source contract checks; not G1 or G2 acceptance'
-	npm run typecheck
+quality:
+	npm run format:check
 	npm run lint
+	npm run typecheck
+	npm run knip
+	npm run validate:compose
+	npm run validate:workflow
 	npm run test:unit
+
+verify-m1: quality
+	@echo 'M1/M1.1 ONLY: fresh source acceptance; G1-G5 remain NOT IMPLEMENTED'
 	npm run test:integration:m1
 
 verify:

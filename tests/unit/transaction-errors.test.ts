@@ -1,3 +1,5 @@
+import { migrateSource } from '../../scripts/migrate.ts';
+import { CleanupFailure } from '../../scripts/support.ts';
 import assert from 'node:assert/strict';
 import { test, mock } from 'node:test';
 import pg from 'pg';
@@ -29,7 +31,7 @@ for (const scenario of [
   'commit',
   'close',
 ] as const) {
-  test(`transaction lifecycle preserves ${scenario} outcome and primary/cleanup errors`, async () => {
+  void test(`transaction lifecycle preserves ${scenario} outcome and primary/cleanup errors`, async () => {
     const primary = new Error(`${scenario} transport failure`);
     const cleanup = new Error('cleanup failure');
     const commands: string[] = [];
@@ -99,3 +101,25 @@ for (const scenario of [
     }
   });
 }
+
+void test('migration rollback failure preserves its primary PostgreSQL cause', async () => {
+  const client = new pg.Client();
+  const cleanup = new Error('migration rollback failed');
+  const query = mock.method(client, 'query', (sql: string) => {
+    if (sql === 'BEGIN') return Promise.resolve({ command: 'BEGIN' });
+    return Promise.reject(sql === 'ROLLBACK' ? cleanup : databaseError);
+  });
+  try {
+    await assert.rejects(
+      migrateSource(client, '0'.repeat(48)),
+      (error: unknown) => {
+        assert.ok(error instanceof CleanupFailure);
+        assert.equal(error.cause, databaseError);
+        assert.deepEqual(error.cleanupErrors, [cleanup]);
+        return true;
+      },
+    );
+  } finally {
+    query.mock.restore();
+  }
+});

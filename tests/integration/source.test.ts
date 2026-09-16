@@ -1,3 +1,5 @@
+import { first } from '../../scripts/rows.ts';
+import type { SourceRow, Revision } from '../../src/source.ts';
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import type pg from 'pg';
@@ -9,11 +11,17 @@ import { connect, evidence, databaseWaitFor } from '../support/db.ts';
 let observer: pg.Client;
 before(async () => {
   observer = await connect('admin', 'source-observer');
-  const initial = (
-    await observer.query(
-      'SELECT (SELECT count(*)::text FROM source.entities) AS entities, (SELECT count(*)::text FROM source.outbox) AS outbox, source_epoch::text FROM source.source_identity',
-    )
-  ).rows[0];
+  const initial = first(
+    (
+      await observer.query<{
+        entities: string;
+        outbox: string;
+        source_epoch: string;
+      }>(
+        'SELECT (SELECT count(*)::text FROM source.entities) AS entities, (SELECT count(*)::text FROM source.outbox) AS outbox, source_epoch::text FROM source.source_identity',
+      )
+    ).rows,
+  );
   assert.equal(initial.entities, '0');
   assert.equal(initial.outbox, '0');
   evidence('T10-fresh-start', initial);
@@ -37,7 +45,7 @@ async function withWriter<T>(
 // Independent SQL observations; deliberately does not import the helper's column mapping.
 async function entity(id: string, client = observer) {
   return (
-    await client.query(
+    await client.query<SourceRow>(
       'SELECT entity_id::text, source_epoch::text, entity_version::text, change_id::text, recorded_at::text, is_deleted, payload::text AS payload_json FROM source.entities WHERE entity_id=$1',
       [id],
     )
@@ -45,7 +53,7 @@ async function entity(id: string, client = observer) {
 }
 async function revisions(id: string, client = observer) {
   return (
-    await client.query(
+    await client.query<Revision>(
       'SELECT allocation_id::text, source_epoch::text, entity_id::text, entity_version::text, change_id::text, recorded_at::text, is_deleted, payload::text AS payload_json FROM source.outbox WHERE entity_id=$1 ORDER BY entity_version',
       [id],
     )
@@ -59,38 +67,43 @@ async function sqlError(
 ) {
   let observed = false;
   try {
-    await client.query(sql, params);
+    await client.query<Record<string, unknown>>(sql, params);
   } catch (error) {
     observed = true;
-    assert.equal((error as { code: string }).code, code, sql);
+    assert.ok(error instanceof Error && 'code' in error);
+    assert.equal(error.code, code, sql);
     evidence('SQL-rejection', {
       sql,
       expectedCode: code,
-      actualCode: (error as { code: string }).code,
-      message: (error as Error).message,
+      actualCode: error.code,
+      message: error.message,
     });
   }
   assert.ok(observed, `SQL unexpectedly succeeded: ${sql}`);
 }
 
-test(
+void test(
   'T01 mutation lifecycle, exact BIGINT boundaries, no-op, and two committed revisions',
   { timeout: 20_000 },
   async () => {
     {
       const owner = sourceOwner('T01');
-      await observer.query(
+      await observer.query<Record<string, unknown>>(
         'ALTER SEQUENCE source.entities_entity_id_seq RESTART WITH 9007199254740993',
       );
-      const floor = (
-        await observer.query('SELECT clock_timestamp()::text AS time')
-      ).rows[0].time;
+      const floor = first(
+        (
+          await observer.query<{ time: string }>(
+            'SELECT clock_timestamp()::text AS time',
+          )
+        ).rows,
+      ).time;
       const created = await owner.transaction((c) =>
         c.create('{"label":"alpha","units":9007199254740993}'),
       );
       assert.equal(created.entity_id, '9007199254740993');
       assert.equal(created.entity_version, '1');
-      assert.deepEqual((await entity(created.entity_id))[0], created);
+      assert.deepEqual(first(await entity(created.entity_id)), created);
       const updated = await owner.transaction((c) =>
         c.mutate(
           created.entity_id,
@@ -128,7 +141,7 @@ test(
       assert.equal(restored.entity_id, created.entity_id);
       assert.equal(restored.entity_version, '4');
       assert.equal(restored.is_deleted, false);
-      assert.deepEqual((await entity(created.entity_id))[0], restored);
+      assert.deepEqual(first(await entity(created.entity_id)), restored);
       const history = await revisions(created.entity_id);
       assert.deepEqual(
         history.map((r) => r.entity_version),
@@ -136,15 +149,17 @@ test(
       );
       assert.equal(new Set(history.map((r) => r.change_id)).size, 4);
       assert.equal(new Set(history.map((r) => r.source_epoch)).size, 1);
-      const epoch = (
-        await observer.query(
-          'SELECT source_epoch::text FROM source.source_identity',
-        )
-      ).rows[0].source_epoch;
+      const epoch = first(
+        (
+          await observer.query<{ source_epoch: string }>(
+            'SELECT source_epoch::text FROM source.source_identity',
+          )
+        ).rows,
+      ).source_epoch;
       for (const revision of history) {
         assert.equal(revision.source_epoch, epoch);
         assert.equal(revision.entity_id, '9007199254740993');
-        assert.match(revision.change_id as string, /^[a-f0-9-]{36}$/);
+        assert.match(revision.change_id, /^[a-f0-9-]{36}$/);
       }
       const expected: [string, boolean, string | null][] = [
         ['1', false, '{"label":"alpha","units":9007199254740993}'],
@@ -157,7 +172,11 @@ test(
           payload_matches: boolean;
           deletion_matches: boolean;
           time_matches: boolean;
-        }> = await observer.query(
+        }> = await observer.query<{
+          payload_matches: boolean;
+          deletion_matches: boolean;
+          time_matches: boolean;
+        }>(
           'SELECT payload IS NOT DISTINCT FROM $3::jsonb AS payload_matches, is_deleted=$4 AS deletion_matches, recorded_at BETWEEN $5::timestamptz AND clock_timestamp() AS time_matches FROM source.outbox WHERE entity_id=$1 AND entity_version=$2',
           [created.entity_id, version, payload, deleted, floor],
         );
@@ -165,7 +184,10 @@ test(
           { payload_matches: true, deletion_matches: true, time_matches: true },
         ]);
       }
-      const highVersion = await observer.query(
+      const highVersion = await observer.query<{
+        unsafe_number_boundary: string;
+        maximum: string;
+      }>(
         'SELECT source.next_version(9007199254740992) AS unsafe_number_boundary, source.next_version(9223372036854775806) AS maximum',
       );
       assert.deepEqual(highVersion.rows, [
@@ -181,7 +203,7 @@ test(
       );
       await sqlError(observer, 'SELECT source.next_version(0)', '22003');
       await sqlError(observer, 'SELECT 9223372036854775808::bigint', '22003');
-      const duplicates = await observer.query(
+      const duplicates = await observer.query<Record<string, unknown>>(
         'SELECT source_epoch, entity_id::text, entity_version::text FROM source.outbox GROUP BY source_epoch, entity_id, entity_version HAVING count(*) > 1',
       );
       assert.deepEqual(duplicates.rows, []);
@@ -192,7 +214,7 @@ test(
         [created.entity_id],
       );
       const constraints = (
-        await observer.query(
+        await observer.query<{ conname: string; definition: string }>(
           "SELECT conname, pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid IN ('source.entities'::regclass, 'source.outbox'::regclass) ORDER BY conname",
         )
       ).rows;
@@ -229,7 +251,7 @@ test(
   },
 );
 
-test(
+void test(
   'T02 rollback after executed single, multiple, and inserted source revisions',
   { timeout: 20_000 },
   async () => {
@@ -298,7 +320,7 @@ test(
   },
 );
 
-test(
+void test(
   'T03 real narrowly scoped outbox INSERT error rolls back the source mutation',
   { timeout: 20_000 },
   async () => {
@@ -309,7 +331,9 @@ test(
       );
       const beforeState = await entity(original.entity_id);
       const beforeEvents = await revisions(original.entity_id);
-      await observer.query(`CREATE FUNCTION source.test_reject_one_outbox() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$ BEGIN RAISE EXCEPTION 'T03 injected outbox INSERT failure' USING ERRCODE='P9001'; END; $$;
+      await observer.query<
+        Record<string, unknown>
+      >(`CREATE FUNCTION source.test_reject_one_outbox() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$ BEGIN RAISE EXCEPTION 'T03 injected outbox INSERT failure' USING ERRCODE='P9001'; END; $$;
       CREATE TRIGGER test_reject_one_outbox BEFORE INSERT ON source.outbox FOR EACH ROW WHEN (NEW.entity_id=${positiveBigint(original.entity_id)} AND NEW.entity_version=2) EXECUTE FUNCTION source.test_reject_one_outbox();`);
       try {
         await sqlError(
@@ -328,16 +352,18 @@ test(
           sqlState: 'P9001',
         });
       } finally {
-        await observer.query(
+        await observer.query<Record<string, unknown>>(
           'DROP TRIGGER test_reject_one_outbox ON source.outbox; DROP FUNCTION source.test_reject_one_outbox()',
         );
       }
       assert.equal(
-        (
-          await observer.query(
-            "SELECT count(*)::text AS count FROM pg_trigger WHERE tgname='test_reject_one_outbox'",
-          )
-        ).rows[0].count,
+        first(
+          (
+            await observer.query<{ count: string }>(
+              "SELECT count(*)::text AS count FROM pg_trigger WHERE tgname='test_reject_one_outbox'",
+            )
+          ).rows,
+        ).count,
         '0',
       );
       await mutateEntity(
@@ -354,7 +380,7 @@ test(
   },
 );
 
-test(
+void test(
   'T04 concurrent writers wait on an observed row lock and create successive revisions',
   { timeout: 25_000 },
   async () => {
@@ -362,12 +388,14 @@ test(
     const b = await connect('writer', 'T04-B');
     try {
       const original = await createEntity(a, '{"writer":"initial"}');
-      const aPid = (await a.query('SELECT pg_backend_pid() AS pid')).rows[0]
-        .pid;
-      const bPid = (await b.query('SELECT pg_backend_pid() AS pid')).rows[0]
-        .pid;
-      await a.query('BEGIN');
-      await b.query('BEGIN');
+      const aPid = first(
+        (await a.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows,
+      ).pid;
+      const bPid = first(
+        (await b.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')).rows,
+      ).pid;
+      await a.query<Record<string, unknown>>('BEGIN');
+      await b.query<Record<string, unknown>>('BEGIN');
       await mutateEntity(a, original.entity_id, 'update', '{"writer":"A"}');
       const pendingB = mutateEntity(
         b,
@@ -382,24 +410,35 @@ test(
         observer,
         async () =>
           (
-            await observer.query(
+            await observer.query<{
+              pid: number;
+              application_name: string;
+              state: string;
+              wait_event_type: string | null;
+              wait_event: string | null;
+              backend_xid: string | null;
+              blockers: number[];
+            }>(
               'SELECT pid, application_name, state, wait_event_type, wait_event, backend_xid::text, pg_blocking_pids(pid) AS blockers FROM pg_stat_activity WHERE pid=$1',
               [bPid],
             )
           ).rows,
         (rows) =>
           rows.length === 1 &&
-          rows[0].wait_event_type === 'Lock' &&
-          (rows[0].blockers as number[]).includes(aPid),
+          first(rows).wait_event_type === 'Lock' &&
+          first(rows).blockers.includes(aPid),
         'T04 B blocked by A',
       );
       evidence('T04-lock', { aPid, bPid, lock });
-      assert.equal((await entity(original.entity_id))[0].entity_version, '1');
-      await a.query('COMMIT');
+      assert.equal(first(await entity(original.entity_id)).entity_version, '1');
+      await a.query<Record<string, unknown>>('COMMIT');
       const completedB = await pendingB;
-      if (completedB.error) throw completedB.error;
+      if (completedB.error)
+        throw new Error('Concurrent writer B failed', {
+          cause: completedB.error,
+        });
       assert.equal(completedB.value?.entity_version, '3');
-      await b.query('COMMIT');
+      await b.query<Record<string, unknown>>('COMMIT');
       const history = await revisions(original.entity_id);
       assert.deepEqual(
         history.map((r) => r.entity_version),
@@ -410,19 +449,22 @@ test(
         ['{"writer": "initial"}', '{"writer": "A"}', '{"writer": "B"}'],
       );
       assert.equal(
-        (await entity(original.entity_id))[0].payload_json,
+        first(await entity(original.entity_id)).payload_json,
         '{"writer": "B"}',
       );
       assert.equal(new Set(history.map((r) => r.change_id)).size, 3);
       evidence('T04', { history, final: await entity(original.entity_id) });
     } finally {
-      await Promise.allSettled([a.query('ROLLBACK'), b.query('ROLLBACK')]);
+      await Promise.allSettled([
+        a.query<Record<string, unknown>>('ROLLBACK'),
+        b.query<Record<string, unknown>>('ROLLBACK'),
+      ]);
       await Promise.all([a.end(), b.end()]);
     }
   },
 );
 
-test(
+void test(
   'T05 historical after-images stay unchanged and evidence cannot be edited or deleted',
   { timeout: 20_000 },
   async () => {
@@ -485,16 +527,28 @@ test(
   },
 );
 
-test(
+void test(
   'T06 actual runtime login, owners, grants, protected metadata and unsupported SQL rejection',
   { timeout: 25_000 },
   async () => {
     await withWriter('T06', async (writer) => {
-      const identity = (
-        await writer.query(
-          "SELECT session_user, current_user, pg_backend_pid() AS pid, rolsuper, rolcreaterole, rolcreatedb, rolreplication, rolbypassrls, pg_has_role(current_user, 'source_owner', 'MEMBER') AS owner_member FROM pg_roles WHERE rolname=current_user",
-        )
-      ).rows[0];
+      const identity = first(
+        (
+          await writer.query<{
+            session_user: string;
+            current_user: string;
+            pid: number;
+            rolsuper: boolean;
+            rolcreaterole: boolean;
+            rolcreatedb: boolean;
+            rolreplication: boolean;
+            rolbypassrls: boolean;
+            owner_member: boolean;
+          }>(
+            "SELECT session_user, current_user, pg_backend_pid() AS pid, rolsuper, rolcreaterole, rolcreatedb, rolreplication, rolbypassrls, pg_has_role(current_user, 'source_owner', 'MEMBER') AS owner_member FROM pg_roles WHERE rolname=current_user",
+          )
+        ).rows,
+      );
       assert.equal(identity.session_user, 'source_writer');
       assert.equal(identity.current_user, 'source_writer');
       for (const field of [
@@ -505,30 +559,52 @@ test(
         'rolbypassrls',
         'owner_member',
       ])
-        assert.equal(identity[field], false);
+        assert.equal(
+          identity[
+            field as
+              | 'rolsuper'
+              | 'rolcreaterole'
+              | 'rolcreatedb'
+              | 'rolreplication'
+              | 'rolbypassrls'
+              | 'owner_member'
+          ],
+          false,
+        );
       const owners = (
-        await observer.query(
+        await observer.query<{ relname: string; owner: string }>(
           "SELECT c.relname, pg_get_userbyid(c.relowner) AS owner FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='source' ORDER BY c.relname",
         )
       ).rows;
       assert.ok(owners.length >= 5);
       for (const object of owners) assert.equal(object.owner, 'source_owner');
       assert.equal(
-        (
-          await observer.query(
-            "SELECT pg_get_userbyid(nspowner) AS owner FROM pg_namespace WHERE nspname='source'",
-          )
-        ).rows[0].owner,
+        first(
+          (
+            await observer.query<{ owner: string }>(
+              "SELECT pg_get_userbyid(nspowner) AS owner FROM pg_namespace WHERE nspname='source'",
+            )
+          ).rows,
+        ).owner,
         'source_owner',
       );
-      const ownerRole = (
-        await observer.query(
-          "SELECT rolcanlogin, rolsuper FROM pg_roles WHERE rolname='source_owner'",
-        )
-      ).rows[0];
+      const ownerRole = first(
+        (
+          await observer.query<{ rolcanlogin: boolean; rolsuper: boolean }>(
+            "SELECT rolcanlogin, rolsuper FROM pg_roles WHERE rolname='source_owner'",
+          )
+        ).rows,
+      );
       assert.deepEqual(ownerRole, { rolcanlogin: false, rolsuper: false });
       const functions = (
-        await observer.query(
+        await observer.query<{
+          proname: string;
+          owner: string;
+          prosecdef: boolean;
+          proconfig: string[];
+          writer_execute: boolean;
+          public_execute: boolean;
+        }>(
           "SELECT p.proname, pg_get_userbyid(p.proowner) AS owner, p.prosecdef, p.proconfig, has_function_privilege('source_writer',p.oid,'EXECUTE') AS writer_execute, EXISTS(SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee=0 AND a.privilege_type='EXECUTE') AS public_execute FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='source' ORDER BY p.proname",
         )
       ).rows;
@@ -539,7 +615,7 @@ test(
         assert.equal(fn.public_execute, false);
         assert.equal(
           fn.writer_execute,
-          ['create_entity', 'mutate_entity'].includes(fn.proname as string),
+          ['create_entity', 'mutate_entity'].includes(fn.proname),
         );
         assert.equal(
           fn.prosecdef,
@@ -548,7 +624,7 @@ test(
             'mutate_entity',
             'prepare_revision',
             'capture_revision',
-          ].includes(fn.proname as string),
+          ].includes(fn.proname),
         );
       }
       const original = await createEntity(writer, '{"privileges":"original"}');
@@ -607,7 +683,9 @@ test(
         '428C9',
       );
       const beforeSearchPath = await revisions(id);
-      await writer.query('SET search_path=public,pg_temp');
+      await writer.query<Record<string, unknown>>(
+        'SET search_path=public,pg_temp',
+      );
       await mutateEntity(
         writer,
         id,
@@ -653,9 +731,9 @@ test(
         '23514',
         [id],
       );
-      assert.equal((await entity(id))[0].is_deleted, true);
+      assert.equal(first(await entity(id)).is_deleted, true);
       await mutateEntity(writer, id, 'restore', '{}');
-      const final = (await entity(id))[0];
+      const final = first(await entity(id));
       assert.equal(final.entity_version, '4');
       assert.equal(final.is_deleted, false);
       await sqlError(
@@ -665,7 +743,11 @@ test(
       );
       await sqlError(observer, 'TRUNCATE source.entities CASCADE', '0A000');
       const triggers = (
-        await observer.query(
+        await observer.query<{
+          relname: string;
+          tgname: string;
+          tgenabled: string;
+        }>(
           "SELECT c.relname, t.tgname, t.tgenabled FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid WHERE c.relnamespace='source'::regnamespace AND NOT t.tgisinternal ORDER BY t.tgname",
         )
       ).rows;
@@ -684,24 +766,21 @@ test(
   },
 );
 
-test(
+void test(
   'T07 known allocation-order risk: B commits first, late A remains queryable by identity',
   { timeout: 20_000 },
   async () => {
     const a = await connect('writer', 'T07-A');
     const b = await connect('writer', 'T07-B');
     try {
-      await a.query('BEGIN');
+      await a.query<Record<string, unknown>>('BEGIN');
       const aRow = await createEntity(a, '{"transaction":"A-late-commit"}');
-      const aEvent = (await revisions(aRow.entity_id, a))[0];
-      await b.query('BEGIN');
+      const aEvent = first(await revisions(aRow.entity_id, a));
+      await b.query<Record<string, unknown>>('BEGIN');
       const bRow = await createEntity(b, '{"transaction":"B-first-commit"}');
-      const bEvent = (await revisions(bRow.entity_id, b))[0];
-      assert.ok(
-        BigInt(aEvent.allocation_id as string) <
-          BigInt(bEvent.allocation_id as string),
-      );
-      await b.query('COMMIT');
+      const bEvent = first(await revisions(bRow.entity_id, b));
+      assert.ok(BigInt(aEvent.allocation_id) < BigInt(bEvent.allocation_id));
+      await b.query<Record<string, unknown>>('COMMIT');
       assert.deepEqual(await revisions(aRow.entity_id), []);
       assert.deepEqual(await entity(aRow.entity_id), []);
       assert.deepEqual(await revisions(bRow.entity_id), [bEvent]);
@@ -711,12 +790,12 @@ test(
         visibleA: await revisions(aRow.entity_id),
         visibleB: await revisions(bRow.entity_id),
       });
-      await a.query('COMMIT');
+      await a.query<Record<string, unknown>>('COMMIT');
       assert.deepEqual(await revisions(aRow.entity_id), [aEvent]);
       assert.deepEqual(await revisions(bRow.entity_id), [bEvent]);
       // Test-only characterization of a KNOWN unsafe watermark. No production cursor exists.
       const unsafe = (
-        await observer.query(
+        await observer.query<Record<string, unknown>>(
           'SELECT entity_id::text, entity_version::text FROM source.outbox WHERE entity_id IN ($1,$2) AND allocation_id > $3',
           [aRow.entity_id, bRow.entity_id, bEvent.allocation_id],
         )
@@ -732,21 +811,28 @@ test(
           'allocation order is not commit order; no incremental completeness claim',
       });
     } finally {
-      await Promise.allSettled([a.query('ROLLBACK'), b.query('ROLLBACK')]);
+      await Promise.allSettled([
+        a.query<Record<string, unknown>>('ROLLBACK'),
+        b.query<Record<string, unknown>>('ROLLBACK'),
+      ]);
       await Promise.all([a.end(), b.end()]);
     }
   },
 );
 
-test('T10 source tests leave no runtime database sessions or instrumentation', async () => {
+void test('T10 source tests leave no runtime database sessions or instrumentation', async () => {
   const sessions = (
-    await observer.query(
+    await observer.query<{
+      pid: number;
+      application_name: string;
+      state: string;
+    }>(
       "SELECT pid, application_name, state FROM pg_stat_activity WHERE usename='source_writer'",
     )
   ).rows;
   assert.deepEqual(sessions, []);
   const instrumentation = (
-    await observer.query(
+    await observer.query<{ proname: string }>(
       "SELECT proname FROM pg_proc WHERE pronamespace='source'::regnamespace AND proname LIKE 'test_%'",
     )
   ).rows;

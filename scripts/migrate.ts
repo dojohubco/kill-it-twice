@@ -26,7 +26,7 @@ export async function migrateSource(
   } catch (error) {
     try {
       if ((await client.query('ROLLBACK')).command !== 'ROLLBACK')
-        throw new Error('Migration ROLLBACK not confirmed');
+        throw new Error('Migration ROLLBACK not confirmed', { cause: error });
     } catch (cleanup) {
       throw new CleanupFailure(error, [cleanup]);
     }

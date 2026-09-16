@@ -29,3 +29,7 @@ Finish with tested commit SHA, changes, reproducible results, relevant SQL/code,
 ## Available commands
 
 Use `npm ci`, `npm run typecheck`, `npm run lint`, `npm run test:unit`, and `npm run test:integration:m1`. `make verify-m1` runs only the implemented M1 checks. `make verify` deliberately reports G1-G5 NOT IMPLEMENTED and exits nonzero. Integration artifacts are under ignored `artifacts/m1/<run-id>/`; integration resources are managed by `scripts/m1.ts`. Do not invoke Compose with a shared/default project name.
+
+## M1.1 commands and boundary
+
+Provision with `npm ci --no-audit --no-fund` and `npm run tools:provision`. `make quality` is read-only and local: formatting check, typed lint, typecheck, Knip, Compose configuration, actionlint and unit tests. `make verify-m1` adds fresh real PostgreSQL acceptance against the independent inventory in scripts/required-cases.ts. `npm run review:capture` requires clean committed code; `npm run review:bundle -- <capture-directory>` packages local evidence. Source callbacks use the owned expiring capability described in ADR 005; never pass arbitrary pg clients or expose manual transaction control through that API. M1.1 authorizes no M2 work or remote publication.

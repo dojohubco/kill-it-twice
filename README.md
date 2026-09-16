@@ -1,27 +1,50 @@
-# Kill It Twice — M1 only
+# Kill It Twice — M1 and M1.1
 
-M1 proves the controlled source mutation/version/outbox contract with real PostgreSQL, restricted runtime credentials and actual writer SIGKILLs. It does not complete any full Optio G1–G5 gate. Read [SPEC v1](SPEC.md), [M1 scope](docs/milestones/M1.md) and the [actual evidence and limitations](docs/evidence/M1.md). The initial specification/ADRs came from pre-implementation AI-assisted architectural review.
+This repository implements the controlled source mutation/version/outbox contract with real PostgreSQL, restricted runtime credentials and actual writer SIGKILLs. M1.1 hardens transaction ownership and the acceptance harness after external adversarial review. G1–G5 remain **NOT IMPLEMENTED**. Read [SPEC v1](SPEC.md), [M1.1 scope](docs/milestones/M1.1.md), [transaction decision](docs/adr/005-managed-source-transactions.md), and [historical M1 evidence](docs/evidence/M1.md).
 
-Prerequisites: Linux, Node **24.19.0**, npm **12.0.2**, Docker with Compose, Git and make. The harness installs no system software. Node's built-in test runner executes TypeScript directly; TypeScript 5.9.3 checks it separately. One root lockfile pins dependencies.
+Prerequisites: Linux x64, Node **24.19.0**, npm **12.0.2**, Docker with Compose, Git, make and tar. Node's native runner executes TypeScript; TypeScript **5.9.3** checks it separately. Keep one root lockfile and exact package pins.
 
 ```sh
-npm ci
-npm run typecheck
-npm run lint
-npm run test:unit
+npm ci --no-audit --no-fund
+npm run tools:provision
+make quality
 npm run test:integration:m1
 make verify-m1
 make verify
 ```
 
-`verify-m1` runs M1-only checks: typecheck, lint, 6 unit tests and 12 real integration cases, followed by retained-volume service restart and owned-resource cleanup. Every integration invocation creates fresh resources. `verify` deliberately prints **G1–G5 NOT IMPLEMENTED** and returns nonzero (GNU make exit 2). No missing gate is counted as passed.
+Provisioning downloads actionlint **1.7.12** into `.tools/cache/`, verifies the published archive checksum and a pinned binary checksum, and checks its version. No privileged system install is used. Missing tools fail clearly. `make quality` only reads existing tools and inputs: Prettier check, typed ESLint with zero warnings, TypeScript, Knip, Compose configuration with nonsecret interpolation, actionlint and pure/unit tests. It does not install, consult advisories, start PostgreSQL, edit files or invoke the integration/full verifier. Disposable process fixtures are exercised by the unit tests and cleaned up.
 
-The integration command creates one source PostgreSQL service, a unique Compose project, temporary credentials and an ephemeral loopback port. It records sanitized command logs, direct SQL observations, JUnit results and actual signal/session evidence under ignored `artifacts/m1/<run-id>/`. Tests fail on missing barriers/timeouts; cleanup removes only that run's resources. Keep logs when a check fails. The harness needs an accessible Docker daemon and network access if the pinned image is not cached. SIGINT/SIGTERM request cleanup after the bounded active command; SIGKILL of the harness itself is outside its cleanup guarantee.
+`make verify-m1` runs quality followed by fresh real PostgreSQL acceptance. Every integration invocation owns a unique Compose project, temporary credentials, volume and loopback port. It verifies a checked-in inventory of 22 required cases using native structured test events, retains JUnit and direct SQL/process evidence, checks retained-volume restart, and removes its own resources. Missing, skipped, todo, cancelled, duplicate or malformed results fail. `make verify` deliberately prints G1–G5 NOT IMPLEMENTED and exits nonzero (GNU make exit 2).
 
-PostgreSQL is pinned to `18.6-bookworm@sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af`. The harness also records the actual container image identity and server version. `fsync`, `synchronous_commit` and `full_page_writes` remain on. Readiness requires TCP, the temporary password mount uses a private SELinux label, and the host port is resolved again after restart.
+PostgreSQL remains pinned to `18.6-bookworm@sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af`. Durability settings remain on. The unchanged original migration defines only epoch, entities and immutable outbox. Real migration execution, trigger/constraint/role and lifecycle branch tests establish SQL behavior; ordinary SQL parsing is not a PL/pgSQL proof. No SQL formatter or static SQL extension is a blocking dependency.
 
-`migrations/001-source.sql` defines only epoch, entities and immutable outbox tables. The real writer login can execute two source mutation functions and read rows; it cannot directly mutate tables, metadata or sequences, disable capture, truncate/delete retained identities or assume the owner role. `src/source.ts` supplies checked decimal-string identifiers, explicit client transactions and mutation helpers without retries. JSONB objects are live payloads; deletion stores SQL NULL and restore advances the same identity's version. Private process barriers exist only under tests/.
+## Transaction contract
 
-No pipeline, canonical wire envelope, acknowledgement worker, source command-idempotency API, backfill, sinks, consumer, UI, benchmark or full gate harness is implemented. Post-COMMIT writer death intentionally leaves caller outcome unknown; do not blindly repeat the mutation.
+Create a `Source` from connection configuration, then call `source.transaction(async (tx) => ...)`. Each transaction opens and closes a private session; callbacks receive only create, mutate and a fixed diagnostic inspection capability. Await each operation. The capability expires at callback completion. The owner rejects nested/concurrent transactions before connection/transaction SQL; use the same existing capability for one atomic unit. Manual SQL transaction control is not exposed. Independent low-level SQL fixtures remain under tests/.
 
-Version sources: [Node releases](https://nodejs.org/en/about/previous-releases), [exact Node distribution index](https://nodejs.org/dist/index.json), [PostgreSQL version policy](https://www.postgresql.org/support/versioning/), and [official image definitions](https://github.com/docker-library/official-images/blob/master/library/postgres). Node 24.19.0 is the installed LTS-family patch used and pinned here, not a claim to be the latest Node patch.
+Confirmed COMMIT permits success; a ROLLBACK command tag never does. A caught mutation error still fails the transaction and retains the original PostgreSQL cause/SQLSTATE. An interrupted COMMIT is unknown even if a subsequent ROLLBACK succeeds. Setup failure before work, known rollback, unknown completion and confirmed commit followed by cleanup failure are distinct. Cleanup errors remain separate, and unknown outcomes or broken cleanup poison the owner. There are no automatic mutation retries. Deadlock acceptance verifies the actual 40P01 victim and survivor without choosing which writer must lose.
+
+Callbacks must settle cooperatively; arbitrary JavaScript cannot be preempted by this API. IDs/versions are checked decimal strings. Live payloads are JSONB objects; deletion uses SQL NULL, and restore advances the retained identity's version. No command-idempotency or command-retry API exists.
+
+## Harness limits and evidence
+
+SIGKILL tests pause the production transaction owner at both existing private boundaries. They require exact process/session identities, independent row/lock observations, actual SIGKILL exit and no caller success. Healthy release controls require exit zero and exactly one success. Unexpected parent IPC loss closes the session and exits 72; it never counts as a SIGKILL result.
+
+Polling uses a monotonic deadline and observes success only before it. Resource-bearing database observations have a 500 ms server statement timeout; expiry closes the owned connection, bounds disposal, consumes late rejection, and verifies backend disappearance independently. Socket closure alone need not immediately interrupt a server query. Pure promises have no external resource to cancel. Subprocess capture is bounded to 1 MiB combined output and explicitly fails on overflow; complete chunks and cutoff prefixes are credential-redacted. Timeout cleanup targets only the process group created by that spawn. Tests terminate a real child/grandchild while an unrelated sentinel survives. Descendants deliberately escaping the owned group, harness SIGKILL, host crash and malicious database owners are outside these cleanup guarantees.
+
+Local sanitized artifacts live in ignored `artifacts/m1/<run-id>/`. Public upload copies are created only through explicit sanitization; failed finalization invalidates stale PASS summaries. Primary and cleanup failures are separate. Dirty developmental runs record tracked/untracked input hashes and a patch; final acceptance requires committed clean code. Paths in summaries identify local files, not publicly accessible evidence URLs.
+
+`npm run review:capture` records all quality subcommands, quality, standalone integration, two fresh verify-m1 runs and expected failing verify from clean committed code. `npm run review:bundle -- <capture-directory>` creates a local final tracked archive, full diffs from the reviewed and initial specification commits, chronological history, development/acceptance logs and SHA-256 checksums.
+
+## Tool choices and CI
+
+Prettier **3.9.7** is the sole formatter for supported formats; SQL is excluded. ESLint retains its pinned major and uses typescript-eslint recommended type-checked rules with projectService, explicit floating/misused promise, await-thenable and unsafe-value rules. Narrow public-method test instrumentation exceptions explain the explicit receiver binding. TypeScript retains strict, noUncheckedIndexedAccess and erasableSyntaxOnly; adds exact optional properties, explicit returns, switch fallthrough, override, index-signature access, side-effect import and casing checks. `useUnknownInCatchVariables` is already included in strict. `skipLibCheck: false` is retained after checking the pinned dependencies.
+
+Knip **6.36.0** discovers npm scripts and the custom reporter; explicit entries cover native test files and the two private process fixtures. Source files are reached through imports. No unused-code/dependency suppression is configured. Discarded formatting, promise/type and unused code/dependency canaries must be detected before handoff.
+
+The push/PR workflow uses the same `make verify-m1` command on Ubuntu 24.04 with read-only repository permission, exact Node/npm, no persisted checkout credentials, no project secrets and a 15-minute timeout. Action references are full release commit SHAs; their official release metadata and action inputs/runtime were reviewed locally. Actionlint validation is local evidence, **not a remotely run CI PASS**. Sanitized evidence upload runs even on failure. This task neither pushes the workflow nor changes repository settings.
+
+Separate future work includes advisory/security review and targeted property/mutation tests. No extra security scanner ecosystem, large CI benchmark, pipeline, acknowledgements, backfill, broker/search, consumer, UI or production deployment is introduced.
+
+Sources: [native reporters](https://nodejs.org/docs/latest-v24.x/api/test.html#custom-reporters), [typed linting](https://typescript-eslint.io/getting-started/typed-linting/), [Knip configuration](https://knip.dev/overview/configuration), [actionlint release](https://github.com/rhysd/actionlint/releases/tag/v1.7.12), and [pg lifecycle](https://node-postgres.com/apis/client).

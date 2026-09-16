@@ -8,7 +8,8 @@ const columns =
 
 function row(result: pg.QueryResult<SourceRow>): SourceRow {
   if (result.rows.length !== 1) throw new Error('Expected one source entity');
-  const value = result.rows[0]!;
+  const value = result.rows[0];
+  if (!value) throw new Error('Expected source row');
   positiveBigint(value.entity_id);
   positiveBigint(value.entity_version);
   return value;

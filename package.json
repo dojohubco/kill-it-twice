@@ -17,7 +17,10 @@
     "knip": "knip --no-progress",
     "validate:compose": "node scripts/validate-tools.ts compose",
     "validate:workflow": "node scripts/validate-tools.ts workflow",
-    "tools:provision": "node scripts/provision-tools.ts"
+    "tools:provision": "node scripts/provision-tools.ts",
+    "review:capture": "node scripts/review.ts capture",
+    "review:bundle": "node scripts/review.ts bundle",
+    "review:summary": "node scripts/review.ts summary"
   },
   "dependencies": {
     "pg": "8.23.0"

@@ -6,10 +6,18 @@ export function redact(value: string, secrets: readonly string[]): string {
     .filter(Boolean)
     .reduce((text, secret) => text.replaceAll(secret, '[REDACTED]'), value);
 }
-export function errorText(error: unknown): string {
-  return error instanceof Error
-    ? (error.stack ?? error.message)
-    : String(error);
+export function errorText(error: unknown, depth = 0): string {
+  if (!(error instanceof Error)) return String(error);
+  if (depth >= 5) return error.message;
+  const parts = [error.stack ?? error.message];
+  if ('code' in error) parts.push(`code=${String(error.code)}`);
+  if (error.cause !== undefined)
+    parts.push(`Caused by: ${errorText(error.cause, depth + 1)}`);
+  if ('cleanupErrors' in error && Array.isArray(error.cleanupErrors)) {
+    for (const cleanup of error.cleanupErrors as unknown[])
+      parts.push(`Cleanup: ${errorText(cleanup, depth + 1)}`);
+  }
+  return parts.join('\n');
 }
 export function errorCode(error: unknown): unknown {
   return error && typeof error === 'object' && 'code' in error
@@ -23,8 +31,26 @@ export class CleanupFailure extends Error {
     this.cleanupErrors = cleanupErrors;
   }
 }
+export async function withCleanup<T>(
+  work: () => Promise<T>,
+  cleanup: () => Promise<void>,
+): Promise<T> {
+  let value: T;
+  try {
+    value = await work();
+  } catch (primary) {
+    try {
+      await cleanup();
+    } catch (failure) {
+      throw new CleanupFailure(primary, [failure]);
+    }
+    throw primary;
+  }
+  await cleanup();
+  return value;
+}
 class DeadlineError extends Error {}
-export async function bounded<T>(
+async function bounded<T>(
   promise: Promise<T>,
   milliseconds: number,
   label: string,
@@ -47,7 +73,7 @@ export async function bounded<T>(
 // Resource-bearing observers MUST react to signal and supply bounded cleanup.
 // A race consumes late rejection, but cannot itself cancel arbitrary external work.
 export async function waitFor<T>(
-  observe: (signal: AbortSignal) => Promise<T>,
+  observe: (signal: AbortSignal) => T | Promise<T>,
   accept: (value: T) => boolean,
   label: string,
   timeoutMs = 10_000,
@@ -64,7 +90,7 @@ export async function waitFor<T>(
     while (performance.now() < end) {
       try {
         last = await bounded(
-          observe(abort.signal),
+          Promise.resolve(observe(abort.signal)),
           Math.max(1, end - performance.now()),
           label,
         );
@@ -74,7 +100,9 @@ export async function waitFor<T>(
         throw error;
       }
       if (performance.now() >= end) throw expired();
-      if (accept(last)) return last;
+      const accepted = accept(last);
+      if (performance.now() >= end) throw expired();
+      if (accepted) return last;
       await delay(Math.min(25, Math.max(0, end - performance.now())));
     }
     throw expired();

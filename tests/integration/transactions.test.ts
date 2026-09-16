@@ -33,7 +33,7 @@ async function persisted(client: pg.Client, ids: string[]) {
   };
 }
 
-test('M11-F01 caught SQL failure cannot turn rollback into caller success', async () => {
+void test('M11-F01 caught SQL failure cannot turn rollback into caller success', async () => {
   const owner = sourceOwner('F01-fixed');
   const observer = await connect('admin', 'F01-observer');
   let id = '';
@@ -66,7 +66,9 @@ test('M11-F01 caught SQL failure cannot turn rollback into caller success', asyn
   }
 });
 
-test('M11-F01-TAG actual COMMIT ROLLBACK tag is rejected by the owner', async () => {
+void test('M11-F01-TAG actual COMMIT ROLLBACK tag is rejected by the owner', async () => {
+  // Explicit receiver is restored with Reflect.apply in this private instrumentation.
+  // eslint-disable-next-line @typescript-eslint/unbound-method
   const original = pg.Client.prototype.query;
   let tag: string | undefined;
   const query = mock.method(
@@ -109,22 +111,39 @@ test('M11-F01-TAG actual COMMIT ROLLBACK tag is rejected by the owner', async ()
   }
 });
 
-test('M11-F02 nested and concurrent owners reject before SQL and outer rollback remains true', async () => {
+void test('M11-F02 nested and concurrent owners reject before SQL and outer rollback remains true', async () => {
   const owner = sourceOwner('F02-fixed');
   const observer = await connect('admin', 'F02-observer');
   const ids: string[] = [];
+  const connectProbe = mock.method(pg.Client.prototype, 'connect');
+  const queryProbe = mock.method(pg.Client.prototype, 'query');
+  const guardEvidence: unknown[] = [];
   let invoked = 0;
   const entered = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();
   try {
     const outer = owner.transaction(async (tx) => {
       ids.push((await tx.create('{}')).entity_id);
+      const beforeNested = [
+        connectProbe.mock.callCount(),
+        queryProbe.mock.callCount(),
+      ];
       await assert.rejects(
-        owner.transaction(async () => {
+        owner.transaction(() => {
           invoked++;
+          return Promise.resolve();
         }),
         SourceOwnershipError,
       );
+      assert.deepEqual(
+        [connectProbe.mock.callCount(), queryProbe.mock.callCount()],
+        beforeNested,
+      );
+      guardEvidence.push({
+        attempt: 'nested',
+        before: beforeNested,
+        after: [connectProbe.mock.callCount(), queryProbe.mock.callCount()],
+      });
       entered.resolve();
       await release.promise;
       throw new Error('outer failure');
@@ -136,25 +155,41 @@ test('M11-F02 nested and concurrent owners reject before SQL and outer rollback 
         error.outcome === 'rolled_back',
     );
     await entered.promise;
+    const beforeConcurrent = [
+      connectProbe.mock.callCount(),
+      queryProbe.mock.callCount(),
+    ];
     await assert.rejects(
-      owner.transaction(async () => {
+      owner.transaction(() => {
         invoked++;
+        return Promise.resolve();
       }),
       SourceOwnershipError,
     );
+    assert.deepEqual(
+      [connectProbe.mock.callCount(), queryProbe.mock.callCount()],
+      beforeConcurrent,
+    );
+    guardEvidence.push({
+      attempt: 'concurrent',
+      before: beforeConcurrent,
+      after: [connectProbe.mock.callCount(), queryProbe.mock.callCount()],
+    });
     release.resolve();
     await rejected;
     assert.equal(invoked, 0);
     const state = await persisted(observer, ids);
     assert.deepEqual(state, { entities: [], outbox: [] });
-    evidence('M11-F02', { invoked, ids, state });
+    evidence('M11-F02', { invoked, ids, state, guardEvidence });
   } finally {
     release.resolve();
+    connectProbe.mock.restore();
+    queryProbe.mock.restore();
     await observer.end();
   }
 });
 
-test('M11-LIFETIME success, rollback, expired capability and sequential owner reuse', async () => {
+void test('M11-LIFETIME success, rollback, expired capability and sequential owner reuse', async () => {
   const owner = sourceOwner('lifetime');
   const observer = await connect('admin', 'lifetime-observer');
   let expired: SourceWork | undefined;
@@ -191,7 +226,7 @@ test('M11-LIFETIME success, rollback, expired capability and sequential owner re
   }
 });
 
-test(
+void test(
   'M11-DEADLOCK real 40P01 victim loses both mutations and survivor retains correct revisions',
   { timeout: 25_000 },
   async () => {

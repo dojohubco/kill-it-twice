@@ -21,13 +21,19 @@ process.once('disconnect', () => {
 let telemetry: BarrierTelemetry | undefined;
 let start: StartWriter | undefined;
 async function barrier(): Promise<void> {
-  assert.ok(start && telemetry && process.send);
-  const release = once(process, 'message', { signal: abort.signal });
+  assert.ok(start && telemetry);
+  assert.equal(typeof process.send, 'function');
+  const release = once(process, 'message', { signal: abort.signal }).then(
+    (values: unknown[]) => values,
+  );
   // Handle a rejected release even if sending telemetry fails first.
   const released = deadline(release, start.barrier);
   void released.catch(() => undefined);
   await new Promise<void>((resolve, reject) => {
-    assert.ok(process.send);
+    if (typeof process.send !== 'function') {
+      reject(new Error('Parent channel unavailable'));
+      return;
+    }
     process.send(telemetry, (error) => (error ? reject(error) : resolve()));
   });
   const [reply] = await released;
@@ -37,6 +43,8 @@ async function barrier(): Promise<void> {
     barrier: start.barrier,
   });
 }
+// Explicit receiver is restored with Reflect.apply in this private instrumentation.
+// eslint-disable-next-line @typescript-eslint/unbound-method
 const originalEnd = pg.Client.prototype.end;
 // Test-only pause after production checked COMMIT, before its owned connection closes.
 const close = mock.method(
@@ -57,7 +65,9 @@ const close = mock.method(
 );
 try {
   const [message]: unknown[] = await deadline(
-    once(process, 'message', { signal: abort.signal }),
+    once(process, 'message', { signal: abort.signal }).then(
+      (values: unknown[]) => values,
+    ),
     'start message',
   );
   // The parent constructs this private protocol; validate all fields before using them.

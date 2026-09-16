@@ -32,7 +32,7 @@ const fixture = () => ({
   },
 });
 
-test('acceptance requires the independent complete inventory', () => {
+void test('acceptance requires the independent complete inventory', () => {
   assert.equal(
     checkAcceptance(JSON.stringify(fixture()), runner).passed,
     requiredCases.length,
@@ -48,7 +48,7 @@ for (const kind of [
   'malformed',
   'nonzero',
 ] as const) {
-  test(`acceptance rejects ${kind} evidence`, () => {
+  void test(`acceptance rejects ${kind} evidence`, () => {
     const report = fixture();
     const first = report.results[0];
     assert.ok(first);
@@ -68,7 +68,7 @@ for (const kind of [
   });
 }
 
-test('finalization preserves primary failure and attempts all cleanup steps', async () => {
+void test('finalization preserves primary failure and attempts all cleanup steps', async () => {
   const diagnostics = new Diagnostics((text) => text);
   diagnostics.fail(new Error('runner failed'));
   for (const step of [

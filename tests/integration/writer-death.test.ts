@@ -1,9 +1,11 @@
+import { first } from '../../scripts/rows.ts';
+import type { SourceRow, Revision } from '../../src/source.ts';
 import assert from 'node:assert/strict';
 import { fork } from 'node:child_process';
 import test from 'node:test';
 import type pg from 'pg';
 import { createEntity } from '../support/sql.ts';
-import { waitFor } from '../../scripts/support.ts';
+import { waitFor, CleanupFailure } from '../../scripts/support.ts';
 import { connect, evidence, required, databaseWaitFor } from '../support/db.ts';
 import type {
   BarrierName,
@@ -24,13 +26,13 @@ const writers: {
 
 async function observeRows(client: pg.Client, entityId: string) {
   const entities = (
-    await client.query(
+    await client.query<SourceRow>(
       'SELECT entity_id::text, source_epoch::text, entity_version::text, change_id::text, recorded_at::text, is_deleted, payload::text AS payload_json FROM source.entities WHERE entity_id=$1',
       [entityId],
     )
   ).rows;
   const outbox = (
-    await client.query(
+    await client.query<Revision>(
       'SELECT allocation_id::text, source_epoch::text, entity_id::text, entity_version::text, change_id::text, recorded_at::text, is_deleted, payload::text AS payload_json FROM source.outbox WHERE entity_id=$1 ORDER BY entity_version',
       [entityId],
     )
@@ -56,7 +58,7 @@ async function killAtBarrier(
     {
       execArgv: [],
       stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
-      env: { PATH: process.env.PATH, TZ: 'UTC' },
+      env: { PATH: process.env['PATH'], TZ: 'UTC' },
     },
   );
   assert.ok(child.pid);
@@ -70,12 +72,13 @@ async function killAtBarrier(
   evidence(`${label}-spawn`, { writerPid: child.pid, barrier: name });
   let telemetry: BarrierTelemetry | undefined;
   let spawnError: Error | undefined;
+  assert.ok(child.stdout && child.stderr);
   let stdout = '',
     stderr = '';
-  child.stdout!.setEncoding('utf8').on('data', (chunk: string) => {
+  child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
     stdout += chunk;
   });
-  child.stderr!.setEncoding('utf8').on('data', (chunk: string) => {
+  child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
     stderr += chunk;
   });
   child.on('message', (message: BarrierTelemetry) => {
@@ -89,10 +92,10 @@ async function killAtBarrier(
   });
   let stdoutClosed = false,
     stderrClosed = false;
-  child.stdout!.once('close', () => {
+  child.stdout.once('close', () => {
     stdoutClosed = true;
   });
-  child.stderr!.once('close', () => {
+  child.stderr.once('close', () => {
     stderrClosed = true;
   });
   child.on('close', () => {
@@ -120,10 +123,12 @@ async function killAtBarrier(
     password: required('M1_WRITER_PASSWORD'),
     applicationName: `${required('M1_RUN_ID')}:${label}-child`,
   };
+  let primary: { error: unknown } | undefined;
+  const cleanupErrors: unknown[] = [];
   try {
     child.send(start);
     const barrier = await waitFor(
-      async () => {
+      () => {
         if (spawnError) throw spawnError;
         if (tracked.exit)
           throw new Error(
@@ -143,7 +148,7 @@ async function killAtBarrier(
     assert.equal(barrier.effectiveUser, 'source_writer');
     assert.equal(barrier.entity.entity_version, '1');
     assert.equal(barrier.outbox.length, 1);
-    assert.equal(barrier.outbox[0]?.entity_id, barrier.entity.entity_id);
+    assert.equal(first(barrier.outbox)?.entity_id, barrier.entity.entity_id);
     assert.equal(stdout, '');
     const before = await observe(observer, barrier);
     evidence(`${label}-confirmed-barrier`, {
@@ -159,13 +164,13 @@ async function killAtBarrier(
       child.send({ type: 'release', runId: barrier.runId, barrier: name });
     else child.disconnect();
     const exit = await waitFor(
-      async () => tracked.exit,
+      () => tracked.exit,
       (value) => value !== undefined,
       `${label} ${mode} exit`,
       5_000,
     );
     await waitFor(
-      async () => streamsClosed(),
+      () => streamsClosed(),
       Boolean,
       `${label} child stdio closed`,
       5_000,
@@ -179,7 +184,7 @@ async function killAtBarrier(
       assert.deepEqual(exit, { code: 0, signal: null });
       const lines = stdout.trim().split('\n');
       assert.equal(lines.length, 1);
-      assert.deepEqual(JSON.parse(lines[0] ?? ''), {
+      assert.deepEqual(JSON.parse(first(lines) ?? ''), {
         type: 'caller-success',
         entity: barrier.entity,
       });
@@ -192,7 +197,11 @@ async function killAtBarrier(
       observer,
       async () =>
         (
-          await observer.query(
+          await observer.query<{
+            pid: number;
+            state: string;
+            backend_xid: string | null;
+          }>(
             'SELECT pid, state, backend_xid::text FROM pg_stat_activity WHERE pid=$1',
             [barrier.backendPid],
           )
@@ -219,23 +228,37 @@ async function killAtBarrier(
         callerOutcome: 'unknown; no ordinary caller success response received',
       });
     await verify(observer, barrier, before);
+  } catch (error) {
+    primary = { error };
   } finally {
     try {
       if (!tracked.exit) child.kill('SIGKILL');
       await waitFor(
-        async () => streamsClosed(),
+        () => streamsClosed(),
         Boolean,
         `${label} owned writer cleanup`,
         5_000,
       );
       evidence(`${label}-writer-cleanup`, tracked);
-    } finally {
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
+    try {
       await observer.end();
+    } catch (error) {
+      cleanupErrors.push(error);
     }
   }
+  if (primary) {
+    if (cleanupErrors.length)
+      throw new CleanupFailure(primary.error, cleanupErrors);
+    throw primary.error;
+  }
+  if (cleanupErrors.length)
+    throw new AggregateError(cleanupErrors, 'Writer cleanup incomplete');
 }
 
-test(
+void test(
   'T08 actual pre-COMMIT SIGKILL rolls back source and outbox, then a fresh writer progresses',
   { timeout: 25_000 },
   async () => {
@@ -243,20 +266,36 @@ test(
       'source.after_mutation.before_commit',
       'T08',
       async (observer, barrier) => {
-        const session = (
-          await observer.query(
-            'SELECT pid, application_name, usename, state, backend_xid::text, xact_start IS NOT NULL AS has_transaction, query FROM pg_stat_activity WHERE pid=$1',
-            [barrier.backendPid],
-          )
-        ).rows[0];
+        const session = first(
+          (
+            await observer.query<{
+              pid: number;
+              application_name: string;
+              usename: string;
+              state: string;
+              backend_xid: string | null;
+              has_transaction: boolean;
+              query: string;
+            }>(
+              'SELECT pid, application_name, usename, state, backend_xid::text, xact_start IS NOT NULL AS has_transaction, query FROM pg_stat_activity WHERE pid=$1',
+              [barrier.backendPid],
+            )
+          ).rows,
+        );
         assert.equal(session.application_name, barrier.applicationName);
         assert.equal(session.usename, 'source_writer');
         assert.equal(session.state, 'idle in transaction');
         assert.equal(session.has_transaction, true);
         assert.equal(session.backend_xid, barrier.transactionId);
-        assert.match(session.query as string, /FROM source\.outbox/);
+        assert.match(session.query, /FROM source\.outbox/);
         const locks = (
-          await observer.query(
+          await observer.query<{
+            locktype: string;
+            mode: string;
+            relation: string | null;
+            transactionid: string | null;
+            granted: boolean;
+          }>(
             'SELECT locktype, mode, relation::regclass::text AS relation, transactionid::text, granted FROM pg_locks WHERE pid=$1 AND granted ORDER BY locktype, relation, mode',
             [barrier.backendPid],
           )
@@ -293,13 +332,13 @@ test(
           assert.equal(progress.entities.length, 1);
           assert.equal(progress.outbox.length, 1);
           assert.equal(
-            progress.entities[0].payload_json,
+            first(progress.entities).payload_json,
             '{"fault": "T08-fresh-progress"}',
           );
-          assert.equal(progress.entities[0].entity_version, '1');
+          assert.equal(first(progress.entities).entity_version, '1');
           assert.equal(
-            progress.outbox[0].change_id,
-            progress.entities[0].change_id,
+            first(progress.outbox).change_id,
+            first(progress.entities).change_id,
           );
           evidence('T08', { afterKill, freshWriter: progress });
         } finally {
@@ -310,7 +349,7 @@ test(
   },
 );
 
-test(
+void test(
   'T09 actual post-COMMIT SIGKILL retains both rows with caller outcome unknown',
   { timeout: 25_000 },
   async () => {
@@ -318,12 +357,22 @@ test(
       'source.after_commit.before_caller_success',
       'T09',
       async (observer, barrier) => {
-        const session = (
-          await observer.query(
-            'SELECT pid, application_name, usename, state, backend_xid::text, xact_start IS NOT NULL AS has_transaction, query FROM pg_stat_activity WHERE pid=$1',
-            [barrier.backendPid],
-          )
-        ).rows[0];
+        const session = first(
+          (
+            await observer.query<{
+              pid: number;
+              application_name: string;
+              usename: string;
+              state: string;
+              backend_xid: string | null;
+              has_transaction: boolean;
+              query: string;
+            }>(
+              'SELECT pid, application_name, usename, state, backend_xid::text, xact_start IS NOT NULL AS has_transaction, query FROM pg_stat_activity WHERE pid=$1',
+              [barrier.backendPid],
+            )
+          ).rows,
+        );
         assert.equal(session.application_name, barrier.applicationName);
         assert.equal(session.usename, 'source_writer');
         assert.equal(session.state, 'idle');
@@ -333,7 +382,7 @@ test(
         const committed = await observeRows(observer, barrier.entity.entity_id);
         assert.deepEqual(committed.entities, [barrier.entity]);
         assert.deepEqual(committed.outbox, barrier.outbox);
-        const committedEntity = committed.entities[0];
+        const committedEntity = first(committed.entities);
         assert.ok(committedEntity);
         assert.equal(
           committedEntity.payload_json,
@@ -374,7 +423,7 @@ for (const barrierName of [
   'source.after_commit.before_caller_success',
 ] as const) {
   const stage = barrierName.includes('before_commit') ? 'PRE' : 'POST';
-  test(`M11-HEALTHY-${stage} ordinary release exits zero once and commits both rows`, async () => {
+  void test(`M11-HEALTHY-${stage} ordinary release exits zero once and commits both rows`, async () => {
     await killAtBarrier(
       barrierName,
       `M11-HEALTHY-${stage}`,
@@ -389,7 +438,7 @@ for (const barrierName of [
       'release',
     );
   });
-  test(`M11-ORPHAN-${stage} parent loss fails and closes the owned session`, async () => {
+  void test(`M11-ORPHAN-${stage} parent loss fails and closes the owned session`, async () => {
     await killAtBarrier(
       barrierName,
       `M11-ORPHAN-${stage}`,
@@ -410,7 +459,7 @@ for (const barrierName of [
   });
 }
 
-test('T10 fault writers were reaped and their database sessions ended', async () => {
+void test('T10 fault writers were reaped and their database sessions ended', async () => {
   assert.equal(writers.length, 6);
   assert.equal(writers.filter((writer) => writer.mode === 'kill').length, 2);
   for (const writer of writers) {
@@ -426,7 +475,11 @@ test('T10 fault writers were reaped and their database sessions ended', async ()
   const observer = await connect('admin', 'T10-fault-cleanup');
   try {
     const sessions = (
-      await observer.query(
+      await observer.query<{
+        pid: number;
+        application_name: string;
+        state: string;
+      }>(
         "SELECT pid, application_name, state FROM pg_stat_activity WHERE usename='source_writer'",
       )
     ).rows;
