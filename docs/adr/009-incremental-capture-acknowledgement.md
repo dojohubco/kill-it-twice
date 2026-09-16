@@ -1,6 +1,6 @@
 # ADR 009: bounded incremental capture and staged acknowledgement
 
-Status: authorized design before production changes; verification pending. Origin: the already planned capture/ACK boundary, refined for M2C on 2026-09-17. No full G1–G5 guarantee.
+Status: implemented and locally verified in M2C; see [acceptance evidence](../evidence/M2C.md). The original design and executable inventory were committed before production changes. Origin: the already planned capture/ACK boundary, refined for M2C on 2026-09-17. No full G1–G5 guarantee.
 
 ## Identity and initialization
 
