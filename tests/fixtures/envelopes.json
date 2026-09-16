@@ -1,0 +1,59 @@
+[
+  {
+    "name": "live",
+    "body": {
+      "schema_version": 1,
+      "source_epoch": "11111111-1111-4111-8111-111111111111",
+      "entity_id": "9007199254740993",
+      "entity_version": "9223372036854775807",
+      "event_id": "11111111-1111-4111-8111-111111111111:9007199254740993:9223372036854775807",
+      "source_change_id": "22222222-2222-4222-8222-222222222222",
+      "source_recorded_at": "2026-09-16T12:34:56.123456Z",
+      "kind": "mutation",
+      "is_deleted": false,
+      "payload_encoding": "pg18-jsonb-text/v1",
+      "payload_json": "{\"a\": [null, 9007199254740993, 0.123456789012345678901234567890], \"z\": \"ქართული 😀\\n\\\"\\\\\"}"
+    },
+    "canonical": "{\"entity_id\":\"9007199254740993\",\"entity_version\":\"9223372036854775807\",\"event_id\":\"11111111-1111-4111-8111-111111111111:9007199254740993:9223372036854775807\",\"is_deleted\":false,\"kind\":\"mutation\",\"payload_encoding\":\"pg18-jsonb-text/v1\",\"payload_json\":\"{\\\"a\\\": [null, 9007199254740993, 0.123456789012345678901234567890], \\\"z\\\": \\\"ქართული 😀\\\\n\\\\\\\"\\\\\\\\\\\"}\",\"schema_version\":1,\"source_change_id\":\"22222222-2222-4222-8222-222222222222\",\"source_epoch\":\"11111111-1111-4111-8111-111111111111\",\"source_recorded_at\":\"2026-09-16T12:34:56.123456Z\"}",
+    "sha256": "09af4758286d5c38dbbf8c3912887e18857d7594dd9bea74ee3fff32019b9474",
+    "wire": "{\"body\":{\"entity_id\":\"9007199254740993\",\"entity_version\":\"9223372036854775807\",\"event_id\":\"11111111-1111-4111-8111-111111111111:9007199254740993:9223372036854775807\",\"is_deleted\":false,\"kind\":\"mutation\",\"payload_encoding\":\"pg18-jsonb-text/v1\",\"payload_json\":\"{\\\"a\\\": [null, 9007199254740993, 0.123456789012345678901234567890], \\\"z\\\": \\\"ქართული 😀\\\\n\\\\\\\"\\\\\\\\\\\"}\",\"schema_version\":1,\"source_change_id\":\"22222222-2222-4222-8222-222222222222\",\"source_epoch\":\"11111111-1111-4111-8111-111111111111\",\"source_recorded_at\":\"2026-09-16T12:34:56.123456Z\"},\"content_sha256\":\"09af4758286d5c38dbbf8c3912887e18857d7594dd9bea74ee3fff32019b9474\"}"
+  },
+  {
+    "name": "tombstone",
+    "body": {
+      "schema_version": 1,
+      "source_epoch": "11111111-1111-4111-8111-111111111111",
+      "entity_id": "9007199254740993",
+      "entity_version": "9223372036854775807",
+      "event_id": "11111111-1111-4111-8111-111111111111:9007199254740993:9223372036854775807",
+      "source_change_id": "22222222-2222-4222-8222-222222222222",
+      "source_recorded_at": "2026-09-16T12:34:56.123456Z",
+      "kind": "mutation",
+      "is_deleted": true,
+      "payload_encoding": "pg18-jsonb-text/v1",
+      "payload_json": null
+    },
+    "canonical": "{\"entity_id\":\"9007199254740993\",\"entity_version\":\"9223372036854775807\",\"event_id\":\"11111111-1111-4111-8111-111111111111:9007199254740993:9223372036854775807\",\"is_deleted\":true,\"kind\":\"mutation\",\"payload_encoding\":\"pg18-jsonb-text/v1\",\"payload_json\":null,\"schema_version\":1,\"source_change_id\":\"22222222-2222-4222-8222-222222222222\",\"source_epoch\":\"11111111-1111-4111-8111-111111111111\",\"source_recorded_at\":\"2026-09-16T12:34:56.123456Z\"}",
+    "sha256": "7b5fdaa0ef806f55500cdc191fd93742aa760df6125abf3cfbdcf4a58a654ece",
+    "wire": "{\"body\":{\"entity_id\":\"9007199254740993\",\"entity_version\":\"9223372036854775807\",\"event_id\":\"11111111-1111-4111-8111-111111111111:9007199254740993:9223372036854775807\",\"is_deleted\":true,\"kind\":\"mutation\",\"payload_encoding\":\"pg18-jsonb-text/v1\",\"payload_json\":null,\"schema_version\":1,\"source_change_id\":\"22222222-2222-4222-8222-222222222222\",\"source_epoch\":\"11111111-1111-4111-8111-111111111111\",\"source_recorded_at\":\"2026-09-16T12:34:56.123456Z\"},\"content_sha256\":\"7b5fdaa0ef806f55500cdc191fd93742aa760df6125abf3cfbdcf4a58a654ece\"}"
+  },
+  {
+    "name": "synthetic-baseline",
+    "body": {
+      "schema_version": 1,
+      "source_epoch": "11111111-1111-4111-8111-111111111111",
+      "entity_id": "9007199254740993",
+      "entity_version": "9223372036854775807",
+      "event_id": "11111111-1111-4111-8111-111111111111:9007199254740993:9223372036854775807",
+      "source_change_id": null,
+      "source_recorded_at": "2026-09-16T12:34:56.123456Z",
+      "kind": "baseline",
+      "is_deleted": false,
+      "payload_encoding": "pg18-jsonb-text/v1",
+      "payload_json": "{\"a\": [null, 9007199254740993, 0.123456789012345678901234567890], \"z\": \"ქართული 😀\\n\\\"\\\\\"}"
+    },
+    "canonical": "{\"entity_id\":\"9007199254740993\",\"entity_version\":\"9223372036854775807\",\"event_id\":\"11111111-1111-4111-8111-111111111111:9007199254740993:9223372036854775807\",\"is_deleted\":false,\"kind\":\"baseline\",\"payload_encoding\":\"pg18-jsonb-text/v1\",\"payload_json\":\"{\\\"a\\\": [null, 9007199254740993, 0.123456789012345678901234567890], \\\"z\\\": \\\"ქართული 😀\\\\n\\\\\\\"\\\\\\\\\\\"}\",\"schema_version\":1,\"source_change_id\":null,\"source_epoch\":\"11111111-1111-4111-8111-111111111111\",\"source_recorded_at\":\"2026-09-16T12:34:56.123456Z\"}",
+    "sha256": "669e16e584a0ecf185ad2965a4e417342d61fdc0dd549ce0bb79fe64f050cb3d",
+    "wire": "{\"body\":{\"entity_id\":\"9007199254740993\",\"entity_version\":\"9223372036854775807\",\"event_id\":\"11111111-1111-4111-8111-111111111111:9007199254740993:9223372036854775807\",\"is_deleted\":false,\"kind\":\"baseline\",\"payload_encoding\":\"pg18-jsonb-text/v1\",\"payload_json\":\"{\\\"a\\\": [null, 9007199254740993, 0.123456789012345678901234567890], \\\"z\\\": \\\"ქართული 😀\\\\n\\\\\\\"\\\\\\\\\\\"}\",\"schema_version\":1,\"source_change_id\":null,\"source_epoch\":\"11111111-1111-4111-8111-111111111111\",\"source_recorded_at\":\"2026-09-16T12:34:56.123456Z\"},\"content_sha256\":\"669e16e584a0ecf185ad2965a4e417342d61fdc0dd549ce0bb79fe64f050cb3d\"}"
+  }
+]

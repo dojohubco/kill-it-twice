@@ -33,7 +33,7 @@ The checked-in staging inventory will require these exact IDs and explicit names
 | S13        | Unbound destinations and pending obligations only; no receiver request, source ACK or simulated consumer success                       |
 | S-UPGRADE  | Fresh/additive read migration and preserved populated M2A receipts/history, independently recorded in orchestration                    |
 
-Keep 22-case M1 and 36-case M2A profiles explicit. make verify-m2b runs quality and both prior profiles, then the two-service staging profile. Keep the existing pinned workflow and tools, extending only its selected acceptance command/evidence. Final clean committed runs include all relevant commands and a fresh repeat; full make verify remains honestly nonzero. Record real failures/corrections, exact source/test and later documentation SHAs, input hashes, versions, commands, signals, SQL states, scoped cleanup and sanitized local bundle/checksums.
+Keep 22-case M1 and 36-case M2A profiles explicit. make verify-m2b runs quality and both prior profiles, then both fresh and populated-upgrade variants of the two-service staging profile. The latter installs source 001/002, commits two revisions and three successful command receipts, and only then applies 003; the fresh variant applies 003 before any workload. Both require the complete S inventory. Keep the existing pinned workflow and tools, extending only its selected acceptance command/evidence. Final clean committed runs include all relevant commands and a fresh repeat; full make verify remains honestly nonzero. Record real failures/corrections, exact source/test and later documentation SHAs, input hashes, versions, commands, signals, SQL states, scoped cleanup and sanitized local bundle/checksums.
 
 ## Deferred work
 
