@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { test, mock } from 'node:test';
 import pg from 'pg';
+import { command } from '../../scripts/support.ts';
 import { first } from '../../scripts/rows.ts';
 import { object } from '../../scripts/acceptance.ts';
 import { Capture, CaptureFailure } from '../../src/capture.ts';
@@ -63,6 +64,18 @@ void test('IC01 atomic fresh and populated capture initialization', async (t) =>
     );
   }
   assert.deepEqual(await work(s), before);
+  const absent = (
+    await s.query<Record<string, unknown>>(`SELECT
+    (SELECT count(*)::text FROM source.entities WHERE payload @> '{"workFailure":true}'::jsonb) AS entities,
+    (SELECT count(*)::text FROM source.outbox WHERE payload @> '{"workFailure":true}'::jsonb) AS outbox`)
+  ).rows;
+  assert.deepEqual(absent, [{ entities: '0', outbox: '0' }]);
+  evidence('IC01-work-failure', {
+    sqlState: 'P9004',
+    commandKey: command.commandId,
+    absent,
+  });
+
   assert.equal(
     first(
       (
@@ -566,5 +579,31 @@ void test('IC16 restricted roles immutable history and frozen obligations', asyn
   );
   assert.deepEqual(first(await work(s, f.key.entityId)), terminal);
   await reconcile(s, p, 'IC16');
+  const cli = await command(
+    process.execPath,
+    ['scripts/capture.ts', 'once'],
+    {
+      ...process.env,
+      SOURCE_EPOCH: epoch,
+      PIPELINE_ID: cfg.binding.pipelineId,
+      SOURCE_CAPTURE_HOST: cfg.source.host,
+      SOURCE_CAPTURE_PORT: String(cfg.source.port),
+      SOURCE_CAPTURE_PASSWORD: cfg.source.password,
+      PIPELINE_CAPTURE_HOST: cfg.pipeline.host,
+      PIPELINE_CAPTURE_PORT: String(cfg.pipeline.port),
+      PIPELINE_CAPTURE_PASSWORD: cfg.pipeline.password,
+    },
+    20000,
+    true,
+    { secrets: [cfg.source.password, cfg.pipeline.password] },
+  );
+  assert.equal(cli.code, 0);
+  assert.equal(cli.stderr, '');
+  assert.deepEqual(cli.cleanupErrors, []);
+  const reply = object(JSON.parse(cli.stdout));
+  assert.equal(reply['type'], 'capture-success');
+  assert.equal(reply['claimed'], 0);
+  assert.equal(object(reply['sourceState'])['blocked'], '1');
+  evidence('IC16-cli', { code: cli.code, reply });
   evidence('IC16-catalog', { tables, functions, terminal });
 });

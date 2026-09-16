@@ -1,3 +1,4 @@
+import { writeCaptureReport } from '../src/internal/capture-report.ts';
 import { Capture, CaptureFailure } from '../src/capture.ts';
 import { IntegrityError } from '../src/pipeline.ts';
 import { TransactionError } from '../src/internal/transaction.ts';
@@ -70,21 +71,18 @@ function failure(error: unknown) {
 }
 try {
   if (mode === 'once')
-    console.log(
-      JSON.stringify({
-        type: 'capture-success',
-        ...(await capture.captureOnce(stop.signal)),
-      }),
-    );
+    await writeCaptureReport(process.stdout, {
+      type: 'capture-success',
+      ...(await capture.captureOnce(stop.signal)),
+    });
   else
     await capture.follow(
       (value) =>
-        console.log(
-          JSON.stringify(
-            value instanceof CaptureFailure
-              ? failure(value)
-              : { type: 'capture-observation', ...value },
-          ),
+        writeCaptureReport(
+          process.stdout,
+          value instanceof CaptureFailure
+            ? failure(value)
+            : { type: 'capture-observation', ...value },
         ),
       stop.signal,
     );

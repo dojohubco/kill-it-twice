@@ -310,15 +310,23 @@ export class Capture {
     }
   }
   async follow(
-    report: (value: CaptureResult | CaptureFailure) => void,
+    report: (value: CaptureResult | CaptureFailure) => void | Promise<void>,
     signal: AbortSignal,
   ): Promise<void> {
     while (!signal.aborted) {
       try {
-        report(await this.captureOnce(signal));
+        await report(await this.captureOnce(signal));
       } catch (error) {
         if (!(error instanceof CaptureFailure)) throw error;
-        report(error);
+        try {
+          await report(error);
+        } catch (diagnostic) {
+          throw new CaptureFailure(
+            error.primary,
+            [...error.cleanup, diagnostic],
+            error.fatal,
+          );
+        }
         if (error.fatal) throw error;
       }
       try {
