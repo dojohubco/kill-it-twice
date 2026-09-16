@@ -776,13 +776,12 @@ void test('S-UPGRADE forward reader migration preserves the selected installatio
     assert.equal(before['command_receipts'].length, 3);
     for (const line of before['command_receipts']) {
       assert.equal(typeof line, 'string');
-      const receipt = object(JSON.parse(String(line)));
-      assert.equal(receipt['completed'], true);
+      // Keep receipt payload numbers as text; extract its key only inside PostgreSQL.
       const retained = first(
         (
           await s.query<{ same: boolean }>(
-            'SELECT row_to_json(t)::text=$2 AS same FROM source.command_receipts t WHERE command_id=$1',
-            [receipt['command_id'], line],
+            `SELECT t.completed AND row_to_json(t)::text=$1 AS same FROM source.command_receipts t WHERE command_id=(($1::jsonb)->>'command_id')::uuid`,
+            [line],
           )
         ).rows,
       );
