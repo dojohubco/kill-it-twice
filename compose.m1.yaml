@@ -1,0 +1,25 @@
+services:
+  source:
+    image: postgres:18.6-bookworm@sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af
+    environment:
+      POSTGRES_USER: m1_admin
+      POSTGRES_DB: source_m1
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    secrets: [postgres_password]
+    ports: ["127.0.0.1::5432"]
+    volumes: ["source-data:/var/lib/postgresql"]
+    # Suppress SQL text in error logs (role setup can contain temporary passwords).
+    # fsync, synchronous_commit and full_page_writes retain their durable defaults.
+    command: ["postgres", "-c", "log_min_error_statement=panic"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U m1_admin -d source_m1"]
+      interval: 1s
+      timeout: 3s
+      retries: 45
+    stop_grace_period: 10s
+secrets:
+  postgres_password:
+    file: ${M1_PASSWORD_FILE:?Use npm run test:integration:m1}
+volumes:
+  source-data:
