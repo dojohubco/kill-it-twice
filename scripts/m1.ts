@@ -4,11 +4,15 @@ import {
   captureSnapshot,
 } from '../tests/support/capture-upgrade.ts';
 import { captureCases } from './required-capture-cases.ts';
+import { pipelineIdentity } from '../src/pipeline.ts';
+import { reproductionCases } from './required-isolation-cases.ts';
 import {
   migrateReader,
   migratePipeline,
   sourceSnapshot,
   pipelineSnapshot,
+  migrateCapturePipeline,
+  migrateCaptureSource,
 } from './migrate-staging.ts';
 import { stagingCases } from './required-staging-cases.ts';
 import { Source } from '../src/source.ts';
@@ -37,14 +41,19 @@ import { CleanupFailure } from './support.ts';
 
 const profile = process.argv[2] ?? 'm1';
 assert.ok(
-  ['m1', 'm2a', 'm2b', 'm2c'].includes(profile),
-  'Expected m1, m2a, m2b or m2c profile',
+  ['m1', 'm2a', 'm2b', 'm2c', 'm2c1-repro'].includes(profile),
+  'Expected an explicitly supported acceptance or reproduction profile',
 );
-const twoDatabases = profile === 'm2b' || profile === 'm2c';
+const reproduction = profile === 'm2c1-repro';
+const captureProfile = profile === 'm2c' || reproduction;
+const twoDatabases = profile === 'm2b' || captureProfile;
 const upgrade = process.argv[3] === '--upgrade';
-assert.ok(process.argv[3] === undefined || (twoDatabases && upgrade));
-const inventory =
-  profile === 'm2c'
+assert.ok(
+  process.argv[3] === undefined || (twoDatabases && !reproduction && upgrade),
+);
+const inventory = reproduction
+  ? reproductionCases
+  : profile === 'm2c'
     ? captureCases
     : profile === 'm2b'
       ? stagingCases
@@ -80,7 +89,7 @@ const env = {
   M2B_PASSWORD_FILE: '',
   M2C_PIPELINE_PORT: '0',
 };
-if (profile === 'm2c') {
+if (captureProfile) {
   const reservation = createServer();
   await new Promise<void>((resolve, reject) => {
     reservation.once('error', reject);
@@ -122,6 +131,9 @@ const manifest: Record<string, unknown> = {
   startedAt: new Date().toISOString(),
   status: 'RUNNING',
   commands: [],
+  intent: reproduction
+    ? 'Historical defect reproduction only; intentionally missing work is not acceptance'
+    : 'Acceptance',
 };
 let sequence = 0;
 let interrupted: NodeJS.Signals | undefined;
@@ -442,7 +454,20 @@ try {
           manifest['pipelinePostgres'] = setting;
           await migratePipeline(pAdmin, stagerPassword, sourceEpoch);
           manifest['initialPipeline'] = await pipelineSnapshot(pAdmin);
-          if (profile === 'm2c') {
+          if (reproduction) {
+            await migrateCapturePipeline(pAdmin, pipelineCapturePassword);
+            await migrateCaptureSource(admin, capturePassword);
+            const identity = await pipelineIdentity({
+              host: '127.0.0.1',
+              port: pipelinePort,
+              database: 'pipeline_m2b',
+              user: 'pipeline_capture',
+              password: pipelineCapturePassword,
+              application_name: `${runId}:identity`,
+            });
+            pipelineId = identity.pipelineId;
+            manifest['pipelineId'] = pipelineId;
+          } else if (profile === 'm2c') {
             const result = await initializeCaptureFixture(admin, pAdmin, {
               source: {
                 host: '127.0.0.1',
@@ -523,7 +548,7 @@ try {
       ...new Set(inventory.map((entry) => entry.file)),
     ],
     testEnv,
-    profile === 'm2c' ? 240_000 : 180_000,
+    captureProfile ? 240_000 : 180_000,
   );
   if (output) console.log(output);
   manifest['acceptance'] = checkAcceptance(
@@ -580,8 +605,9 @@ try {
             : [];
         for (const receipt of receipts)
           assert.equal(receipt['completed'], true);
-        const capture =
-          profile === 'm2c' ? await captureSnapshot(connection) : undefined;
+        const capture = captureProfile
+          ? await captureSnapshot(connection)
+          : undefined;
         return { epoch, entities, outbox, receipts, sessions, capture };
       },
       () => connection.end(),
