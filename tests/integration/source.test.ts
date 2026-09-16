@@ -224,7 +224,7 @@ test('T06 actual runtime login, owners, grants, protected metadata and unsupport
     const denied = [
       `INSERT INTO source.entities(entity_id,payload) OVERRIDING SYSTEM VALUE VALUES (${id},'{}')`,
       "INSERT INTO source.entities(payload) VALUES ('{}')",
-      ...['entity_id=1', "source_epoch=gen_random_uuid()", 'entity_version=999', 'change_id=gen_random_uuid()', "recorded_at='2000-01-01'", "payload='{}'", 'is_deleted=true'].map((set) => `UPDATE source.entities SET ${set} WHERE entity_id=${id}`),
+      ...["source_epoch=gen_random_uuid()", 'entity_version=999', 'change_id=gen_random_uuid()', "recorded_at='2000-01-01'", "payload='{}'", 'is_deleted=true'].map((set) => `UPDATE source.entities SET ${set} WHERE entity_id=${id}`),
       `DELETE FROM source.entities WHERE entity_id=${id}`,
       'TRUNCATE source.entities CASCADE',
       'TRUNCATE source.outbox',
@@ -252,6 +252,9 @@ test('T06 actual runtime login, owners, grants, protected metadata and unsupport
       "INSERT INTO source.entities(payload) VALUES ('{}') ON CONFLICT(entity_id) DO UPDATE SET payload='{}'",
     ];
     for (const sql of denied) await sqlError(writer, sql, '42501');
+    // PostgreSQL's generated-column check precedes its permission check here.
+    // Review: the original 42501 expectation was wrong; retain exact rejection.
+    await sqlError(writer, `UPDATE source.entities SET entity_id=1 WHERE entity_id=${id}`, '428C9');
     const beforeSearchPath = await revisions(id);
     await writer.query('SET search_path=public,pg_temp');
     await mutateEntity(writer, id, 'update', '{"privileges":"safe-fixed-path"}');
