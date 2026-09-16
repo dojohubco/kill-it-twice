@@ -1,6 +1,6 @@
 # ADR 007: lossless v1 revision envelope
 
-Status: accepted for M2B implementation; verification pending. Origin: authorized pre-implementation refinement using the existing M2A precision fixtures, not discovery of an unknown requirement.
+Status: accepted; verified locally at f8d7728 in [M2B evidence](../evidence/M2B.md). Origin: authorized pre-implementation refinement using the existing M2A precision fixtures, not discovery of an unknown requirement.
 
 ## Identity and bytes
 

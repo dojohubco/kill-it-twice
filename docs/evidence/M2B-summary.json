@@ -1,0 +1,2278 @@
+{
+  "format": 1,
+  "milestone": "M2B",
+  "baseline": "735585c3ddb45fa9c2239943102dbc45b37ce710",
+  "testedCode": "f8d7728f1d1f17ff7fc16ae0c29e4b64946e1636",
+  "status": "PASS",
+  "clean": true,
+  "commands": [
+    {
+      "command": ["npm", "ci", "--no-audit", "--no-fund"],
+      "code": 0,
+      "passed": true
+    },
+    {
+      "command": ["npm", "ls", "--depth=0"],
+      "code": 0,
+      "passed": true
+    },
+    {
+      "command": ["npm", "run", "format:check"],
+      "code": 0,
+      "passed": true
+    },
+    {
+      "command": ["npm", "run", "lint"],
+      "code": 0,
+      "passed": true
+    },
+    {
+      "command": ["npm", "run", "typecheck"],
+      "code": 0,
+      "passed": true
+    },
+    {
+      "command": ["npm", "run", "knip"],
+      "code": 0,
+      "passed": true
+    },
+    {
+      "command": ["npm", "run", "validate:compose"],
+      "code": 0,
+      "passed": true
+    },
+    {
+      "command": ["npm", "run", "validate:workflow"],
+      "code": 0,
+      "passed": true
+    },
+    {
+      "command": ["npm", "run", "test:unit"],
+      "code": 0,
+      "passed": true
+    },
+    {
+      "command": ["make", "quality"],
+      "code": 0,
+      "passed": true
+    },
+    {
+      "command": ["npm", "run", "test:integration:m1"],
+      "code": 0,
+      "passed": true
+    },
+    {
+      "command": ["npm", "run", "test:integration:m2a"],
+      "code": 0,
+      "passed": true
+    },
+    {
+      "command": ["npm", "run", "test:integration:m2b"],
+      "code": 0,
+      "passed": true
+    },
+    {
+      "command": ["npm", "run", "test:integration:m2b", "--", "--upgrade"],
+      "code": 0,
+      "passed": true
+    },
+    {
+      "command": ["make", "verify-m2b"],
+      "code": 0,
+      "passed": true
+    },
+    {
+      "command": ["make", "verify-m2b"],
+      "code": 0,
+      "passed": true
+    },
+    {
+      "command": ["make", "verify"],
+      "code": 2,
+      "passed": true
+    }
+  ],
+  "runs": [
+    {
+      "runId": "m1-20260916203402936-741c4a30",
+      "profile": "m1",
+      "migrationMode": "fresh",
+      "contentSha256": "23de9dd786b97d4f2374416fa0b194b6f33d273fd29b7167f6e3f37cb59dd26b",
+      "status": "PASS",
+      "acceptance": {
+        "cases": [
+          {
+            "id": "PG",
+            "status": "PASS"
+          },
+          {
+            "id": "T01",
+            "status": "PASS"
+          },
+          {
+            "id": "T02",
+            "status": "PASS"
+          },
+          {
+            "id": "T03",
+            "status": "PASS"
+          },
+          {
+            "id": "T04",
+            "status": "PASS"
+          },
+          {
+            "id": "T05",
+            "status": "PASS"
+          },
+          {
+            "id": "T06",
+            "status": "PASS"
+          },
+          {
+            "id": "T07",
+            "status": "PASS"
+          },
+          {
+            "id": "T10-SOURCE",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-F01",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-F01-TAG",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-F02",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-LIFETIME",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-DEADLOCK",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-OBSERVE",
+            "status": "PASS"
+          },
+          {
+            "id": "T08",
+            "status": "PASS"
+          },
+          {
+            "id": "T09",
+            "status": "PASS"
+          },
+          {
+            "id": "T10-FAULT",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-HEALTHY-PRE",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-ORPHAN-PRE",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-HEALTHY-POST",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-ORPHAN-POST",
+            "status": "PASS"
+          }
+        ],
+        "passed": 22,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "signals": [
+        {
+          "barrier": "source.after_mutation.before_commit",
+          "runId": "m1-20260916203402936-741c4a30",
+          "writerPid": 441356,
+          "backendPid": 156,
+          "transactionId": "803",
+          "sourceEpoch": "6aec5a0f-0d59-444b-b803-1d2da49d7a9c",
+          "entityId": "9007199254741013",
+          "entityVersion": "1",
+          "changeId": "b3ff529a-68a0-4aea-93ad-245da5434502",
+          "requestedSignal": "SIGKILL",
+          "sent": true,
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "endedSession": [],
+          "callerSuccessBytes": 0,
+          "callerOutcome": "unknown; no ordinary caller success response received"
+        },
+        {
+          "barrier": "source.after_commit.before_caller_success",
+          "runId": "m1-20260916203402936-741c4a30",
+          "writerPid": 441370,
+          "backendPid": 159,
+          "transactionId": "805",
+          "sourceEpoch": "6aec5a0f-0d59-444b-b803-1d2da49d7a9c",
+          "entityId": "9007199254741015",
+          "entityVersion": "1",
+          "changeId": "5a6833dd-903e-4dec-8193-dac0c2b58217",
+          "requestedSignal": "SIGKILL",
+          "sent": true,
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "endedSession": [],
+          "callerSuccessBytes": 0,
+          "callerOutcome": "unknown; no ordinary caller success response received"
+        }
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "localArtifacts": "artifacts/m1/m1-20260916203402936-741c4a30"
+    },
+    {
+      "runId": "m2a-20260916203415906-2c841f72",
+      "profile": "m2a",
+      "migrationMode": "fresh",
+      "contentSha256": "23de9dd786b97d4f2374416fa0b194b6f33d273fd29b7167f6e3f37cb59dd26b",
+      "status": "PASS",
+      "acceptance": {
+        "cases": [
+          {
+            "id": "PG",
+            "status": "PASS"
+          },
+          {
+            "id": "T01",
+            "status": "PASS"
+          },
+          {
+            "id": "T02",
+            "status": "PASS"
+          },
+          {
+            "id": "T03",
+            "status": "PASS"
+          },
+          {
+            "id": "T04",
+            "status": "PASS"
+          },
+          {
+            "id": "T05",
+            "status": "PASS"
+          },
+          {
+            "id": "T06",
+            "status": "PASS"
+          },
+          {
+            "id": "T07",
+            "status": "PASS"
+          },
+          {
+            "id": "T10-SOURCE",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-F01",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-F01-TAG",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-F02",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-LIFETIME",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-DEADLOCK",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-OBSERVE",
+            "status": "PASS"
+          },
+          {
+            "id": "T08",
+            "status": "PASS"
+          },
+          {
+            "id": "T09",
+            "status": "PASS"
+          },
+          {
+            "id": "T10-FAULT",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-HEALTHY-PRE",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-ORPHAN-PRE",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-HEALTHY-POST",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-ORPHAN-POST",
+            "status": "PASS"
+          },
+          {
+            "id": "C01",
+            "status": "PASS"
+          },
+          {
+            "id": "C02",
+            "status": "PASS"
+          },
+          {
+            "id": "C03",
+            "status": "PASS"
+          },
+          {
+            "id": "C04",
+            "status": "PASS"
+          },
+          {
+            "id": "C05",
+            "status": "PASS"
+          },
+          {
+            "id": "C06",
+            "status": "PASS"
+          },
+          {
+            "id": "C07",
+            "status": "PASS"
+          },
+          {
+            "id": "C08",
+            "status": "PASS"
+          },
+          {
+            "id": "C11",
+            "status": "PASS"
+          },
+          {
+            "id": "C12",
+            "status": "PASS"
+          },
+          {
+            "id": "C09",
+            "status": "PASS"
+          },
+          {
+            "id": "C10",
+            "status": "PASS"
+          },
+          {
+            "id": "C09-HEALTHY",
+            "status": "PASS"
+          },
+          {
+            "id": "C10-HEALTHY",
+            "status": "PASS"
+          }
+        ],
+        "passed": 36,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "signals": [
+        {
+          "case": "C09-actual-signal",
+          "command": {
+            "sourceEpoch": "8c7db95d-70f4-4b48-995e-f241dd2a7256",
+            "commandId": "032d345b-5f1a-4844-b202-f97424a0ac08",
+            "contractVersion": 1,
+            "operation": "create",
+            "entityId": null,
+            "payloadJson": "{\"fault\":\"C09\",\"exact\":9007199254740993}"
+          },
+          "writerPid": 442821,
+          "backendPid": 103,
+          "transactionId": "755",
+          "entityId": "1",
+          "entityVersion": "1",
+          "changeId": "77cef53c-1ed6-4358-af39-59b4d749e007",
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "ordinarySuccessBytes": 0,
+          "endedSession": [],
+          "recovered": {
+            "result": {
+              "entity_id": "2",
+              "entity_version": "1",
+              "source_epoch": "8c7db95d-70f4-4b48-995e-f241dd2a7256",
+              "change_id": "49d9753e-c4d6-4e7c-947e-dca0069f679d",
+              "recorded_at": "2026-09-16T20:34:21.132533Z",
+              "is_deleted": false,
+              "payload_json": "{\"exact\": 9007199254740993, \"fault\": \"C09\"}"
+            },
+            "replayed": false
+          }
+        },
+        {
+          "case": "C10-actual-signal",
+          "command": {
+            "sourceEpoch": "8c7db95d-70f4-4b48-995e-f241dd2a7256",
+            "commandId": "ac2d71f5-eda1-48d6-82ec-7c82d347c345",
+            "contractVersion": 1,
+            "operation": "create",
+            "entityId": null,
+            "payloadJson": "{\"fault\":\"C10\",\"exact\":9007199254740993}"
+          },
+          "writerPid": 442881,
+          "backendPid": 115,
+          "transactionId": null,
+          "entityId": "3",
+          "entityVersion": "1",
+          "changeId": "eac1e07b-27d3-46f2-9245-6db320005801",
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "ordinarySuccessBytes": 0,
+          "endedSession": [],
+          "recovered": {
+            "result": {
+              "entity_id": "3",
+              "entity_version": "1",
+              "source_epoch": "8c7db95d-70f4-4b48-995e-f241dd2a7256",
+              "change_id": "eac1e07b-27d3-46f2-9245-6db320005801",
+              "recorded_at": "2026-09-16T20:34:21.320086Z",
+              "is_deleted": false,
+              "payload_json": "{\"exact\": 9007199254740993, \"fault\": \"C10\"}"
+            },
+            "replayed": true
+          }
+        },
+        {
+          "barrier": "source.after_mutation.before_commit",
+          "runId": "m2a-20260916203415906-2c841f72",
+          "writerPid": 443243,
+          "backendPid": 263,
+          "transactionId": "845",
+          "sourceEpoch": "8c7db95d-70f4-4b48-995e-f241dd2a7256",
+          "entityId": "9007199254741013",
+          "entityVersion": "1",
+          "changeId": "c5ba44b9-3d2e-4f62-b060-e90dee671232",
+          "requestedSignal": "SIGKILL",
+          "sent": true,
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "endedSession": [],
+          "callerSuccessBytes": 0,
+          "callerOutcome": "unknown; no ordinary caller success response received"
+        },
+        {
+          "barrier": "source.after_commit.before_caller_success",
+          "runId": "m2a-20260916203415906-2c841f72",
+          "writerPid": 443260,
+          "backendPid": 266,
+          "transactionId": "847",
+          "sourceEpoch": "8c7db95d-70f4-4b48-995e-f241dd2a7256",
+          "entityId": "9007199254741015",
+          "entityVersion": "1",
+          "changeId": "31c72637-a3e0-435a-9ab1-d616af5c4e57",
+          "requestedSignal": "SIGKILL",
+          "sent": true,
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "endedSession": [],
+          "callerSuccessBytes": 0,
+          "callerOutcome": "unknown; no ordinary caller success response received"
+        }
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "localArtifacts": "artifacts/m2a/m2a-20260916203415906-2c841f72"
+    },
+    {
+      "runId": "m2b-20260916203430910-1dc149fc",
+      "profile": "m2b",
+      "migrationMode": "fresh",
+      "contentSha256": "23de9dd786b97d4f2374416fa0b194b6f33d273fd29b7167f6e3f37cb59dd26b",
+      "status": "PASS",
+      "acceptance": {
+        "cases": [
+          {
+            "id": "S01-GOLDEN",
+            "status": "PASS"
+          },
+          {
+            "id": "S01-REJECT",
+            "status": "PASS"
+          },
+          {
+            "id": "S02",
+            "status": "PASS"
+          },
+          {
+            "id": "S03",
+            "status": "PASS"
+          },
+          {
+            "id": "S04",
+            "status": "PASS"
+          },
+          {
+            "id": "S05",
+            "status": "PASS"
+          },
+          {
+            "id": "S06",
+            "status": "PASS"
+          },
+          {
+            "id": "S07",
+            "status": "PASS"
+          },
+          {
+            "id": "S11",
+            "status": "PASS"
+          },
+          {
+            "id": "S12",
+            "status": "PASS"
+          },
+          {
+            "id": "S13",
+            "status": "PASS"
+          },
+          {
+            "id": "S-UPGRADE",
+            "status": "PASS"
+          },
+          {
+            "id": "S08",
+            "status": "PASS"
+          },
+          {
+            "id": "S09",
+            "status": "PASS"
+          },
+          {
+            "id": "S10-PRE",
+            "status": "PASS"
+          },
+          {
+            "id": "S10-POST",
+            "status": "PASS"
+          }
+        ],
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "signals": [
+        {
+          "case": "S08-actual-signal",
+          "commandKey": "b3e3ed6f-bd40-4db8-bcd2-26a8e85f2680",
+          "revision": {
+            "entityId": "1",
+            "version": "1"
+          },
+          "eventId": "1c5aa1db-9ea8-4bb3-a19e-8913c43ccd65:1:1",
+          "pid": 444996,
+          "backendPid": 112,
+          "transactionId": "755",
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "ordinarySuccessBytes": 0,
+          "endedSession": [],
+          "replay": {
+            "type": "caller-success",
+            "results": [
+              {
+                "eventId": "1c5aa1db-9ea8-4bb3-a19e-8913c43ccd65:1:1",
+                "status": "inserted"
+              }
+            ]
+          }
+        },
+        {
+          "case": "S09-actual-signal",
+          "commandKey": "60fa2a6f-eba9-4f54-b27d-6f7e161680ea",
+          "revision": {
+            "entityId": "2",
+            "version": "1"
+          },
+          "eventId": "1c5aa1db-9ea8-4bb3-a19e-8913c43ccd65:2:1",
+          "pid": 445031,
+          "backendPid": 123,
+          "transactionId": null,
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "ordinarySuccessBytes": 0,
+          "endedSession": [],
+          "replay": {
+            "type": "caller-success",
+            "results": [
+              {
+                "eventId": "1c5aa1db-9ea8-4bb3-a19e-8913c43ccd65:2:1",
+                "status": "already_staged"
+              }
+            ]
+          }
+        }
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "localArtifacts": "artifacts/m2b/m2b-20260916203430910-1dc149fc"
+    },
+    {
+      "runId": "m2b-20260916203446998-576696ae",
+      "profile": "m2b",
+      "migrationMode": "populated M2A upgrade",
+      "contentSha256": "23de9dd786b97d4f2374416fa0b194b6f33d273fd29b7167f6e3f37cb59dd26b",
+      "status": "PASS",
+      "acceptance": {
+        "cases": [
+          {
+            "id": "S01-GOLDEN",
+            "status": "PASS"
+          },
+          {
+            "id": "S01-REJECT",
+            "status": "PASS"
+          },
+          {
+            "id": "S02",
+            "status": "PASS"
+          },
+          {
+            "id": "S03",
+            "status": "PASS"
+          },
+          {
+            "id": "S04",
+            "status": "PASS"
+          },
+          {
+            "id": "S05",
+            "status": "PASS"
+          },
+          {
+            "id": "S06",
+            "status": "PASS"
+          },
+          {
+            "id": "S07",
+            "status": "PASS"
+          },
+          {
+            "id": "S11",
+            "status": "PASS"
+          },
+          {
+            "id": "S12",
+            "status": "PASS"
+          },
+          {
+            "id": "S13",
+            "status": "PASS"
+          },
+          {
+            "id": "S-UPGRADE",
+            "status": "PASS"
+          },
+          {
+            "id": "S08",
+            "status": "PASS"
+          },
+          {
+            "id": "S09",
+            "status": "PASS"
+          },
+          {
+            "id": "S10-PRE",
+            "status": "PASS"
+          },
+          {
+            "id": "S10-POST",
+            "status": "PASS"
+          }
+        ],
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "signals": [
+        {
+          "case": "S08-actual-signal",
+          "commandKey": "9551faa5-6bc6-4c32-8406-cb635ba14c8e",
+          "revision": {
+            "entityId": "2",
+            "version": "1"
+          },
+          "eventId": "7cea6600-559f-41ab-8ff5-6d40cf931a34:2:1",
+          "pid": 447603,
+          "backendPid": 118,
+          "transactionId": "755",
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "ordinarySuccessBytes": 0,
+          "endedSession": [],
+          "replay": {
+            "type": "caller-success",
+            "results": [
+              {
+                "eventId": "7cea6600-559f-41ab-8ff5-6d40cf931a34:2:1",
+                "status": "inserted"
+              }
+            ]
+          }
+        },
+        {
+          "case": "S09-actual-signal",
+          "commandKey": "0d01e566-7c5a-457c-b3f5-0434e0c54ef7",
+          "revision": {
+            "entityId": "3",
+            "version": "1"
+          },
+          "eventId": "7cea6600-559f-41ab-8ff5-6d40cf931a34:3:1",
+          "pid": 447673,
+          "backendPid": 123,
+          "transactionId": null,
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "ordinarySuccessBytes": 0,
+          "endedSession": [],
+          "replay": {
+            "type": "caller-success",
+            "results": [
+              {
+                "eventId": "7cea6600-559f-41ab-8ff5-6d40cf931a34:3:1",
+                "status": "already_staged"
+              }
+            ]
+          }
+        }
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "localArtifacts": "artifacts/m2b/m2b-20260916203446998-576696ae"
+    },
+    {
+      "runId": "m1-20260916203515451-6d8e4428",
+      "profile": "m1",
+      "migrationMode": "fresh",
+      "contentSha256": "23de9dd786b97d4f2374416fa0b194b6f33d273fd29b7167f6e3f37cb59dd26b",
+      "status": "PASS",
+      "acceptance": {
+        "cases": [
+          {
+            "id": "PG",
+            "status": "PASS"
+          },
+          {
+            "id": "T01",
+            "status": "PASS"
+          },
+          {
+            "id": "T02",
+            "status": "PASS"
+          },
+          {
+            "id": "T03",
+            "status": "PASS"
+          },
+          {
+            "id": "T04",
+            "status": "PASS"
+          },
+          {
+            "id": "T05",
+            "status": "PASS"
+          },
+          {
+            "id": "T06",
+            "status": "PASS"
+          },
+          {
+            "id": "T07",
+            "status": "PASS"
+          },
+          {
+            "id": "T10-SOURCE",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-F01",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-F01-TAG",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-F02",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-LIFETIME",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-DEADLOCK",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-OBSERVE",
+            "status": "PASS"
+          },
+          {
+            "id": "T08",
+            "status": "PASS"
+          },
+          {
+            "id": "T09",
+            "status": "PASS"
+          },
+          {
+            "id": "T10-FAULT",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-HEALTHY-PRE",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-ORPHAN-PRE",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-HEALTHY-POST",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-ORPHAN-POST",
+            "status": "PASS"
+          }
+        ],
+        "passed": 22,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "signals": [
+        {
+          "barrier": "source.after_mutation.before_commit",
+          "runId": "m1-20260916203515451-6d8e4428",
+          "writerPid": 450515,
+          "backendPid": 163,
+          "transactionId": "803",
+          "sourceEpoch": "016edbbc-9841-413a-904b-03bebe1db5b6",
+          "entityId": "9007199254741013",
+          "entityVersion": "1",
+          "changeId": "861190ef-62ef-465b-b8b6-a045b2cdcf10",
+          "requestedSignal": "SIGKILL",
+          "sent": true,
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "endedSession": [],
+          "callerSuccessBytes": 0,
+          "callerOutcome": "unknown; no ordinary caller success response received"
+        },
+        {
+          "barrier": "source.after_commit.before_caller_success",
+          "runId": "m1-20260916203515451-6d8e4428",
+          "writerPid": 450531,
+          "backendPid": 166,
+          "transactionId": "805",
+          "sourceEpoch": "016edbbc-9841-413a-904b-03bebe1db5b6",
+          "entityId": "9007199254741015",
+          "entityVersion": "1",
+          "changeId": "269bf56f-f545-40d3-ba69-86c73a9619a5",
+          "requestedSignal": "SIGKILL",
+          "sent": true,
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "endedSession": [],
+          "callerSuccessBytes": 0,
+          "callerOutcome": "unknown; no ordinary caller success response received"
+        }
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "localArtifacts": "artifacts/m1/m1-20260916203515451-6d8e4428"
+    },
+    {
+      "runId": "m2a-20260916203528466-dc63acdc",
+      "profile": "m2a",
+      "migrationMode": "fresh",
+      "contentSha256": "23de9dd786b97d4f2374416fa0b194b6f33d273fd29b7167f6e3f37cb59dd26b",
+      "status": "PASS",
+      "acceptance": {
+        "cases": [
+          {
+            "id": "PG",
+            "status": "PASS"
+          },
+          {
+            "id": "T01",
+            "status": "PASS"
+          },
+          {
+            "id": "T02",
+            "status": "PASS"
+          },
+          {
+            "id": "T03",
+            "status": "PASS"
+          },
+          {
+            "id": "T04",
+            "status": "PASS"
+          },
+          {
+            "id": "T05",
+            "status": "PASS"
+          },
+          {
+            "id": "T06",
+            "status": "PASS"
+          },
+          {
+            "id": "T07",
+            "status": "PASS"
+          },
+          {
+            "id": "T10-SOURCE",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-F01",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-F01-TAG",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-F02",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-LIFETIME",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-DEADLOCK",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-OBSERVE",
+            "status": "PASS"
+          },
+          {
+            "id": "T08",
+            "status": "PASS"
+          },
+          {
+            "id": "T09",
+            "status": "PASS"
+          },
+          {
+            "id": "T10-FAULT",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-HEALTHY-PRE",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-ORPHAN-PRE",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-HEALTHY-POST",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-ORPHAN-POST",
+            "status": "PASS"
+          },
+          {
+            "id": "C01",
+            "status": "PASS"
+          },
+          {
+            "id": "C02",
+            "status": "PASS"
+          },
+          {
+            "id": "C03",
+            "status": "PASS"
+          },
+          {
+            "id": "C04",
+            "status": "PASS"
+          },
+          {
+            "id": "C05",
+            "status": "PASS"
+          },
+          {
+            "id": "C06",
+            "status": "PASS"
+          },
+          {
+            "id": "C07",
+            "status": "PASS"
+          },
+          {
+            "id": "C08",
+            "status": "PASS"
+          },
+          {
+            "id": "C11",
+            "status": "PASS"
+          },
+          {
+            "id": "C12",
+            "status": "PASS"
+          },
+          {
+            "id": "C09",
+            "status": "PASS"
+          },
+          {
+            "id": "C10",
+            "status": "PASS"
+          },
+          {
+            "id": "C09-HEALTHY",
+            "status": "PASS"
+          },
+          {
+            "id": "C10-HEALTHY",
+            "status": "PASS"
+          }
+        ],
+        "passed": 36,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "signals": [
+        {
+          "case": "C09-actual-signal",
+          "command": {
+            "sourceEpoch": "993a1e2f-3249-4c8b-bb11-22a09fc5274a",
+            "commandId": "7b69b30b-c961-4c0c-80bb-1d9d6fa2ce32",
+            "contractVersion": 1,
+            "operation": "create",
+            "entityId": null,
+            "payloadJson": "{\"fault\":\"C09\",\"exact\":9007199254740993}"
+          },
+          "writerPid": 451894,
+          "backendPid": 103,
+          "transactionId": "755",
+          "entityId": "1",
+          "entityVersion": "1",
+          "changeId": "4fab6ad6-260f-4337-b6c9-0f33da2f7076",
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "ordinarySuccessBytes": 0,
+          "endedSession": [],
+          "recovered": {
+            "result": {
+              "entity_id": "2",
+              "entity_version": "1",
+              "source_epoch": "993a1e2f-3249-4c8b-bb11-22a09fc5274a",
+              "change_id": "68596953-cb1f-45ee-99bf-0a5339fb4772",
+              "recorded_at": "2026-09-16T20:35:33.769961Z",
+              "is_deleted": false,
+              "payload_json": "{\"exact\": 9007199254740993, \"fault\": \"C09\"}"
+            },
+            "replayed": false
+          }
+        },
+        {
+          "case": "C10-actual-signal",
+          "command": {
+            "sourceEpoch": "993a1e2f-3249-4c8b-bb11-22a09fc5274a",
+            "commandId": "1935a4ba-ef3b-4741-93f2-b5c0c9f6978b",
+            "contractVersion": 1,
+            "operation": "create",
+            "entityId": null,
+            "payloadJson": "{\"fault\":\"C10\",\"exact\":9007199254740993}"
+          },
+          "writerPid": 451931,
+          "backendPid": 115,
+          "transactionId": null,
+          "entityId": "3",
+          "entityVersion": "1",
+          "changeId": "ef3e0ca0-2cb7-484e-b9d7-a4a9d41ed9d3",
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "ordinarySuccessBytes": 0,
+          "endedSession": [],
+          "recovered": {
+            "result": {
+              "entity_id": "3",
+              "entity_version": "1",
+              "source_epoch": "993a1e2f-3249-4c8b-bb11-22a09fc5274a",
+              "change_id": "ef3e0ca0-2cb7-484e-b9d7-a4a9d41ed9d3",
+              "recorded_at": "2026-09-16T20:35:33.944929Z",
+              "is_deleted": false,
+              "payload_json": "{\"exact\": 9007199254740993, \"fault\": \"C10\"}"
+            },
+            "replayed": true
+          }
+        },
+        {
+          "barrier": "source.after_mutation.before_commit",
+          "runId": "m2a-20260916203528466-dc63acdc",
+          "writerPid": 452292,
+          "backendPid": 263,
+          "transactionId": "845",
+          "sourceEpoch": "993a1e2f-3249-4c8b-bb11-22a09fc5274a",
+          "entityId": "9007199254741013",
+          "entityVersion": "1",
+          "changeId": "7e2d5bef-5ea5-4ad7-baa5-62774d003cd0",
+          "requestedSignal": "SIGKILL",
+          "sent": true,
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "endedSession": [],
+          "callerSuccessBytes": 0,
+          "callerOutcome": "unknown; no ordinary caller success response received"
+        },
+        {
+          "barrier": "source.after_commit.before_caller_success",
+          "runId": "m2a-20260916203528466-dc63acdc",
+          "writerPid": 452307,
+          "backendPid": 274,
+          "transactionId": "847",
+          "sourceEpoch": "993a1e2f-3249-4c8b-bb11-22a09fc5274a",
+          "entityId": "9007199254741015",
+          "entityVersion": "1",
+          "changeId": "80d7fdf0-ee84-4970-a955-0f7ae4e601cf",
+          "requestedSignal": "SIGKILL",
+          "sent": true,
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "endedSession": [],
+          "callerSuccessBytes": 0,
+          "callerOutcome": "unknown; no ordinary caller success response received"
+        }
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "localArtifacts": "artifacts/m2a/m2a-20260916203528466-dc63acdc"
+    },
+    {
+      "runId": "m2b-20260916203543710-2595e60a",
+      "profile": "m2b",
+      "migrationMode": "fresh",
+      "contentSha256": "23de9dd786b97d4f2374416fa0b194b6f33d273fd29b7167f6e3f37cb59dd26b",
+      "status": "PASS",
+      "acceptance": {
+        "cases": [
+          {
+            "id": "S01-GOLDEN",
+            "status": "PASS"
+          },
+          {
+            "id": "S01-REJECT",
+            "status": "PASS"
+          },
+          {
+            "id": "S02",
+            "status": "PASS"
+          },
+          {
+            "id": "S03",
+            "status": "PASS"
+          },
+          {
+            "id": "S04",
+            "status": "PASS"
+          },
+          {
+            "id": "S05",
+            "status": "PASS"
+          },
+          {
+            "id": "S06",
+            "status": "PASS"
+          },
+          {
+            "id": "S07",
+            "status": "PASS"
+          },
+          {
+            "id": "S11",
+            "status": "PASS"
+          },
+          {
+            "id": "S12",
+            "status": "PASS"
+          },
+          {
+            "id": "S13",
+            "status": "PASS"
+          },
+          {
+            "id": "S-UPGRADE",
+            "status": "PASS"
+          },
+          {
+            "id": "S08",
+            "status": "PASS"
+          },
+          {
+            "id": "S09",
+            "status": "PASS"
+          },
+          {
+            "id": "S10-PRE",
+            "status": "PASS"
+          },
+          {
+            "id": "S10-POST",
+            "status": "PASS"
+          }
+        ],
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "signals": [
+        {
+          "case": "S08-actual-signal",
+          "commandKey": "2d1692ff-f5ed-42df-839c-e90b4eea5d85",
+          "revision": {
+            "entityId": "1",
+            "version": "1"
+          },
+          "eventId": "b75a862d-324b-4ca9-8cca-92b35bcda1ea:1:1",
+          "pid": 454144,
+          "backendPid": 125,
+          "transactionId": "755",
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "ordinarySuccessBytes": 0,
+          "endedSession": [],
+          "replay": {
+            "type": "caller-success",
+            "results": [
+              {
+                "eventId": "b75a862d-324b-4ca9-8cca-92b35bcda1ea:1:1",
+                "status": "inserted"
+              }
+            ]
+          }
+        },
+        {
+          "case": "S09-actual-signal",
+          "commandKey": "fa4ef3a3-24ee-40d1-aecd-ed973cd3336d",
+          "revision": {
+            "entityId": "2",
+            "version": "1"
+          },
+          "eventId": "b75a862d-324b-4ca9-8cca-92b35bcda1ea:2:1",
+          "pid": 454209,
+          "backendPid": 128,
+          "transactionId": null,
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "ordinarySuccessBytes": 0,
+          "endedSession": [],
+          "replay": {
+            "type": "caller-success",
+            "results": [
+              {
+                "eventId": "b75a862d-324b-4ca9-8cca-92b35bcda1ea:2:1",
+                "status": "already_staged"
+              }
+            ]
+          }
+        }
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "localArtifacts": "artifacts/m2b/m2b-20260916203543710-2595e60a"
+    },
+    {
+      "runId": "m2b-20260916203601540-68d6b3b9",
+      "profile": "m2b",
+      "migrationMode": "populated M2A upgrade",
+      "contentSha256": "23de9dd786b97d4f2374416fa0b194b6f33d273fd29b7167f6e3f37cb59dd26b",
+      "status": "PASS",
+      "acceptance": {
+        "cases": [
+          {
+            "id": "S01-GOLDEN",
+            "status": "PASS"
+          },
+          {
+            "id": "S01-REJECT",
+            "status": "PASS"
+          },
+          {
+            "id": "S02",
+            "status": "PASS"
+          },
+          {
+            "id": "S03",
+            "status": "PASS"
+          },
+          {
+            "id": "S04",
+            "status": "PASS"
+          },
+          {
+            "id": "S05",
+            "status": "PASS"
+          },
+          {
+            "id": "S06",
+            "status": "PASS"
+          },
+          {
+            "id": "S07",
+            "status": "PASS"
+          },
+          {
+            "id": "S11",
+            "status": "PASS"
+          },
+          {
+            "id": "S12",
+            "status": "PASS"
+          },
+          {
+            "id": "S13",
+            "status": "PASS"
+          },
+          {
+            "id": "S-UPGRADE",
+            "status": "PASS"
+          },
+          {
+            "id": "S08",
+            "status": "PASS"
+          },
+          {
+            "id": "S09",
+            "status": "PASS"
+          },
+          {
+            "id": "S10-PRE",
+            "status": "PASS"
+          },
+          {
+            "id": "S10-POST",
+            "status": "PASS"
+          }
+        ],
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "signals": [
+        {
+          "case": "S08-actual-signal",
+          "commandKey": "e971f242-ce3f-4477-99dd-68f7071e380d",
+          "revision": {
+            "entityId": "2",
+            "version": "1"
+          },
+          "eventId": "fa493d02-793c-48ff-a3a8-3112e682d4b6:2:1",
+          "pid": 456664,
+          "backendPid": 112,
+          "transactionId": "755",
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "ordinarySuccessBytes": 0,
+          "endedSession": [],
+          "replay": {
+            "type": "caller-success",
+            "results": [
+              {
+                "eventId": "fa493d02-793c-48ff-a3a8-3112e682d4b6:2:1",
+                "status": "inserted"
+              }
+            ]
+          }
+        },
+        {
+          "case": "S09-actual-signal",
+          "commandKey": "05ff2e7f-9ef4-4551-859b-efac03012231",
+          "revision": {
+            "entityId": "3",
+            "version": "1"
+          },
+          "eventId": "fa493d02-793c-48ff-a3a8-3112e682d4b6:3:1",
+          "pid": 456719,
+          "backendPid": 121,
+          "transactionId": null,
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "ordinarySuccessBytes": 0,
+          "endedSession": [],
+          "replay": {
+            "type": "caller-success",
+            "results": [
+              {
+                "eventId": "fa493d02-793c-48ff-a3a8-3112e682d4b6:3:1",
+                "status": "already_staged"
+              }
+            ]
+          }
+        }
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "localArtifacts": "artifacts/m2b/m2b-20260916203601540-68d6b3b9"
+    },
+    {
+      "runId": "m1-20260916203628376-0e092fd2",
+      "profile": "m1",
+      "migrationMode": "fresh",
+      "contentSha256": "23de9dd786b97d4f2374416fa0b194b6f33d273fd29b7167f6e3f37cb59dd26b",
+      "status": "PASS",
+      "acceptance": {
+        "cases": [
+          {
+            "id": "PG",
+            "status": "PASS"
+          },
+          {
+            "id": "T01",
+            "status": "PASS"
+          },
+          {
+            "id": "T02",
+            "status": "PASS"
+          },
+          {
+            "id": "T03",
+            "status": "PASS"
+          },
+          {
+            "id": "T04",
+            "status": "PASS"
+          },
+          {
+            "id": "T05",
+            "status": "PASS"
+          },
+          {
+            "id": "T06",
+            "status": "PASS"
+          },
+          {
+            "id": "T07",
+            "status": "PASS"
+          },
+          {
+            "id": "T10-SOURCE",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-F01",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-F01-TAG",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-F02",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-LIFETIME",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-DEADLOCK",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-OBSERVE",
+            "status": "PASS"
+          },
+          {
+            "id": "T08",
+            "status": "PASS"
+          },
+          {
+            "id": "T09",
+            "status": "PASS"
+          },
+          {
+            "id": "T10-FAULT",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-HEALTHY-PRE",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-ORPHAN-PRE",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-HEALTHY-POST",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-ORPHAN-POST",
+            "status": "PASS"
+          }
+        ],
+        "passed": 22,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "signals": [
+        {
+          "barrier": "source.after_mutation.before_commit",
+          "runId": "m1-20260916203628376-0e092fd2",
+          "writerPid": 459539,
+          "backendPid": 156,
+          "transactionId": "803",
+          "sourceEpoch": "47d4b32d-ab47-44b5-bb51-02c50dc2c90b",
+          "entityId": "9007199254741013",
+          "entityVersion": "1",
+          "changeId": "417dbd0b-fba9-4c71-b019-7d1b49246f1b",
+          "requestedSignal": "SIGKILL",
+          "sent": true,
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "endedSession": [],
+          "callerSuccessBytes": 0,
+          "callerOutcome": "unknown; no ordinary caller success response received"
+        },
+        {
+          "barrier": "source.after_commit.before_caller_success",
+          "runId": "m1-20260916203628376-0e092fd2",
+          "writerPid": 459553,
+          "backendPid": 159,
+          "transactionId": "805",
+          "sourceEpoch": "47d4b32d-ab47-44b5-bb51-02c50dc2c90b",
+          "entityId": "9007199254741015",
+          "entityVersion": "1",
+          "changeId": "9827906c-a3eb-423e-a64f-ef681a3311e7",
+          "requestedSignal": "SIGKILL",
+          "sent": true,
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "endedSession": [],
+          "callerSuccessBytes": 0,
+          "callerOutcome": "unknown; no ordinary caller success response received"
+        }
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "localArtifacts": "artifacts/m1/m1-20260916203628376-0e092fd2"
+    },
+    {
+      "runId": "m2a-20260916203639981-98a5c2c1",
+      "profile": "m2a",
+      "migrationMode": "fresh",
+      "contentSha256": "23de9dd786b97d4f2374416fa0b194b6f33d273fd29b7167f6e3f37cb59dd26b",
+      "status": "PASS",
+      "acceptance": {
+        "cases": [
+          {
+            "id": "PG",
+            "status": "PASS"
+          },
+          {
+            "id": "T01",
+            "status": "PASS"
+          },
+          {
+            "id": "T02",
+            "status": "PASS"
+          },
+          {
+            "id": "T03",
+            "status": "PASS"
+          },
+          {
+            "id": "T04",
+            "status": "PASS"
+          },
+          {
+            "id": "T05",
+            "status": "PASS"
+          },
+          {
+            "id": "T06",
+            "status": "PASS"
+          },
+          {
+            "id": "T07",
+            "status": "PASS"
+          },
+          {
+            "id": "T10-SOURCE",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-F01",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-F01-TAG",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-F02",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-LIFETIME",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-DEADLOCK",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-OBSERVE",
+            "status": "PASS"
+          },
+          {
+            "id": "T08",
+            "status": "PASS"
+          },
+          {
+            "id": "T09",
+            "status": "PASS"
+          },
+          {
+            "id": "T10-FAULT",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-HEALTHY-PRE",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-ORPHAN-PRE",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-HEALTHY-POST",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-ORPHAN-POST",
+            "status": "PASS"
+          },
+          {
+            "id": "C01",
+            "status": "PASS"
+          },
+          {
+            "id": "C02",
+            "status": "PASS"
+          },
+          {
+            "id": "C03",
+            "status": "PASS"
+          },
+          {
+            "id": "C04",
+            "status": "PASS"
+          },
+          {
+            "id": "C05",
+            "status": "PASS"
+          },
+          {
+            "id": "C06",
+            "status": "PASS"
+          },
+          {
+            "id": "C07",
+            "status": "PASS"
+          },
+          {
+            "id": "C08",
+            "status": "PASS"
+          },
+          {
+            "id": "C11",
+            "status": "PASS"
+          },
+          {
+            "id": "C12",
+            "status": "PASS"
+          },
+          {
+            "id": "C09",
+            "status": "PASS"
+          },
+          {
+            "id": "C10",
+            "status": "PASS"
+          },
+          {
+            "id": "C09-HEALTHY",
+            "status": "PASS"
+          },
+          {
+            "id": "C10-HEALTHY",
+            "status": "PASS"
+          }
+        ],
+        "passed": 36,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "signals": [
+        {
+          "case": "C09-actual-signal",
+          "command": {
+            "sourceEpoch": "45e47f3d-b4eb-48ef-b03c-faeef682ecb4",
+            "commandId": "40d436ce-ffe0-42d7-b2e4-d7b7689e48ee",
+            "contractVersion": 1,
+            "operation": "create",
+            "entityId": null,
+            "payloadJson": "{\"fault\":\"C09\",\"exact\":9007199254740993}"
+          },
+          "writerPid": 460924,
+          "backendPid": 104,
+          "transactionId": "755",
+          "entityId": "1",
+          "entityVersion": "1",
+          "changeId": "4b2513a5-344b-44ca-90c9-2f39ddae2b2b",
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "ordinarySuccessBytes": 0,
+          "endedSession": [],
+          "recovered": {
+            "result": {
+              "entity_id": "2",
+              "entity_version": "1",
+              "source_epoch": "45e47f3d-b4eb-48ef-b03c-faeef682ecb4",
+              "change_id": "ffb4c5ca-6389-40ae-b8e8-348beaeb7cec",
+              "recorded_at": "2026-09-16T20:36:47.130104Z",
+              "is_deleted": false,
+              "payload_json": "{\"exact\": 9007199254740993, \"fault\": \"C09\"}"
+            },
+            "replayed": false
+          }
+        },
+        {
+          "case": "C10-actual-signal",
+          "command": {
+            "sourceEpoch": "45e47f3d-b4eb-48ef-b03c-faeef682ecb4",
+            "commandId": "5cae5563-3b2f-4b19-bf26-d23324b914f0",
+            "contractVersion": 1,
+            "operation": "create",
+            "entityId": null,
+            "payloadJson": "{\"fault\":\"C10\",\"exact\":9007199254740993}"
+          },
+          "writerPid": 460940,
+          "backendPid": 115,
+          "transactionId": null,
+          "entityId": "3",
+          "entityVersion": "1",
+          "changeId": "967b62f9-e846-4c7a-89c3-d6fc65b2dfbf",
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "ordinarySuccessBytes": 0,
+          "endedSession": [],
+          "recovered": {
+            "result": {
+              "entity_id": "3",
+              "entity_version": "1",
+              "source_epoch": "45e47f3d-b4eb-48ef-b03c-faeef682ecb4",
+              "change_id": "967b62f9-e846-4c7a-89c3-d6fc65b2dfbf",
+              "recorded_at": "2026-09-16T20:36:47.320180Z",
+              "is_deleted": false,
+              "payload_json": "{\"exact\": 9007199254740993, \"fault\": \"C10\"}"
+            },
+            "replayed": true
+          }
+        },
+        {
+          "barrier": "source.after_mutation.before_commit",
+          "runId": "m2a-20260916203639981-98a5c2c1",
+          "writerPid": 461321,
+          "backendPid": 263,
+          "transactionId": "845",
+          "sourceEpoch": "45e47f3d-b4eb-48ef-b03c-faeef682ecb4",
+          "entityId": "9007199254741013",
+          "entityVersion": "1",
+          "changeId": "dd30c783-2fa7-4557-9026-dceb41d14dff",
+          "requestedSignal": "SIGKILL",
+          "sent": true,
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "endedSession": [],
+          "callerSuccessBytes": 0,
+          "callerOutcome": "unknown; no ordinary caller success response received"
+        },
+        {
+          "barrier": "source.after_commit.before_caller_success",
+          "runId": "m2a-20260916203639981-98a5c2c1",
+          "writerPid": 461335,
+          "backendPid": 266,
+          "transactionId": "847",
+          "sourceEpoch": "45e47f3d-b4eb-48ef-b03c-faeef682ecb4",
+          "entityId": "9007199254741015",
+          "entityVersion": "1",
+          "changeId": "393c1e15-f1d4-4b51-afea-593972d9b311",
+          "requestedSignal": "SIGKILL",
+          "sent": true,
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "endedSession": [],
+          "callerSuccessBytes": 0,
+          "callerOutcome": "unknown; no ordinary caller success response received"
+        }
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "localArtifacts": "artifacts/m2a/m2a-20260916203639981-98a5c2c1"
+    },
+    {
+      "runId": "m2b-20260916203656900-b711a558",
+      "profile": "m2b",
+      "migrationMode": "fresh",
+      "contentSha256": "23de9dd786b97d4f2374416fa0b194b6f33d273fd29b7167f6e3f37cb59dd26b",
+      "status": "PASS",
+      "acceptance": {
+        "cases": [
+          {
+            "id": "S01-GOLDEN",
+            "status": "PASS"
+          },
+          {
+            "id": "S01-REJECT",
+            "status": "PASS"
+          },
+          {
+            "id": "S02",
+            "status": "PASS"
+          },
+          {
+            "id": "S03",
+            "status": "PASS"
+          },
+          {
+            "id": "S04",
+            "status": "PASS"
+          },
+          {
+            "id": "S05",
+            "status": "PASS"
+          },
+          {
+            "id": "S06",
+            "status": "PASS"
+          },
+          {
+            "id": "S07",
+            "status": "PASS"
+          },
+          {
+            "id": "S11",
+            "status": "PASS"
+          },
+          {
+            "id": "S12",
+            "status": "PASS"
+          },
+          {
+            "id": "S13",
+            "status": "PASS"
+          },
+          {
+            "id": "S-UPGRADE",
+            "status": "PASS"
+          },
+          {
+            "id": "S08",
+            "status": "PASS"
+          },
+          {
+            "id": "S09",
+            "status": "PASS"
+          },
+          {
+            "id": "S10-PRE",
+            "status": "PASS"
+          },
+          {
+            "id": "S10-POST",
+            "status": "PASS"
+          }
+        ],
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "signals": [
+        {
+          "case": "S08-actual-signal",
+          "commandKey": "ced9ae51-c165-481a-996b-4d4da39f3d89",
+          "revision": {
+            "entityId": "1",
+            "version": "1"
+          },
+          "eventId": "754a4bc3-3f2b-4cbe-b525-3dbb4ee5064b:1:1",
+          "pid": 463094,
+          "backendPid": 111,
+          "transactionId": "755",
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "ordinarySuccessBytes": 0,
+          "endedSession": [],
+          "replay": {
+            "type": "caller-success",
+            "results": [
+              {
+                "eventId": "754a4bc3-3f2b-4cbe-b525-3dbb4ee5064b:1:1",
+                "status": "inserted"
+              }
+            ]
+          }
+        },
+        {
+          "case": "S09-actual-signal",
+          "commandKey": "3e07c532-2c99-48d6-a765-c55cb743a31d",
+          "revision": {
+            "entityId": "2",
+            "version": "1"
+          },
+          "eventId": "754a4bc3-3f2b-4cbe-b525-3dbb4ee5064b:2:1",
+          "pid": 463125,
+          "backendPid": 114,
+          "transactionId": null,
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "ordinarySuccessBytes": 0,
+          "endedSession": [],
+          "replay": {
+            "type": "caller-success",
+            "results": [
+              {
+                "eventId": "754a4bc3-3f2b-4cbe-b525-3dbb4ee5064b:2:1",
+                "status": "already_staged"
+              }
+            ]
+          }
+        }
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "localArtifacts": "artifacts/m2b/m2b-20260916203656900-b711a558"
+    },
+    {
+      "runId": "m2b-20260916203712819-f2a56037",
+      "profile": "m2b",
+      "migrationMode": "populated M2A upgrade",
+      "contentSha256": "23de9dd786b97d4f2374416fa0b194b6f33d273fd29b7167f6e3f37cb59dd26b",
+      "status": "PASS",
+      "acceptance": {
+        "cases": [
+          {
+            "id": "S01-GOLDEN",
+            "status": "PASS"
+          },
+          {
+            "id": "S01-REJECT",
+            "status": "PASS"
+          },
+          {
+            "id": "S02",
+            "status": "PASS"
+          },
+          {
+            "id": "S03",
+            "status": "PASS"
+          },
+          {
+            "id": "S04",
+            "status": "PASS"
+          },
+          {
+            "id": "S05",
+            "status": "PASS"
+          },
+          {
+            "id": "S06",
+            "status": "PASS"
+          },
+          {
+            "id": "S07",
+            "status": "PASS"
+          },
+          {
+            "id": "S11",
+            "status": "PASS"
+          },
+          {
+            "id": "S12",
+            "status": "PASS"
+          },
+          {
+            "id": "S13",
+            "status": "PASS"
+          },
+          {
+            "id": "S-UPGRADE",
+            "status": "PASS"
+          },
+          {
+            "id": "S08",
+            "status": "PASS"
+          },
+          {
+            "id": "S09",
+            "status": "PASS"
+          },
+          {
+            "id": "S10-PRE",
+            "status": "PASS"
+          },
+          {
+            "id": "S10-POST",
+            "status": "PASS"
+          }
+        ],
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "signals": [
+        {
+          "case": "S08-actual-signal",
+          "commandKey": "f0f3fc31-f51c-4808-b138-80f5a4546f63",
+          "revision": {
+            "entityId": "2",
+            "version": "1"
+          },
+          "eventId": "c5bfd891-10db-49fe-830f-edc9a2293bc8:2:1",
+          "pid": 465642,
+          "backendPid": 112,
+          "transactionId": "755",
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "ordinarySuccessBytes": 0,
+          "endedSession": [],
+          "replay": {
+            "type": "caller-success",
+            "results": [
+              {
+                "eventId": "c5bfd891-10db-49fe-830f-edc9a2293bc8:2:1",
+                "status": "inserted"
+              }
+            ]
+          }
+        },
+        {
+          "case": "S09-actual-signal",
+          "commandKey": "21b70d42-94ec-41c0-8414-ce7fad9b915b",
+          "revision": {
+            "entityId": "3",
+            "version": "1"
+          },
+          "eventId": "c5bfd891-10db-49fe-830f-edc9a2293bc8:3:1",
+          "pid": 465707,
+          "backendPid": 123,
+          "transactionId": null,
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "ordinarySuccessBytes": 0,
+          "endedSession": [],
+          "replay": {
+            "type": "caller-success",
+            "results": [
+              {
+                "eventId": "c5bfd891-10db-49fe-830f-edc9a2293bc8:3:1",
+                "status": "already_staged"
+              }
+            ]
+          }
+        }
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "localArtifacts": "artifacts/m2b/m2b-20260916203712819-f2a56037"
+    }
+  ],
+  "remoteCI": "NOT RUN",
+  "fullGates": "G1-G5 NOT IMPLEMENTED; make verify expected nonzero",
+  "evidenceLocation": "Local artifacts only; paths are not public URLs"
+}

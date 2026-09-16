@@ -1,6 +1,6 @@
 # ADR 008: one owned local pipeline staging transaction
 
-Status: accepted for M2B implementation; verification pending. This decision establishes local staging only, without source acknowledgement or sink success.
+Status: accepted; verified locally at f8d7728 in [M2B evidence](../evidence/M2B.md). This decision establishes local staging only, without source acknowledgement or sink success.
 
 ## Separate ownership and minimal tables
 
