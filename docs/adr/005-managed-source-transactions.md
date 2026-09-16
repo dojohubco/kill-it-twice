@@ -24,3 +24,7 @@ Real regression tests cover caught SQL errors, ownership rejection, expired capa
 Savepoints, SQL parsing, undocumented driver internals and accepting caller-owned sessions are unnecessary for this single-level contract. Connection per transaction trades connection overhead for a small, explicit ownership boundary; pooling/performance are outside M1.1.
 
 References: [pg result command tags](https://node-postgres.com/apis/result), [pg connection lifecycle](https://node-postgres.com/apis/client), [PostgreSQL COMMIT](https://www.postgresql.org/docs/18/sql-commit.html).
+
+## Verification recorded after implementation
+
+The M1.1 final acceptance ran three fresh PostgreSQL suites at clean `7cb3dbc4da0dca4e7fa683d06bd5198a15c05cd0`, each passing 22 required cases. Both possible deadlock victims occurred across those runs. Real COMMIT/ROLLBACK tags, ownership guards, expired capabilities, sequential reuse, production-helper SIGKILL boundaries, healthy release and orphan cleanup passed. Pure transport fixtures separately cover setup/cleanup and ambiguous COMMIT classification. See [M1.1 evidence](../evidence/M1.1.md); this verification is later than the original decision above.

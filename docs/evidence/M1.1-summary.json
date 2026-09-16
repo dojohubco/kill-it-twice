@@ -1,0 +1,709 @@
+{
+  "format": 1,
+  "milestone": "M1.1",
+  "baseline": "f8c2e061822fbb97edf831f23b9611570ccd9ef6",
+  "testedCode": "7cb3dbc4da0dca4e7fa683d06bd5198a15c05cd0",
+  "status": "PASS",
+  "clean": true,
+  "commands": [
+    {
+      "command": ["npm", "ci", "--no-audit", "--no-fund"],
+      "startedAt": "2026-09-16T18:28:27.853Z",
+      "finishedAt": "2026-09-16T18:28:30.298Z",
+      "code": 0,
+      "signal": null,
+      "timedOut": false,
+      "outputOverflow": false,
+      "cleanupErrors": [],
+      "expectedExit": 0,
+      "passed": true,
+      "stdout": "01.stdout.log",
+      "stderr": "01.stderr.log"
+    },
+    {
+      "command": ["npm", "ls", "--depth=0"],
+      "startedAt": "2026-09-16T18:28:30.298Z",
+      "finishedAt": "2026-09-16T18:28:30.673Z",
+      "code": 0,
+      "signal": null,
+      "timedOut": false,
+      "outputOverflow": false,
+      "cleanupErrors": [],
+      "expectedExit": 0,
+      "passed": true,
+      "stdout": "02.stdout.log",
+      "stderr": "02.stderr.log"
+    },
+    {
+      "command": ["npm", "run", "format:check"],
+      "startedAt": "2026-09-16T18:28:30.673Z",
+      "finishedAt": "2026-09-16T18:28:31.946Z",
+      "code": 0,
+      "signal": null,
+      "timedOut": false,
+      "outputOverflow": false,
+      "cleanupErrors": [],
+      "expectedExit": 0,
+      "passed": true,
+      "stdout": "03.stdout.log",
+      "stderr": "03.stderr.log"
+    },
+    {
+      "command": ["npm", "run", "lint"],
+      "startedAt": "2026-09-16T18:28:31.947Z",
+      "finishedAt": "2026-09-16T18:28:35.233Z",
+      "code": 0,
+      "signal": null,
+      "timedOut": false,
+      "outputOverflow": false,
+      "cleanupErrors": [],
+      "expectedExit": 0,
+      "passed": true,
+      "stdout": "04.stdout.log",
+      "stderr": "04.stderr.log"
+    },
+    {
+      "command": ["npm", "run", "typecheck"],
+      "startedAt": "2026-09-16T18:28:35.233Z",
+      "finishedAt": "2026-09-16T18:28:37.703Z",
+      "code": 0,
+      "signal": null,
+      "timedOut": false,
+      "outputOverflow": false,
+      "cleanupErrors": [],
+      "expectedExit": 0,
+      "passed": true,
+      "stdout": "05.stdout.log",
+      "stderr": "05.stderr.log"
+    },
+    {
+      "command": ["npm", "run", "knip"],
+      "startedAt": "2026-09-16T18:28:37.704Z",
+      "finishedAt": "2026-09-16T18:28:38.250Z",
+      "code": 0,
+      "signal": null,
+      "timedOut": false,
+      "outputOverflow": false,
+      "cleanupErrors": [],
+      "expectedExit": 0,
+      "passed": true,
+      "stdout": "06.stdout.log",
+      "stderr": "06.stderr.log"
+    },
+    {
+      "command": ["npm", "run", "validate:compose"],
+      "startedAt": "2026-09-16T18:28:38.251Z",
+      "finishedAt": "2026-09-16T18:28:38.549Z",
+      "code": 0,
+      "signal": null,
+      "timedOut": false,
+      "outputOverflow": false,
+      "cleanupErrors": [],
+      "expectedExit": 0,
+      "passed": true,
+      "stdout": "07.stdout.log",
+      "stderr": "07.stderr.log"
+    },
+    {
+      "command": ["npm", "run", "validate:workflow"],
+      "startedAt": "2026-09-16T18:28:38.549Z",
+      "finishedAt": "2026-09-16T18:28:38.763Z",
+      "code": 0,
+      "signal": null,
+      "timedOut": false,
+      "outputOverflow": false,
+      "cleanupErrors": [],
+      "expectedExit": 0,
+      "passed": true,
+      "stdout": "08.stdout.log",
+      "stderr": "08.stderr.log"
+    },
+    {
+      "command": ["npm", "run", "test:unit"],
+      "startedAt": "2026-09-16T18:28:38.764Z",
+      "finishedAt": "2026-09-16T18:28:40.218Z",
+      "code": 0,
+      "signal": null,
+      "timedOut": false,
+      "outputOverflow": false,
+      "cleanupErrors": [],
+      "expectedExit": 0,
+      "passed": true,
+      "stdout": "09.stdout.log",
+      "stderr": "09.stderr.log"
+    },
+    {
+      "command": ["make", "quality"],
+      "startedAt": "2026-09-16T18:28:40.218Z",
+      "finishedAt": "2026-09-16T18:28:49.249Z",
+      "code": 0,
+      "signal": null,
+      "timedOut": false,
+      "outputOverflow": false,
+      "cleanupErrors": [],
+      "expectedExit": 0,
+      "passed": true,
+      "stdout": "10.stdout.log",
+      "stderr": "10.stderr.log"
+    },
+    {
+      "command": ["npm", "run", "test:integration:m1"],
+      "startedAt": "2026-09-16T18:28:49.250Z",
+      "finishedAt": "2026-09-16T18:29:01.585Z",
+      "code": 0,
+      "signal": null,
+      "timedOut": false,
+      "outputOverflow": false,
+      "cleanupErrors": [],
+      "expectedExit": 0,
+      "passed": true,
+      "stdout": "11.stdout.log",
+      "stderr": "11.stderr.log"
+    },
+    {
+      "command": ["make", "verify-m1"],
+      "startedAt": "2026-09-16T18:29:01.586Z",
+      "finishedAt": "2026-09-16T18:29:25.988Z",
+      "code": 0,
+      "signal": null,
+      "timedOut": false,
+      "outputOverflow": false,
+      "cleanupErrors": [],
+      "expectedExit": 0,
+      "passed": true,
+      "stdout": "12.stdout.log",
+      "stderr": "12.stderr.log"
+    },
+    {
+      "command": ["make", "verify-m1"],
+      "startedAt": "2026-09-16T18:29:25.989Z",
+      "finishedAt": "2026-09-16T18:29:47.443Z",
+      "code": 0,
+      "signal": null,
+      "timedOut": false,
+      "outputOverflow": false,
+      "cleanupErrors": [],
+      "expectedExit": 0,
+      "passed": true,
+      "stdout": "13.stdout.log",
+      "stderr": "13.stderr.log"
+    },
+    {
+      "command": ["make", "verify"],
+      "startedAt": "2026-09-16T18:29:47.444Z",
+      "finishedAt": "2026-09-16T18:29:47.455Z",
+      "code": 2,
+      "signal": null,
+      "timedOut": false,
+      "outputOverflow": false,
+      "cleanupErrors": [],
+      "expectedExit": 2,
+      "passed": true,
+      "stdout": "14.stdout.log",
+      "stderr": "14.stderr.log"
+    }
+  ],
+  "runs": [
+    {
+      "runId": "m1-20260916182849462-1dc9c2c8",
+      "head": "7cb3dbc4da0dca4e7fa683d06bd5198a15c05cd0",
+      "contentSha256": "3dcd1df3d68c06d486f331ce54e336753f29b0b1d1b1efe7c5535a9b1bb78012",
+      "status": "PASS",
+      "acceptance": {
+        "cases": [
+          {
+            "id": "PG",
+            "status": "PASS"
+          },
+          {
+            "id": "T01",
+            "status": "PASS"
+          },
+          {
+            "id": "T02",
+            "status": "PASS"
+          },
+          {
+            "id": "T03",
+            "status": "PASS"
+          },
+          {
+            "id": "T04",
+            "status": "PASS"
+          },
+          {
+            "id": "T05",
+            "status": "PASS"
+          },
+          {
+            "id": "T06",
+            "status": "PASS"
+          },
+          {
+            "id": "T07",
+            "status": "PASS"
+          },
+          {
+            "id": "T10-SOURCE",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-F01",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-F01-TAG",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-F02",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-LIFETIME",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-DEADLOCK",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-OBSERVE",
+            "status": "PASS"
+          },
+          {
+            "id": "T08",
+            "status": "PASS"
+          },
+          {
+            "id": "T09",
+            "status": "PASS"
+          },
+          {
+            "id": "T10-FAULT",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-HEALTHY-PRE",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-ORPHAN-PRE",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-HEALTHY-POST",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-ORPHAN-POST",
+            "status": "PASS"
+          }
+        ],
+        "passed": 22,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "signals": [
+        {
+          "barrier": "source.after_mutation.before_commit",
+          "runId": "m1-20260916182849462-1dc9c2c8",
+          "writerPid": 274019,
+          "backendPid": 163,
+          "transactionId": "803",
+          "sourceEpoch": "4efc63ce-0123-4c78-9362-868bb6963303",
+          "entityId": "9007199254741013",
+          "entityVersion": "1",
+          "changeId": "3627a2f2-f5a9-4859-a68e-e2a6377cfba5",
+          "requestedSignal": "SIGKILL",
+          "sent": true,
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "endedSession": [],
+          "callerSuccessBytes": 0,
+          "callerOutcome": "unknown; no ordinary caller success response received"
+        },
+        {
+          "barrier": "source.after_commit.before_caller_success",
+          "runId": "m1-20260916182849462-1dc9c2c8",
+          "writerPid": 274033,
+          "backendPid": 166,
+          "transactionId": "805",
+          "sourceEpoch": "4efc63ce-0123-4c78-9362-868bb6963303",
+          "entityId": "9007199254741015",
+          "entityVersion": "1",
+          "changeId": "ed7473cf-4f86-45c1-b354-c72d97ebc432",
+          "requestedSignal": "SIGKILL",
+          "sent": true,
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "endedSession": [],
+          "callerSuccessBytes": 0,
+          "callerOutcome": "unknown; no ordinary caller success response received"
+        }
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "postgres": {
+        "version": "PostgreSQL 18.6 (Debian 18.6-1.pgdg12+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit",
+        "server_version": "18.6 (Debian 18.6-1.pgdg12+2)",
+        "fsync": "on",
+        "synchronous_commit": "on",
+        "full_page_writes": "on"
+      },
+      "epoch": [
+        {
+          "source_epoch": "4efc63ce-0123-4c78-9362-868bb6963303"
+        }
+      ],
+      "localArtifacts": "artifacts/m1/m1-20260916182849462-1dc9c2c8"
+    },
+    {
+      "runId": "m1-20260916182912326-d7b48b7e",
+      "head": "7cb3dbc4da0dca4e7fa683d06bd5198a15c05cd0",
+      "contentSha256": "3dcd1df3d68c06d486f331ce54e336753f29b0b1d1b1efe7c5535a9b1bb78012",
+      "status": "PASS",
+      "acceptance": {
+        "cases": [
+          {
+            "id": "PG",
+            "status": "PASS"
+          },
+          {
+            "id": "T01",
+            "status": "PASS"
+          },
+          {
+            "id": "T02",
+            "status": "PASS"
+          },
+          {
+            "id": "T03",
+            "status": "PASS"
+          },
+          {
+            "id": "T04",
+            "status": "PASS"
+          },
+          {
+            "id": "T05",
+            "status": "PASS"
+          },
+          {
+            "id": "T06",
+            "status": "PASS"
+          },
+          {
+            "id": "T07",
+            "status": "PASS"
+          },
+          {
+            "id": "T10-SOURCE",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-F01",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-F01-TAG",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-F02",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-LIFETIME",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-DEADLOCK",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-OBSERVE",
+            "status": "PASS"
+          },
+          {
+            "id": "T08",
+            "status": "PASS"
+          },
+          {
+            "id": "T09",
+            "status": "PASS"
+          },
+          {
+            "id": "T10-FAULT",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-HEALTHY-PRE",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-ORPHAN-PRE",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-HEALTHY-POST",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-ORPHAN-POST",
+            "status": "PASS"
+          }
+        ],
+        "passed": 22,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "signals": [
+        {
+          "barrier": "source.after_mutation.before_commit",
+          "runId": "m1-20260916182912326-d7b48b7e",
+          "writerPid": 276143,
+          "backendPid": 163,
+          "transactionId": "803",
+          "sourceEpoch": "ac0daf52-839f-4fa5-8bac-873b884e1ea3",
+          "entityId": "9007199254741013",
+          "entityVersion": "1",
+          "changeId": "3a6a35f3-b6b7-4b9c-b91e-da214704975d",
+          "requestedSignal": "SIGKILL",
+          "sent": true,
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "endedSession": [],
+          "callerSuccessBytes": 0,
+          "callerOutcome": "unknown; no ordinary caller success response received"
+        },
+        {
+          "barrier": "source.after_commit.before_caller_success",
+          "runId": "m1-20260916182912326-d7b48b7e",
+          "writerPid": 276157,
+          "backendPid": 166,
+          "transactionId": "805",
+          "sourceEpoch": "ac0daf52-839f-4fa5-8bac-873b884e1ea3",
+          "entityId": "9007199254741015",
+          "entityVersion": "1",
+          "changeId": "e535e4ba-a959-44c2-a46a-f7f48ae0a96b",
+          "requestedSignal": "SIGKILL",
+          "sent": true,
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "endedSession": [],
+          "callerSuccessBytes": 0,
+          "callerOutcome": "unknown; no ordinary caller success response received"
+        }
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "postgres": {
+        "version": "PostgreSQL 18.6 (Debian 18.6-1.pgdg12+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit",
+        "server_version": "18.6 (Debian 18.6-1.pgdg12+2)",
+        "fsync": "on",
+        "synchronous_commit": "on",
+        "full_page_writes": "on"
+      },
+      "epoch": [
+        {
+          "source_epoch": "ac0daf52-839f-4fa5-8bac-873b884e1ea3"
+        }
+      ],
+      "localArtifacts": "artifacts/m1/m1-20260916182912326-d7b48b7e"
+    },
+    {
+      "runId": "m1-20260916182935284-73e1d600",
+      "head": "7cb3dbc4da0dca4e7fa683d06bd5198a15c05cd0",
+      "contentSha256": "3dcd1df3d68c06d486f331ce54e336753f29b0b1d1b1efe7c5535a9b1bb78012",
+      "status": "PASS",
+      "acceptance": {
+        "cases": [
+          {
+            "id": "PG",
+            "status": "PASS"
+          },
+          {
+            "id": "T01",
+            "status": "PASS"
+          },
+          {
+            "id": "T02",
+            "status": "PASS"
+          },
+          {
+            "id": "T03",
+            "status": "PASS"
+          },
+          {
+            "id": "T04",
+            "status": "PASS"
+          },
+          {
+            "id": "T05",
+            "status": "PASS"
+          },
+          {
+            "id": "T06",
+            "status": "PASS"
+          },
+          {
+            "id": "T07",
+            "status": "PASS"
+          },
+          {
+            "id": "T10-SOURCE",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-F01",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-F01-TAG",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-F02",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-LIFETIME",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-DEADLOCK",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-OBSERVE",
+            "status": "PASS"
+          },
+          {
+            "id": "T08",
+            "status": "PASS"
+          },
+          {
+            "id": "T09",
+            "status": "PASS"
+          },
+          {
+            "id": "T10-FAULT",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-HEALTHY-PRE",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-ORPHAN-PRE",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-HEALTHY-POST",
+            "status": "PASS"
+          },
+          {
+            "id": "M11-ORPHAN-POST",
+            "status": "PASS"
+          }
+        ],
+        "passed": 22,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "signals": [
+        {
+          "barrier": "source.after_mutation.before_commit",
+          "runId": "m1-20260916182935284-73e1d600",
+          "writerPid": 278110,
+          "backendPid": 163,
+          "transactionId": "803",
+          "sourceEpoch": "5a2af7ec-8afe-4f69-834f-9d539def3321",
+          "entityId": "9007199254741013",
+          "entityVersion": "1",
+          "changeId": "09a2f13b-46c6-420a-8a80-eb3940455972",
+          "requestedSignal": "SIGKILL",
+          "sent": true,
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "endedSession": [],
+          "callerSuccessBytes": 0,
+          "callerOutcome": "unknown; no ordinary caller success response received"
+        },
+        {
+          "barrier": "source.after_commit.before_caller_success",
+          "runId": "m1-20260916182935284-73e1d600",
+          "writerPid": 278124,
+          "backendPid": 166,
+          "transactionId": "805",
+          "sourceEpoch": "5a2af7ec-8afe-4f69-834f-9d539def3321",
+          "entityId": "9007199254741015",
+          "entityVersion": "1",
+          "changeId": "65981676-7c5c-4c25-8e7d-a46a83f6449a",
+          "requestedSignal": "SIGKILL",
+          "sent": true,
+          "actualExit": {
+            "code": null,
+            "signal": "SIGKILL"
+          },
+          "endedSession": [],
+          "callerSuccessBytes": 0,
+          "callerOutcome": "unknown; no ordinary caller success response received"
+        }
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "postgres": {
+        "version": "PostgreSQL 18.6 (Debian 18.6-1.pgdg12+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit",
+        "server_version": "18.6 (Debian 18.6-1.pgdg12+2)",
+        "fsync": "on",
+        "synchronous_commit": "on",
+        "full_page_writes": "on"
+      },
+      "epoch": [
+        {
+          "source_epoch": "5a2af7ec-8afe-4f69-834f-9d539def3321"
+        }
+      ],
+      "localArtifacts": "artifacts/m1/m1-20260916182935284-73e1d600"
+    }
+  ],
+  "remoteCI": "NOT RUN",
+  "fullGates": "G1-G5 NOT IMPLEMENTED; make verify expected nonzero",
+  "evidenceLocation": "Local artifacts only; paths are not public URLs"
+}
