@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import type pg from 'pg';
-import { createEntity, mutateEntity, positiveBigint, SourceTransactionError, transaction } from '../../src/source.ts';
-import { waitFor } from '../../scripts/support.ts';
-import { connect, evidence } from '../support/db.ts';
+import { positiveBigint, SourceTransactionError } from '../../src/source.ts';
+import { createEntity, mutateEntity } from '../support/sql.ts';
+import { sourceOwner } from '../support/db.ts';
+import { connect, evidence, databaseWaitFor } from '../support/db.ts';
 
 let observer: pg.Client;
 before(async () => {
@@ -39,24 +40,25 @@ async function sqlError(client: pg.Client, sql: string, code: string, params: un
 }
 
 test('T01 mutation lifecycle, exact BIGINT boundaries, no-op, and two committed revisions', { timeout: 20_000 }, async () => {
-  await withWriter('T01', async (writer) => {
+  {
+    const owner = sourceOwner('T01');
     await observer.query('ALTER SEQUENCE source.entities_entity_id_seq RESTART WITH 9007199254740993');
     const floor = (await observer.query('SELECT clock_timestamp()::text AS time')).rows[0].time;
-    const created = await transaction(writer, (c) => createEntity(c, '{"label":"alpha","units":9007199254740993}'));
+    const created = await owner.transaction( (c) => c.create( '{"label":"alpha","units":9007199254740993}'));
     assert.equal(created.entity_id, '9007199254740993');
     assert.equal(created.entity_version, '1');
     assert.deepEqual((await entity(created.entity_id))[0], created);
-    const updated = await transaction(writer, (c) => mutateEntity(c, created.entity_id, 'update', '{"label":"beta","units":9007199254740993}'));
+    const updated = await owner.transaction( (c) => c.mutate( created.entity_id, 'update', '{"label":"beta","units":9007199254740993}'));
     assert.equal(updated.entity_version, '2');
-    const noOp = await transaction(writer, (c) => mutateEntity(c, created.entity_id, 'update', '{"units":9007199254740993, "label": "beta"}'));
+    const noOp = await owner.transaction( (c) => c.mutate( created.entity_id, 'update', '{"units":9007199254740993, "label": "beta"}'));
     assert.deepEqual(noOp, updated);
     assert.equal((await revisions(created.entity_id)).length, 2);
-    const deleted = await transaction(writer, (c) => mutateEntity(c, created.entity_id, 'delete'));
+    const deleted = await owner.transaction( (c) => c.mutate( created.entity_id, 'delete'));
     assert.equal(deleted.entity_version, '3');
     assert.equal(deleted.is_deleted, true);
     assert.equal(deleted.payload_json, null);
-    assert.deepEqual(await transaction(writer, (c) => mutateEntity(c, created.entity_id, 'delete')), deleted);
-    const restored = await transaction(writer, (c) => mutateEntity(c, created.entity_id, 'restore', '{"label":"restored","units":9007199254740993}'));
+    assert.deepEqual(await owner.transaction( (c) => c.mutate( created.entity_id, 'delete')), deleted);
+    const restored = await owner.transaction( (c) => c.mutate( created.entity_id, 'restore', '{"label":"restored","units":9007199254740993}'));
     assert.equal(restored.entity_id, created.entity_id);
     assert.equal(restored.entity_version, '4');
     assert.equal(restored.is_deleted, false);
@@ -91,44 +93,45 @@ test('T01 mutation lifecycle, exact BIGINT boundaries, no-op, and two committed 
     await sqlError(observer, 'INSERT INTO source.outbox (source_epoch,entity_id,entity_version,change_id,recorded_at,is_deleted,payload) SELECT source_epoch,entity_id,entity_version,gen_random_uuid(),recorded_at,is_deleted,payload FROM source.outbox WHERE entity_id=$1 AND entity_version=1', '23505', [created.entity_id]);
     const constraints = (await observer.query("SELECT conname, pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid IN ('source.entities'::regclass, 'source.outbox'::regclass) ORDER BY conname")).rows;
     assert.ok(constraints.some((c) => c.conname === 'outbox_revision_identity'));
-    const twice = await transaction(writer, async (c) => {
-      const a = await mutateEntity(c, created.entity_id, 'update', '{"label":"fifth"}');
-      const b = await mutateEntity(c, created.entity_id, 'update', '{"label":"sixth"}');
+    const twice = await owner.transaction( async (c) => {
+      const a = await c.mutate( created.entity_id, 'update', '{"label":"fifth"}');
+      const b = await c.mutate( created.entity_id, 'update', '{"label":"sixth"}');
       return [a.entity_version, b.entity_version];
     });
     assert.deepEqual(twice, ['5', '6']);
     assert.deepEqual((await revisions(created.entity_id)).map((r) => r.entity_version), ['1', '2', '3', '4', '5', '6']);
     evidence('T01', { expected, lifecycle: history, final: await entity(created.entity_id), committedHistory: await revisions(created.entity_id), highVersion: highVersion.rows, constraints });
-  });
+  }
 });
 
 test('T02 rollback after executed single, multiple, and inserted source revisions', { timeout: 20_000 }, async () => {
-  await withWriter('T02', async (writer) => {
-    const original = await transaction(writer, (c) => createEntity(c, '{"state":"original"}'));
+  {
+    const owner = sourceOwner('T02');
+    const original = await owner.transaction( (c) => c.create( '{"state":"original"}'));
     const beforeState = await entity(original.entity_id);
     const beforeEvents = await revisions(original.entity_id);
     for (const changes of [1, 2]) {
-      await assert.rejects(transaction(writer, async (c) => {
-        for (let n = 1; n <= changes; n++) await mutateEntity(c, original.entity_id, 'update', JSON.stringify({ state: `uncommitted-${n}` }));
-        const inTransaction = await revisions(original.entity_id, c);
+      await assert.rejects(owner.transaction( async (c) => {
+        for (let n = 1; n <= changes; n++) await c.mutate( original.entity_id, 'update', JSON.stringify({ state: `uncommitted-${n}` }));
+        const inTransaction = (await c.inspect(original.entity_id)).outbox;
         assert.deepEqual(inTransaction.map((r) => r.entity_version), changes === 1 ? ['1', '2'] : ['1', '2', '3']);
-        evidence('T02-reached-SQL', { changes, transaction: (await c.query('SELECT pg_current_xact_id()::text AS xid')).rows, inTransaction });
+        evidence('T02-reached-SQL', { changes, transaction: (await c.inspect(original.entity_id)).session, inTransaction });
         throw new Error('intentional rollback after SQL');
       }), (error: unknown) => error instanceof SourceTransactionError && error.outcome === 'rolled_back' && (error.cause as Error).message === 'intentional rollback after SQL');
       assert.deepEqual(await entity(original.entity_id), beforeState);
       assert.deepEqual(await revisions(original.entity_id), beforeEvents);
     }
     let rolledBackId = '';
-    await assert.rejects(transaction(writer, async (c) => {
-      rolledBackId = (await createEntity(c, '{"state":"uncommitted-insert"}')).entity_id;
-      assert.equal((await revisions(rolledBackId, c)).length, 1);
-      evidence('T02-insert-reached-SQL', { entity: await entity(rolledBackId, c), outbox: await revisions(rolledBackId, c) });
+    await assert.rejects(owner.transaction( async (c) => {
+      rolledBackId = (await c.create( '{"state":"uncommitted-insert"}')).entity_id;
+      assert.equal(((await c.inspect(rolledBackId)).outbox).length, 1);
+      evidence('T02-insert-reached-SQL', { entity: (await c.inspect(rolledBackId)).entities, outbox: (await c.inspect(rolledBackId)).outbox });
       throw new Error('intentional insert rollback');
     }), SourceTransactionError);
     assert.deepEqual(await entity(rolledBackId), []);
     assert.deepEqual(await revisions(rolledBackId), []);
     evidence('T02', { beforeState, beforeEvents, afterState: await entity(original.entity_id), afterEvents: await revisions(original.entity_id), rolledBackId, rolledBackInsertRows: await entity(rolledBackId), rolledBackInsertEvents: await revisions(rolledBackId) });
-  });
+  }
 });
 
 test('T03 real narrowly scoped outbox INSERT error rolls back the source mutation', { timeout: 20_000 }, async () => {
@@ -161,7 +164,7 @@ test('T04 concurrent writers wait on an observed row lock and create successive 
     await b.query('BEGIN');
     await mutateEntity(a, original.entity_id, 'update', '{"writer":"A"}');
     const pendingB = mutateEntity(b, original.entity_id, 'update', '{"writer":"B"}').then((value) => ({ value, error: null }), (error: unknown) => ({ value: null, error }));
-    const lock = await waitFor(async () => (await observer.query('SELECT pid, application_name, state, wait_event_type, wait_event, backend_xid::text, pg_blocking_pids(pid) AS blockers FROM pg_stat_activity WHERE pid=$1', [bPid])).rows, (rows) => rows.length === 1 && rows[0].wait_event_type === 'Lock' && (rows[0].blockers as number[]).includes(aPid), 'T04 B blocked by A');
+    const lock = await databaseWaitFor(observer, async () => (await observer.query('SELECT pid, application_name, state, wait_event_type, wait_event, backend_xid::text, pg_blocking_pids(pid) AS blockers FROM pg_stat_activity WHERE pid=$1', [bPid])).rows, (rows) => rows.length === 1 && rows[0].wait_event_type === 'Lock' && (rows[0].blockers as number[]).includes(aPid), 'T04 B blocked by A');
     evidence('T04-lock', { aPid, bPid, lock });
     assert.equal((await entity(original.entity_id))[0].entity_version, '1');
     await a.query('COMMIT');

@@ -2,13 +2,13 @@ import assert from 'node:assert/strict';
 import { fork } from 'node:child_process';
 import test from 'node:test';
 import type pg from 'pg';
-import { createEntity } from '../../src/source.ts';
+import { createEntity } from '../support/sql.ts';
 import { waitFor } from '../../scripts/support.ts';
-import { connect, evidence, required } from '../support/db.ts';
+import { connect, evidence, required, databaseWaitFor } from '../support/db.ts';
 import type { BarrierName, BarrierTelemetry, StartWriter } from '../support/fault-protocol.ts';
 
 interface Exit { code: number | null; signal: NodeJS.Signals | null }
-const writers: { pid: number; exit?: Exit; closed: boolean }[] = [];
+const writers: { pid: number; exit?: Exit; closed: boolean; mode: 'kill' | 'release' | 'orphan' }[] = [];
 
 async function observeRows(client: pg.Client, entityId: string) {
   const entities = (await client.query('SELECT entity_id::text, source_epoch::text, entity_version::text, change_id::text, recorded_at::text, is_deleted, payload::text AS payload_json FROM source.entities WHERE entity_id=$1', [entityId])).rows;
@@ -16,11 +16,11 @@ async function observeRows(client: pg.Client, entityId: string) {
   return { entities, outbox };
 }
 
-async function killAtBarrier(name: BarrierName, label: string, observe: (client: pg.Client, barrier: BarrierTelemetry) => Promise<unknown>, verify: (client: pg.Client, barrier: BarrierTelemetry, before: unknown) => Promise<void>) {
+async function killAtBarrier(name: BarrierName, label: string, observe: (client: pg.Client, barrier: BarrierTelemetry) => Promise<unknown>, verify: (client: pg.Client, barrier: BarrierTelemetry, before: unknown) => Promise<void>, mode: 'kill' | 'release' | 'orphan' = 'kill') {
   const observer = await connect('admin', `${label}-observer`);
   const child = fork(new URL('../support/writer-child.ts', import.meta.url), [], { execArgv: [], stdio: ['ignore', 'pipe', 'pipe', 'ipc'], env: { PATH: process.env.PATH, TZ: 'UTC' } });
   assert.ok(child.pid);
-  const tracked: { pid: number; exit?: Exit; closed: boolean } = { pid: child.pid, closed: false };
+  const tracked: { pid: number; exit?: Exit; closed: boolean; mode: 'kill' | 'release' | 'orphan' } = { pid: child.pid, closed: false, mode };
   writers.push(tracked);
   evidence(`${label}-spawn`, { writerPid: child.pid, barrier: name });
   let telemetry: BarrierTelemetry | undefined;
@@ -31,7 +31,16 @@ async function killAtBarrier(name: BarrierName, label: string, observe: (client:
   child.on('message', (message: BarrierTelemetry) => { telemetry = message; });
   child.on('error', (error) => { spawnError = error; });
   child.on('exit', (code, signal) => { tracked.exit = { code, signal }; });
+  let stdoutClosed = false, stderrClosed = false;
+  child.stdout!.once('close', () => { stdoutClosed = true; });
+  child.stderr!.once('close', () => { stderrClosed = true; });
   child.on('close', () => { tracked.closed = true; });
+  const streamsClosed = () => {
+    // Node 24.19 does not emit ChildProcess close after parent-initiated IPC disconnect.
+    // For that explicit path require independent exit, both pipe closes and IPC disconnect.
+    if (mode === 'orphan' && tracked.exit && stdoutClosed && stderrClosed && !child.connected) tracked.closed = true;
+    return tracked.closed;
+  };
   const start: StartWriter = { type: 'start', runId: required('M1_RUN_ID'), barrier: name, payloadJson: JSON.stringify({ fault: label, runId: required('M1_RUN_ID') }), port: Number(required('M1_PORT')), password: required('M1_WRITER_PASSWORD'), applicationName: `${required('M1_RUN_ID')}:${label}-child` };
   try {
     child.send(start);
@@ -53,20 +62,26 @@ async function killAtBarrier(name: BarrierName, label: string, observe: (client:
     assert.equal(stdout, '');
     const before = await observe(observer, barrier);
     evidence(`${label}-confirmed-barrier`, { barrier, independentlyObserved: before, callerSuccessBytes: stdout.length });
-    const sent = child.kill('SIGKILL');
-    assert.equal(sent, true);
-    const exit = await waitFor(async () => tracked.exit, (value) => value !== undefined, `${label} SIGKILL exit`, 5_000);
-    assert.deepEqual(exit, { code: null, signal: 'SIGKILL' });
-    await waitFor(async () => tracked.closed, Boolean, `${label} child stdio closed`, 5_000);
-    assert.equal(stdout, '');
-    assert.equal(stderr, '');
-    const endedSession = await waitFor(async () => (await observer.query('SELECT pid, state, backend_xid::text FROM pg_stat_activity WHERE pid=$1', [barrier.backendPid])).rows, (rows) => rows.length === 0, `${label} database session ended`);
-    evidence(`${label}-actual-signal`, { barrier: name, runId: barrier.runId, writerPid: child.pid, backendPid: barrier.backendPid, transactionId: barrier.transactionId, sourceEpoch: barrier.entity.source_epoch, entityId: barrier.entity.entity_id, entityVersion: barrier.entity.entity_version, changeId: barrier.entity.change_id, requestedSignal: 'SIGKILL', sent, actualExit: exit, endedSession, callerSuccessBytes: stdout.length, callerOutcome: 'unknown; no ordinary caller success response received' });
+    let sent = false;
+    if (mode === 'kill') { sent = child.kill('SIGKILL'); assert.equal(sent, true); }
+    else if (mode === 'release') child.send({ type: 'release', runId: barrier.runId, barrier: name });
+    else child.disconnect();
+    const exit = await waitFor(async () => tracked.exit, (value) => value !== undefined, `${label} ${mode} exit`, 5_000);
+    await waitFor(async () => streamsClosed(), Boolean, `${label} child stdio closed`, 5_000);
+    evidence(`${label}-completion`, { mode, exit, stdout, stderr });
+    if (mode === 'kill') { assert.deepEqual(exit, { code: null, signal: 'SIGKILL' }); assert.equal(stdout, ''); assert.equal(stderr, ''); }
+    else if (mode === 'release') {
+      assert.deepEqual(exit, { code: 0, signal: null });
+      const lines = stdout.trim().split('\n'); assert.equal(lines.length, 1);
+      assert.deepEqual(JSON.parse(lines[0] ?? ''), { type: 'caller-success', entity: barrier.entity }); assert.equal(stderr, '');
+    } else { assert.deepEqual(exit, { code: 72, signal: null }); assert.equal(stdout, ''); }
+    const endedSession = await databaseWaitFor(observer, async () => (await observer.query('SELECT pid, state, backend_xid::text FROM pg_stat_activity WHERE pid=$1', [barrier.backendPid])).rows, (rows) => rows.length === 0, `${label} database session ended`);
+    if (mode === 'kill') evidence(`${label}-actual-signal`, { barrier: name, runId: barrier.runId, writerPid: child.pid, backendPid: barrier.backendPid, transactionId: barrier.transactionId, sourceEpoch: barrier.entity.source_epoch, entityId: barrier.entity.entity_id, entityVersion: barrier.entity.entity_version, changeId: barrier.entity.change_id, requestedSignal: 'SIGKILL', sent, actualExit: exit, endedSession, callerSuccessBytes: stdout.length, callerOutcome: 'unknown; no ordinary caller success response received' });
     await verify(observer, barrier, before);
   } finally {
     try {
       if (!tracked.exit) child.kill('SIGKILL');
-      await waitFor(async () => tracked.closed, Boolean, `${label} owned writer cleanup`, 5_000);
+      await waitFor(async () => streamsClosed(), Boolean, `${label} owned writer cleanup`, 5_000);
       evidence(`${label}-writer-cleanup`, tracked);
     } finally { await observer.end(); }
   }
@@ -131,11 +146,31 @@ test('T09 actual post-COMMIT SIGKILL retains both rows with caller outcome unkno
   });
 });
 
+
+for (const barrierName of ['source.after_mutation.before_commit', 'source.after_commit.before_caller_success'] as const) {
+  const stage = barrierName.includes('before_commit') ? 'PRE' : 'POST';
+  test(`M11-HEALTHY-${stage} ordinary release exits zero once and commits both rows`, async () => {
+    await killAtBarrier(barrierName, `M11-HEALTHY-${stage}`, async (observer, barrier) => observeRows(observer, barrier.entity.entity_id), async (observer, barrier) => {
+      const rows = await observeRows(observer, barrier.entity.entity_id);
+      assert.deepEqual(rows.entities, [barrier.entity]); assert.deepEqual(rows.outbox, barrier.outbox);
+      evidence(`M11-HEALTHY-${stage}`, rows);
+    }, 'release');
+  });
+  test(`M11-ORPHAN-${stage} parent loss fails and closes the owned session`, async () => {
+    await killAtBarrier(barrierName, `M11-ORPHAN-${stage}`, async (observer, barrier) => observeRows(observer, barrier.entity.entity_id), async (observer, barrier) => {
+      const rows = await observeRows(observer, barrier.entity.entity_id);
+      assert.deepEqual(rows, stage === 'PRE' ? { entities: [], outbox: [] } : { entities: [barrier.entity], outbox: barrier.outbox });
+      evidence(`M11-ORPHAN-${stage}`, rows);
+    }, 'orphan');
+  });
+}
+
 test('T10 fault writers were reaped and their database sessions ended', async () => {
-  assert.equal(writers.length, 2);
+  assert.equal(writers.length, 6);
+  assert.equal(writers.filter((writer) => writer.mode === 'kill').length, 2);
   for (const writer of writers) {
     assert.equal(writer.closed, true);
-    assert.deepEqual(writer.exit, { code: null, signal: 'SIGKILL' });
+    assert.deepEqual(writer.exit, writer.mode === 'kill' ? { code: null, signal: 'SIGKILL' } : { code: writer.mode === 'release' ? 0 : 72, signal: null });
     assert.throws(() => process.kill(writer.pid, 0), { code: 'ESRCH' });
   }
   const observer = await connect('admin', 'T10-fault-cleanup');

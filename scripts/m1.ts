@@ -30,13 +30,13 @@ const clean = (text: string) => redact(text, secrets);
 async function record(name: string, executable: string, args: string[], runEnv = env, timeout = 90_000) {
   // Docker's CLI can launch a Compose plugin child too. Every command gets its
   // own group so a timeout cannot leave that command's descendants running.
-  const result = await command(executable, args, runEnv, timeout, true);
+  const result = await command(executable, args, runEnv, timeout, true, { secrets });
   const base = `${String(++sequence).padStart(2, '0')}-${name}`;
   await writeFile(join(artifactDir, `${base}.stdout.log`), clean(result.stdout));
   await writeFile(join(artifactDir, `${base}.stderr.log`), clean(result.stderr));
-  (manifest.commands as unknown[]).push({ executable, args, code: result.code, signal: result.signal, timedOut: result.timedOut, stdout: `${base}.stdout.log`, stderr: `${base}.stderr.log` });
+  (manifest.commands as unknown[]).push({ executable, args, code: result.code, signal: result.signal, timedOut: result.timedOut, outputOverflow: result.outputOverflow, cleanupErrors: result.cleanupErrors, stdout: `${base}.stdout.log`, stderr: `${base}.stderr.log` });
   if (interrupted && !cleaningUp) throw new Error(`Run interrupted by ${interrupted}`);
-  if (result.code !== 0 || result.signal || result.timedOut) throw new Error(`${name} failed: ${JSON.stringify({ code: result.code, signal: result.signal, timedOut: result.timedOut })}\n${clean(result.stdout).slice(-8_000)}\n${clean(result.stderr)}`);
+  if (result.code !== 0 || result.signal || result.timedOut || result.outputOverflow || result.cleanupErrors.length) throw new Error(`${name} failed: ${JSON.stringify({ code: result.code, signal: result.signal, timedOut: result.timedOut })}\n${clean(result.stdout).slice(-8_000)}\n${clean(result.stderr)}`);
   return result.stdout.trim();
 }
 let started = false;

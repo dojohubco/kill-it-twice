@@ -1,4 +1,4 @@
-import type { SourceRow } from '../../src/source.ts';
+import type { SourceRow, Revision } from '../../src/source.ts';
 
 export type BarrierName = 'source.after_mutation.before_commit' | 'source.after_commit.before_caller_success';
 export interface StartWriter {
@@ -21,7 +21,7 @@ export interface BarrierTelemetry {
   sessionUser: string;
   effectiveUser: string;
   entity: SourceRow;
-  outbox: Record<string, unknown>[];
+  outbox: Revision[];
 }
 
 export async function deadline<T>(promise: Promise<T>, label: string, milliseconds = 15_000): Promise<T> {
