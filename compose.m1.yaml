@@ -6,17 +6,17 @@ services:
       POSTGRES_DB: source_m1
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
-    ports: ["127.0.0.1::5432"]
+    ports: ['127.0.0.1::5432']
     volumes:
       - source-data:/var/lib/postgresql
       # Relabel only this run's private temporary file on SELinux hosts.
       - ${M1_PASSWORD_FILE:?Use npm run test:integration:m1}:/run/secrets/postgres_password:ro,Z
     # Suppress SQL text in error logs (role setup can contain temporary passwords).
     # fsync, synchronous_commit and full_page_writes retain their durable defaults.
-    command: ["postgres", "-c", "log_min_error_statement=panic"]
+    command: ['postgres', '-c', 'log_min_error_statement=panic']
     healthcheck:
       # The image's temporary initialization server listens only on a Unix socket.
-      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U m1_admin -d source_m1"]
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U m1_admin -d source_m1']
       interval: 1s
       timeout: 3s
       retries: 45
