@@ -772,7 +772,7 @@ try {
       JSON.stringify(
         {
           format: 1,
-          milestone: twoDatabases ? 'M2B' : profile === 'm2a' ? 'M2A' : 'M1.1',
+          milestone: profile === 'm1' ? 'M1.1' : profile.toUpperCase(),
           migrationMode: manifest['migrationMode'],
           runId,
           status: manifest['status'],

@@ -166,6 +166,23 @@ if (mode === 'capture') {
     assert.equal(manifest['head'], head);
     assert.equal(manifest['gitStatus'], '');
     assert.equal(manifest['developmental'], false);
+    const localSummary = object(
+      JSON.parse(await readFile(join(path, 'summary.json'), 'utf8')),
+    );
+    assert.equal(
+      localSummary['milestone'],
+      isCaptureRun
+        ? 'M2C'
+        : isStagingRun
+          ? 'M2B'
+          : isCommandRun
+            ? 'M2A'
+            : 'M1.1',
+      'Run summary must identify the actual acceptance profile',
+    );
+    assert.equal(localSummary['runId'], runId);
+    assert.equal(localSummary['head'], head);
+    assert.deepEqual(localSummary['acceptance'], manifest['acceptance']);
     failed ||= manifest['status'] !== 'PASS';
     const sql = (await readFile(join(path, 'sql-evidence.jsonl'), 'utf8'))
       .trim()
