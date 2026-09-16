@@ -6,12 +6,15 @@ import { join, resolve } from 'node:path';
 import { command } from './support.ts';
 import { object } from './acceptance.ts';
 
+const m2b = process.argv.includes('--m2b');
 const m2a = process.argv.includes('--m2a');
-const milestone = m2a ? 'M2A' : 'M1.1';
-const profile = m2a ? 'm2a' : 'm1.1';
-const baseline = m2a
-  ? 'e5813a4bcd7857ba816ac6ad4537cc7a52f86963'
-  : 'f8c2e061822fbb97edf831f23b9611570ccd9ef6';
+const milestone = m2b ? 'M2B' : m2a ? 'M2A' : 'M1.1';
+const profile = m2b ? 'm2b' : m2a ? 'm2a' : 'm1.1';
+const baseline = m2b
+  ? '735585c3ddb45fa9c2239943102dbc45b37ce710'
+  : m2a
+    ? 'e5813a4bcd7857ba816ac6ad4537cc7a52f86963'
+    : 'f8c2e061822fbb97edf831f23b9611570ccd9ef6';
 async function checked(executable: string, args: string[]) {
   const result = await command(executable, args, process.env, 30_000, true);
   assert.ok(
@@ -52,9 +55,15 @@ if (mode === 'capture') {
     ].map((name) => ['npm', 'run', name]),
     ['make', 'quality'],
     ['npm', 'run', 'test:integration:m1'],
-    ...(m2a ? [['npm', 'run', 'test:integration:m2a']] : []),
-    ['make', m2a ? 'verify-m2a' : 'verify-m1'],
-    ['make', m2a ? 'verify-m2a' : 'verify-m1'],
+    ...(m2a || m2b ? [['npm', 'run', 'test:integration:m2a']] : []),
+    ...(m2b
+      ? [
+          ['npm', 'run', 'test:integration:m2b'],
+          ['npm', 'run', 'test:integration:m2b', '--', '--upgrade'],
+        ]
+      : []),
+    ['make', m2b ? 'verify-m2b' : m2a ? 'verify-m2a' : 'verify-m1'],
+    ['make', m2b ? 'verify-m2b' : m2a ? 'verify-m2a' : 'verify-m1'],
     ['make', 'verify'],
   ];
   const results: Record<string, unknown>[] = [];
@@ -97,7 +106,7 @@ if (mode === 'capture') {
       stderr: `${stem}.stderr.log`,
     });
     for (const match of result.stdout.matchAll(
-      /(?:M1|M2A) isolated run ((?:m1|m2a)-[0-9]+-[a-f0-9]+)/g,
+      /(?:M1|M2A|M2B) isolated run ((?:m1|m2a|m2b)-[0-9]+-[a-f0-9]+)/g,
     )) {
       if (match[1]) runIds.push(match[1]);
     }
@@ -112,7 +121,15 @@ if (mode === 'capture') {
   const runs: Record<string, unknown>[] = [];
   for (const runId of runIds) {
     const isCommandRun = runId.startsWith('m2a-');
-    const path = join(isCommandRun ? 'artifacts/m2a' : 'artifacts/m1', runId);
+    const isStagingRun = runId.startsWith('m2b-');
+    const path = join(
+      isStagingRun
+        ? 'artifacts/m2b'
+        : isCommandRun
+          ? 'artifacts/m2a'
+          : 'artifacts/m1',
+      runId,
+    );
     const manifest = object(
       JSON.parse(await readFile(join(path, 'run.json'), 'utf8')),
     );
@@ -131,11 +148,40 @@ if (mode === 'capture') {
           'T09-actual-signal',
           'C09-actual-signal',
           'C10-actual-signal',
+          'S08-actual-signal',
+          'S09-actual-signal',
         ].includes(String(line['test'])),
       )
       .map((line) => {
         const data = object(line['data']);
         assert.deepEqual(data['actualExit'], { code: null, signal: 'SIGKILL' });
+        if (isStagingRun) {
+          assert.deepEqual(data['ended'], []);
+          const barrier = sql.find(
+            (row) =>
+              row['test'] ===
+              String(line['test']).replace(
+                '-actual-signal',
+                '-confirmed-barrier',
+              ),
+          );
+          assert.ok(barrier);
+          assert.equal(object(barrier['data'])['ordinarySuccessBytes'], 0);
+          const session = object(data['session']);
+          return {
+            case: line['test'],
+            commandKey: data['commandKey'],
+            revision: data['revision'],
+            eventId: data['eventId'],
+            pid: data['childPid'],
+            backendPid: session['pid'],
+            transactionId: session['backend_xid'],
+            actualExit: data['actualExit'],
+            ordinarySuccessBytes: 0,
+            endedSession: [],
+            replay: object(data['replay'])['success'],
+          };
+        }
         assert.deepEqual(data['endedSession'], []);
         const isCommand = String(line['test']).startsWith('C');
         assert.equal(
@@ -164,6 +210,8 @@ if (mode === 'capture') {
       JSON.parse(await readFile(join(path, 'restart-evidence.json'), 'utf8')),
     );
     assert.deepEqual(restart['beforeRestart'], restart['afterRestart']);
+    if (isStagingRun)
+      assert.deepEqual(restart['pipelineBefore'], restart['pipelineAfter']);
     runs.push({
       runId,
       head,
@@ -175,6 +223,10 @@ if (mode === 'capture') {
       docker: manifest['docker'],
       compose: manifest['compose'],
       imageReference: manifest['imageReference'],
+      profile: manifest['profile'],
+      migrationMode: manifest['migrationMode'],
+      pipelineImage: manifest['pipelineImage'],
+      pipelinePostgres: manifest['pipelinePostgres'],
       acceptance: manifest['acceptance'],
       signals,
       cleanup: manifest['cleanup'],
@@ -185,13 +237,13 @@ if (mode === 'capture') {
   }
   assert.equal(
     runIds.length,
-    m2a ? 4 : 3,
+    m2b ? 12 : m2a ? 4 : 3,
     'Expected selected standalone integrations plus two fresh acceptance runs',
   );
-  assert.equal(new Set(runIds).size, m2a ? 4 : 3);
+  assert.equal(new Set(runIds).size, m2b ? 12 : m2a ? 4 : 3);
   assert.equal(
     new Set(runs.map((run) => JSON.stringify(run['epoch']))).size,
-    m2a ? 4 : 3,
+    m2b ? 12 : m2a ? 4 : 3,
   );
   assert.equal((await checked('git', ['status', '--porcelain'])).trim(), '');
   await writeFile(
@@ -221,9 +273,40 @@ if (mode === 'capture') {
   const data = object(
     JSON.parse(await readFile(join(capture, 'summary.json'), 'utf8')),
   );
+  const compact = m2b
+    ? {
+        ...data,
+        commands: Array.isArray(data['commands'])
+          ? data['commands'].map((raw: unknown) => {
+              const c = object(raw);
+              return {
+                command: c['command'],
+                code: c['code'],
+                passed: c['passed'],
+              };
+            })
+          : data['commands'],
+        runs: Array.isArray(data['runs'])
+          ? data['runs'].map((raw: unknown) => {
+              const r = object(raw);
+              return {
+                runId: r['runId'],
+                profile: r['profile'],
+                migrationMode: r['migrationMode'],
+                contentSha256: r['contentSha256'],
+                status: r['status'],
+                acceptance: r['acceptance'],
+                signals: r['signals'],
+                cleanup: r['cleanup'],
+                localArtifacts: r['localArtifacts'],
+              };
+            })
+          : data['runs'],
+      }
+    : data;
   await writeFile(
     `docs/evidence/${milestone}-summary.json`,
-    JSON.stringify(data, null, 2) + '\n',
+    JSON.stringify(compact, null, 2) + '\n',
   );
   console.log(`docs/evidence/${milestone}-summary.json`);
 } else if (mode === 'bundle') {
@@ -274,6 +357,8 @@ if (mode === 'capture') {
   await cp(`artifacts/${profile}`, join(directory, profile), {
     recursive: true,
   });
+  if (m2b)
+    await cp('artifacts/m2a', join(directory, 'm2a'), { recursive: true });
   // Retain historical and developmental failures as well as the final acceptance runs.
   await cp('artifacts/m1', join(directory, 'm1'), { recursive: true });
   await writeFile(

@@ -24,3 +24,10 @@ verify:
 .PHONY: verify-m2a
 verify-m2a: quality
 	npm run test:integration:m2a
+
+.PHONY: verify-m2b
+verify-m2b: quality
+	npm run test:integration:m1
+	npm run test:integration:m2a
+	npm run test:integration:m2b
+	npm run test:integration:m2b -- --upgrade

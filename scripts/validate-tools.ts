@@ -21,22 +21,26 @@ async function checked(executable: string, args: string[], env = process.env) {
 }
 const mode = process.argv[2];
 if (mode === 'compose') {
-  await checked(
-    'docker',
-    [
-      'compose',
-      '-p',
-      'm11-quality-validation',
-      '-f',
-      'compose.m1.yaml',
-      'config',
-      '--quiet',
-    ],
-    {
-      ...process.env,
-      M1_PASSWORD_FILE: '/nonsecret-quality-fixture/postgres-password',
-    },
-  );
+  for (const files of [
+    ['compose.m1.yaml'],
+    ['compose.m1.yaml', 'compose.m2b.yaml'],
+  ])
+    await checked(
+      'docker',
+      [
+        'compose',
+        '-p',
+        'm11-quality-validation',
+        ...files.flatMap((file) => ['-f', file]),
+        'config',
+        '--quiet',
+      ],
+      {
+        ...process.env,
+        M1_PASSWORD_FILE: '/nonsecret-quality-fixture/postgres-password',
+        M2B_PASSWORD_FILE: '/nonsecret-quality-fixture/pipeline-password',
+      },
+    );
 } else if (mode === 'workflow') {
   const binary = join(actionlint.directory, 'actionlint');
   let bytes: Buffer, verification: Record<string, unknown>;

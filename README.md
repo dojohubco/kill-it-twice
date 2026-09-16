@@ -1,6 +1,6 @@
-# Kill It Twice — source M1, M1.1 and M2A
+# Kill It Twice — controlled source and local staging through M2B
 
-This repository implements the controlled source mutation/version/outbox contract with real PostgreSQL, restricted runtime credentials and actual writer SIGKILLs. M1.1 hardens transaction ownership and the acceptance harness after external adversarial review. M2A adds durable source-command receipts using the accepted transaction owner. G1–G5 remain **NOT IMPLEMENTED**. Read [SPEC v1](SPEC.md), [M1.1 scope](docs/milestones/M1.1.md), [transaction decision](docs/adr/005-managed-source-transactions.md), and [historical M1 evidence](docs/evidence/M1.md).
+This repository implements the controlled source mutation/version/outbox contract with real PostgreSQL, restricted runtime credentials and actual writer SIGKILLs. M1.1 hardens transaction ownership and the acceptance harness after external adversarial review. M2A adds durable source-command receipts using the accepted transaction owner. M2B adds lossless canonical revisions and atomic pending obligations in a separate PostgreSQL database. G1–G5 remain **NOT IMPLEMENTED**. Read [SPEC v1](SPEC.md), [M1.1 scope](docs/milestones/M1.1.md), [transaction decision](docs/adr/005-managed-source-transactions.md), and [historical M1 evidence](docs/evidence/M1.md).
 
 Prerequisites: Linux x64, Node **24.19.0**, npm **12.0.2**, Docker with Compose, Git, make and tar. Node's native runner executes TypeScript; TypeScript **5.9.3** checks it separately. Keep one root lockfile and exact package pins.
 
@@ -11,6 +11,7 @@ make quality
 npm run test:integration:m1
 make verify-m1
 make verify-m2a
+make verify-m2b
 make verify
 ```
 
@@ -40,13 +41,29 @@ The owner starts READ COMMITTED, and SQL reserves the unique key before mutation
 
 For a clean M2A handoff, use `npm run review:capture -- --m2a`, then `npm run review:summary -- <capture-directory> --m2a`, and after committing documentation, `npm run review:bundle -- <capture-directory> --m2a`. This captures the existing M1 profile, standalone M2A, two fresh verify-m2a runs, all quality commands and the expected nonzero full verifier. Remote M2A CI is unrun unless a hosted run is explicitly recorded. The later successful M1.1 run is dated separately in its historical evidence.
 
+## Lossless local staging contract
+
+Use `SourceReader` with the dedicated `source_reader` credential and an expected epoch. Select explicit `(entityId, version)` pairs from immutable outbox history; `current(entityId)` reads one coherent current revision for parity diagnostics. Source_reader cannot read command receipts or execute mutations. No source row is marked staged or acknowledged.
+
+[ADR 007](docs/adr/007-lossless-revision-envelope.md) defines the exact v1 envelope. JCS canonicalizes its fixed flat fields; `payload_json` remains an opaque string exported by PostgreSQL 18 `payload::text`. High integers, long decimals, arrays, nulls and Unicode survive without JavaScript numeric conversion. Both read paths use identical UTC microsecond timestamp export. PostgreSQL validates JSONB-object shape and the exact text round trip. This freezes the codec for the epoch; it does not promise that every arbitrary-precision number fits every future Elasticsearch mapping.
+
+`Pipeline.stage(events)` validates a bounded batch, collapses identical duplicate identities, sorts by event ID, and opens one exclusive READ COMMITTED transaction. It retains exact canonical body bytes/hash, two pending delivery intents and one pending consumer-observation obligation. SQL checks hashes, metadata, canonical representation, foreign keys and deferred completeness. Both destinations are logical and **unbound**. Existing identical content returns `already_staged`; a new identity returns `inserted`, only after confirmed COMMIT. Conflicting content or missing obligations rolls back the whole batch without overwrite or repair, with a separate best-effort sanitized incident. SQLSTATE P3001/P3002 and `IntegrityError` retain primary outcome/error separately from incident failure. Hash consistency is not source authenticity; trusted staging credentials and database owners remain explicit boundaries.
+
+Starter configuration in src/limits.ts is 16 records, 64 KiB per wire record and 256 KiB per batch. Before transfer, SQL measures escaped payload text plus a conservative 1024-byte envelope allowance, withholding **all** selected payload projections if any record or total exceeds its bound. The application checks actual serialized sizes too. These are conservative settings, not benchmark results. Oversized revisions remain durable and explicitly unstaged. Uncommitted or absent selected identities return `notVisible`; this describes selection, not incremental completeness. Inspection's unbounded historical diagnostic API is not used.
+
+`npm run stage -- <entity-id>:<version> ...` stages an explicit selection. Configure SOURCE_EPOCH, SOURCE_READER_HOST/PORT/PASSWORD and PIPELINE_STAGER_HOST/PORT/PASSWORD for the already migrated `source_m1` and `pipeline_m2b` databases. The command uses only the restricted roles and emits its result after pipeline completion. It starts no services, generates no watermark and performs no retries. An explicit identical repeat through a healthy owner resolves durable results after an ambiguous completion.
+
+`make verify-m2b` runs quality, the independent 22-case M1 profile, the 36-case M2A profile, and both 16-case M2B profiles. Fresh installation applies source 003 before workloads; `npm run test:integration:m2b -- --upgrade` applies it after committed M2A revisions/receipts and compares every original row. The two-service profiles exercise real pre/post-COMMIT stager SIGKILLs, healthy releases, observed contention, constraints/roles, exact precision, size limits, and retained-volume restarts. Each profile has a new isolated project/epoch. `npm run review:capture -- --m2b` records standalone profiles and two full fresh repeats; summary/bundle commands take `<capture-directory> --m2b`.
+
+The known future seed-without-outbox/no-op-command FK obligation remains documented in ADR 007. No seeding, source ACK, continuous capture, receiver delivery or consumer processing is implemented. M2A's subsequent hosted CI observation is appended to its historical report; M2B CI remains unrun unless separately recorded.
+
 ## Harness limits and evidence
 
 SIGKILL tests pause the production transaction owner at both existing private boundaries. They require exact process/session identities, independent row/lock observations, actual SIGKILL exit and no caller success. Healthy release controls require exit zero and exactly one success. Unexpected parent IPC loss closes the session and exits 72; it never counts as a SIGKILL result.
 
 Polling uses a monotonic deadline and observes success only before it. Resource-bearing database observations have a 500 ms server statement timeout; expiry closes the owned connection, bounds disposal, consumes late rejection, and verifies backend disappearance independently. Socket closure alone need not immediately interrupt a server query. Pure promises have no external resource to cancel. Subprocess capture is bounded to 1 MiB combined output and explicitly fails on overflow; complete chunks and cutoff prefixes are credential-redacted. Timeout cleanup targets only the process group created by that spawn. Tests terminate a real child/grandchild while an unrelated sentinel survives. Descendants deliberately escaping the owned group, harness SIGKILL, host crash and malicious database owners are outside these cleanup guarantees.
 
-Local sanitized artifacts live in ignored `artifacts/m1/<run-id>/` or `artifacts/m2a/<run-id>/`. Public upload copies are created only through explicit sanitization; failed finalization invalidates stale PASS summaries. Primary and cleanup failures are separate. Dirty developmental runs record tracked/untracked input hashes and a patch; final acceptance requires committed clean code. Paths in summaries identify local files, not publicly accessible evidence URLs.
+Local sanitized artifacts live in ignored `artifacts/m1/<run-id>/` `artifacts/m2a/<run-id>/` or `artifacts/m2b/<run-id>/`. Public upload copies are created only through explicit sanitization; failed finalization invalidates stale PASS summaries. Primary and cleanup failures are separate. Dirty developmental runs record tracked/untracked input hashes and a patch; final acceptance requires committed clean code. Paths in summaries identify local files, not publicly accessible evidence URLs.
 
 `npm run review:capture` records all quality subcommands, quality, standalone integration, two fresh verify-m1 runs and expected failing verify from clean committed code. `npm run review:bundle -- <capture-directory>` creates a local final tracked archive, full diffs from the reviewed and initial specification commits, chronological history, development/acceptance logs and SHA-256 checksums.
 
@@ -56,8 +73,8 @@ Prettier **3.9.7** is the sole formatter for supported formats; SQL is excluded.
 
 Knip **6.36.0** discovers npm scripts and the custom reporter; explicit entries cover native test files and the explicitly listed private process fixtures. Source files are reached through imports. No unused-code/dependency suppression is configured. Discarded formatting, promise/type and unused code/dependency canaries must be detected before handoff.
 
-The push/PR workflow now uses the same `make verify-m2a` command on Ubuntu 24.04 with read-only repository permission, exact Node/npm, no persisted checkout credentials, no project secrets and a 15-minute timeout. Action references are full release commit SHAs; their official release metadata and action inputs/runtime were reviewed locally. Actionlint validation is local evidence, **not a remotely run CI PASS**. Sanitized evidence upload runs even on failure. This task neither pushes the workflow nor changes repository settings.
+The push/PR workflow now uses the same `make verify-m2b` command on Ubuntu 24.04 with read-only repository permission, exact Node/npm, no persisted checkout credentials, no project secrets and a 15-minute timeout. Action references are full release commit SHAs; their official release metadata and action inputs/runtime were reviewed locally. Actionlint validation is local evidence, **not a remotely run CI PASS**. Sanitized evidence upload runs even on failure. This task neither pushes the workflow nor changes repository settings.
 
-Separate future work includes advisory/security review and targeted property/mutation tests. No extra security scanner ecosystem, large CI benchmark, pipeline, acknowledgements, backfill, broker/search, consumer, UI or production deployment is introduced.
+Separate future work includes advisory/security review and targeted property/mutation tests. No extra security scanner ecosystem, large CI benchmark, pipeline worker, acknowledgements, backfill, broker/search, consumer, UI or production deployment is introduced.
 
 Sources: [native reporters](https://nodejs.org/docs/latest-v24.x/api/test.html#custom-reporters), [typed linting](https://typescript-eslint.io/getting-started/typed-linting/), [Knip configuration](https://knip.dev/overview/configuration), [actionlint release](https://github.com/rhysd/actionlint/releases/tag/v1.7.12), and [pg lifecycle](https://node-postgres.com/apis/client).
