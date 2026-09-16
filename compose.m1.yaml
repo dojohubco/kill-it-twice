@@ -15,7 +15,8 @@ services:
     # fsync, synchronous_commit and full_page_writes retain their durable defaults.
     command: ["postgres", "-c", "log_min_error_statement=panic"]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U m1_admin -d source_m1"]
+      # The image's temporary initialization server listens only on a Unix socket.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U m1_admin -d source_m1"]
       interval: 1s
       timeout: 3s
       retries: 45
