@@ -63,7 +63,7 @@ export async function sourceSnapshot(client: pg.Client) {
 export async function pipelineSnapshot(client: pg.Client) {
   const sessions = (
     await client.query(
-      "SELECT pid FROM pg_stat_activity WHERE usename='pipeline_stager'",
+      "SELECT pid FROM pg_stat_activity WHERE usename IN ('pipeline_stager','pipeline_capture')",
     )
   ).rows;
   assert.deepEqual(sessions, [], 'Leaked pipeline runtime session');
@@ -82,4 +82,54 @@ export async function pipelineSnapshot(client: pg.Client) {
       )
     ).rows.map((row) => row.text);
   return rows;
+}
+
+export async function migrateCaptureSource(
+  client: pg.Client,
+  password: string,
+) {
+  assert.match(password, /^[a-f0-9]{48}$/);
+  await migration(client, '004-source-capture.sql', async () => {
+    await client.query(
+      `ALTER ROLE source_capture LOGIN PASSWORD '${password}'`,
+    );
+  });
+}
+export async function migrateCapturePipeline(
+  client: pg.Client,
+  password: string,
+) {
+  assert.match(password, /^[a-f0-9]{48}$/);
+  await migration(client, 'pipeline/002-capture-instance.sql', async () => {
+    await client.query(
+      `ALTER ROLE pipeline_capture LOGIN PASSWORD '${password}'`,
+    );
+  });
+}
+// Controlled initialization only; runtime roles cannot call register_capture.
+// Pipeline migration/identity must commit first. A crash here cannot permit ACK without source binding.
+export async function registerCapture(
+  client: pg.Client,
+  pipelineId: string,
+  epoch: string,
+) {
+  try {
+    assert.equal(
+      (await client.query('BEGIN ISOLATION LEVEL READ COMMITTED')).command,
+      'BEGIN',
+    );
+    await client.query('SELECT source.register_capture($1,$2,$3)', [
+      pipelineId,
+      epoch,
+      'pg18-jsonb-text/v1',
+    ]);
+    assert.equal((await client.query('COMMIT')).command, 'COMMIT');
+  } catch (primary) {
+    try {
+      assert.equal((await client.query('ROLLBACK')).command, 'ROLLBACK');
+    } catch (cleanup) {
+      throw new CleanupFailure(primary, [cleanup]);
+    }
+    throw primary;
+  }
 }

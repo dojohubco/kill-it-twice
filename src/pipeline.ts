@@ -1,4 +1,4 @@
-import { validateEvent, type CanonicalEvent } from './envelope.ts';
+import { validateEvent, uuid, codec, type CanonicalEvent } from './envelope.ts';
 import { byteBound, countBound } from './limits.ts';
 import {
   TransactionOwner,
@@ -78,7 +78,8 @@ export class Pipeline {
   #owner: TransactionOwner<PipelineWork>;
   #integrityCauses = new WeakMap<Error, Conflict>();
   #diagnostic: TransactionOwner<{ record(conflict: Conflict): Promise<void> }>;
-  constructor(config: ConnectionConfig) {
+  constructor(config: ConnectionConfig, expectedPipelineId?: string) {
+    if (expectedPipelineId !== undefined) uuid(expectedPipelineId);
     this.#owner = new TransactionOwner(config, (client, operation) => {
       let used = false;
       return Object.freeze({
@@ -95,8 +96,16 @@ export class Pipeline {
               try {
                 const row = (
                   await client.query<{ status: string }>(
-                    'SELECT pipeline.stage_event($1,$2) AS status',
-                    [event.bodyBytes, event.contentSha256],
+                    expectedPipelineId === undefined
+                      ? 'SELECT pipeline.stage_event($1,$2) AS status'
+                      : 'SELECT pipeline.stage_bound_event($1,$2,$3) AS status',
+                    expectedPipelineId === undefined
+                      ? [event.bodyBytes, event.contentSha256]
+                      : [
+                          expectedPipelineId,
+                          event.bodyBytes,
+                          event.contentSha256,
+                        ],
                   )
                 ).rows[0];
                 if (
@@ -177,4 +186,27 @@ export async function stageSelected(
       ? await pipeline.stage(selected.events)
       : [],
   };
+}
+
+// Read-only identity is informational; stage_bound_event rechecks inside every staging transaction.
+export async function pipelineIdentity(config: ConnectionConfig) {
+  const owner = new TransactionOwner(config, (client, operation) => ({
+    identity: () =>
+      operation(async () => {
+        const rows = (
+          await client.query<Record<string, unknown>>(
+            'SELECT * FROM pipeline.capture_identity()',
+          )
+        ).rows;
+        const row = rows[0];
+        if (rows.length !== 1 || !row || row['payload_encoding'] !== codec)
+          throw new Error('Invalid pipeline identity');
+        return {
+          pipelineId: uuid(row['pipeline_id']),
+          sourceEpoch: uuid(row['source_epoch']),
+          codec,
+        };
+      }),
+  }));
+  return owner.transaction((tx) => tx.identity());
 }
