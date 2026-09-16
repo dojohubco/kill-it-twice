@@ -31,3 +31,8 @@ verify-m2b: quality
 	npm run test:integration:m2a
 	npm run test:integration:m2b
 	npm run test:integration:m2b -- --upgrade
+
+.PHONY: verify-m2c
+verify-m2c: verify-m2b
+	npm run test:integration:m2c
+	npm run test:integration:m2c -- --upgrade

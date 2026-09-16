@@ -39,6 +39,7 @@ if (mode === 'compose') {
         ...process.env,
         M1_PASSWORD_FILE: '/nonsecret-quality-fixture/postgres-password',
         M2B_PASSWORD_FILE: '/nonsecret-quality-fixture/pipeline-password',
+        M2C_PIPELINE_PORT: '0',
       },
     );
 } else if (mode === 'workflow') {

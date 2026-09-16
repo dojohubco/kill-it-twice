@@ -1,4 +1,5 @@
 import { Capture, CaptureFailure } from '../src/capture.ts';
+import { IntegrityError } from '../src/pipeline.ts';
 import { TransactionError } from '../src/internal/transaction.ts';
 function required(name: string) {
   const value = process.env[name];
@@ -35,12 +36,35 @@ for (const signal of ['SIGINT', 'SIGTERM'])
 function failure(error: unknown) {
   // Do not serialize driver details, credentials, arbitrary input or full causes into worker logs.
   const e = error instanceof CaptureFailure ? error.primary : error;
+  const sqlState =
+    e instanceof TransactionError
+      ? e.sqlState
+      : e instanceof IntegrityError
+        ? e.code
+        : undefined;
+  const transaction = e instanceof IntegrityError ? e.primary : e;
   return {
     type: 'capture-failure',
+    workerId: capture.workerId,
+    diagnosis:
+      sqlState === 'P4001'
+        ? 'binding_mismatch'
+        : sqlState === 'P3001'
+          ? 'canonical_conflict'
+          : sqlState === 'P4002'
+            ? 'lost_ownership'
+            : sqlState === '22003'
+              ? 'generation_exhausted'
+              : error instanceof CaptureFailure && error.fatal
+                ? 'integrity_failure'
+                : 'transaction_or_connectivity_failure',
     fatal: error instanceof CaptureFailure ? error.fatal : true,
     sourceState: 'unknown',
-    sqlState: e instanceof TransactionError ? e.sqlState : undefined,
-    outcome: e instanceof TransactionError ? e.outcome : undefined,
+    sqlState,
+    outcome:
+      transaction instanceof TransactionError ? transaction.outcome : undefined,
+    incidentWriteFailed:
+      e instanceof IntegrityError && e.diagnosticFailure !== undefined,
     cleanupFailures: error instanceof CaptureFailure ? error.cleanup.length : 0,
   };
 }
