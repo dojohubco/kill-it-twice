@@ -117,6 +117,7 @@ Plan a 2,000,000-entity full verification profile, with a varied roughly 1 KiB p
 
 M1: source mutation/version/outbox atomicity, role enforcement, commit-order characterization, and real writer SIGKILL tests. One PostgreSQL service; small fixtures; no capture acknowledgements or pipeline database.
 M2: canonical staging, independent durable sink obligations, source command idempotency, and staging-before-source-ACK across two PostgreSQL services.
+M2A is the separately reviewed source-command subset: caller-supplied epoch/command identity, atomic successful receipt/result retention and replay under the same normalized request. Only successful outcomes are retained; new keys denote new commands. ADR 006 defines this source-only boundary. Canonical staging, sink obligations and source acknowledgements remain later M2 work.
 Later bounded milestones: Elasticsearch semantics; RabbitMQ plus consumer effects; concurrent backfill/completion; retry/lease/replay/admission hardening; independent full verifier; operator UI and measured capacity.
 
 Later order may be refined by review, but correctness invariants are not optional. Each milestone records the exact scope/tests before implementation and reports code identity, commands, results, limitations, and actual deviations afterward.
