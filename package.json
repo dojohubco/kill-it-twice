@@ -3,20 +3,32 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "engines": { "node": "24.19.0", "npm": "12.0.2" },
+  "engines": {
+    "node": "24.19.0",
+    "npm": "12.0.2"
+  },
   "packageManager": "npm@12.0.2",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings=0",
     "test:unit": "node --test --test-reporter=spec tests/unit/*.test.ts",
-    "test:integration:m1": "node scripts/m1.ts"
+    "test:integration:m1": "node scripts/m1.ts",
+    "format:check": "prettier . --check --ignore-unknown",
+    "knip": "knip --no-progress",
+    "validate:compose": "node scripts/validate-tools.ts compose",
+    "validate:workflow": "node scripts/validate-tools.ts workflow",
+    "tools:provision": "node scripts/provision-tools.ts"
   },
-  "dependencies": { "pg": "8.23.0" },
+  "dependencies": {
+    "pg": "8.23.0"
+  },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@types/node": "24.13.5",
     "@types/pg": "8.23.1",
     "eslint": "10.10.0",
+    "knip": "6.36.0",
+    "prettier": "3.9.7",
     "typescript": "5.9.3",
     "typescript-eslint": "8.70.0"
   }
