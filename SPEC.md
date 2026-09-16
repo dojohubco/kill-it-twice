@@ -122,3 +122,7 @@ Later bounded milestones: Elasticsearch semantics; RabbitMQ plus consumer effect
 Later order may be refined by review, but correctness invariants are not optional. Each milestone records the exact scope/tests before implementation and reports code identity, commands, results, limitations, and actual deviations afterward.
 
 Passing tests normally add evidence, not a new architecture version. Fix implementation bugs without rewriting the requirement they violated. Update SPEC/ADRs for deliberate decisions, assumption changes, or meaningful contract clarification; retain chronology. Never manufacture a failed attempt, a SPEC v2, or two AI deviations to satisfy an appearance of evolution. At adoption all full gates are unimplemented and not run.
+
+### M1.1 source transaction ownership clarification
+
+The managed source transaction API owns its session and permits one active transaction per owner. Work receives an expiring mutation capability, not an arbitrary SQL client; nested/concurrent owner use and manual transaction control are unsupported. Success requires confirmed COMMIT completion. Known rollback, unknown COMMIT and confirmed commit followed by cleanup failure remain distinct; cleanup cannot retrospectively prove an ambiguous COMMIT failed. Preserve the primary PostgreSQL error separately from cleanup errors. ADR 005 specifies this contract gap exposed by external review; source capture invariants and M2 scope remain unchanged.
