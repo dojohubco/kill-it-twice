@@ -25,7 +25,8 @@
     "test:integration:m2b": "node scripts/m1.ts m2b",
     "stage": "node scripts/stage.ts",
     "test:integration:m2c": "node scripts/m1.ts m2c",
-    "capture": "node scripts/capture.ts"
+    "capture": "node scripts/capture.ts",
+    "test:integration:m2c1": "node scripts/m1.ts m2c1"
   },
   "dependencies": {
     "pg": "8.23.0"

@@ -6,18 +6,37 @@ import { join, resolve } from 'node:path';
 import { command } from './support.ts';
 import { object } from './acceptance.ts';
 
-const m2c = process.argv.includes('--m2c');
+const m2c1 = process.argv.includes('--m2c1');
+const m2c = m2c1 || process.argv.includes('--m2c');
 const m2b = process.argv.includes('--m2b');
 const m2a = process.argv.includes('--m2a');
-const milestone = m2c ? 'M2C' : m2b ? 'M2B' : m2a ? 'M2A' : 'M1.1';
-const profile = m2c ? 'm2c' : m2b ? 'm2b' : m2a ? 'm2a' : 'm1.1';
-const baseline = m2c
-  ? '642925bf66fc0755f4a845bab2a55350957475c4'
-  : m2b
-    ? '735585c3ddb45fa9c2239943102dbc45b37ce710'
-    : m2a
-      ? 'e5813a4bcd7857ba816ac6ad4537cc7a52f86963'
-      : 'f8c2e061822fbb97edf831f23b9611570ccd9ef6';
+const milestone = m2c1
+  ? 'M2C.1'
+  : m2c
+    ? 'M2C'
+    : m2b
+      ? 'M2B'
+      : m2a
+        ? 'M2A'
+        : 'M1.1';
+const profile = m2c1
+  ? 'm2c1'
+  : m2c
+    ? 'm2c'
+    : m2b
+      ? 'm2b'
+      : m2a
+        ? 'm2a'
+        : 'm1.1';
+const baseline = m2c1
+  ? '6a908f46d3c690023d204b0fdb785e53d471d207'
+  : m2c
+    ? '642925bf66fc0755f4a845bab2a55350957475c4'
+    : m2b
+      ? '735585c3ddb45fa9c2239943102dbc45b37ce710'
+      : m2a
+        ? 'e5813a4bcd7857ba816ac6ad4537cc7a52f86963'
+        : 'f8c2e061822fbb97edf831f23b9611570ccd9ef6';
 async function checked(executable: string, args: string[]) {
   const result = await command(executable, args, process.env, 30_000, true);
   assert.ok(
@@ -71,25 +90,35 @@ if (mode === 'capture') {
           ['npm', 'run', 'test:integration:m2c', '--', '--upgrade'],
         ]
       : []),
+    ...(m2c1
+      ? [
+          ['npm', 'run', 'test:integration:m2c1'],
+          ['npm', 'run', 'test:integration:m2c1', '--', '--upgrade'],
+        ]
+      : []),
     [
       'make',
-      m2c
-        ? 'verify-m2c'
-        : m2b
-          ? 'verify-m2b'
-          : m2a
-            ? 'verify-m2a'
-            : 'verify-m1',
+      m2c1
+        ? 'verify-m2c1'
+        : m2c
+          ? 'verify-m2c'
+          : m2b
+            ? 'verify-m2b'
+            : m2a
+              ? 'verify-m2a'
+              : 'verify-m1',
     ],
     [
       'make',
-      m2c
-        ? 'verify-m2c'
-        : m2b
-          ? 'verify-m2b'
-          : m2a
-            ? 'verify-m2a'
-            : 'verify-m1',
+      m2c1
+        ? 'verify-m2c1'
+        : m2c
+          ? 'verify-m2c'
+          : m2b
+            ? 'verify-m2b'
+            : m2a
+              ? 'verify-m2a'
+              : 'verify-m1',
     ],
     ['make', 'verify'],
   ];
@@ -133,7 +162,7 @@ if (mode === 'capture') {
       stderr: `${stem}.stderr.log`,
     });
     for (const match of result.stdout.matchAll(
-      /(?:M1|M2A|M2B|M2C) isolated run ((?:m1|m2a|m2b|m2c)-[0-9]+-[a-f0-9]+)/g,
+      /(?:M1|M2A|M2B|M2C|M2C1) isolated run ((?:m1|m2a|m2b|m2c|m2c1)-[0-9]+-[a-f0-9]+)/g,
     )) {
       if (match[1]) runIds.push(match[1]);
     }
@@ -147,17 +176,20 @@ if (mode === 'capture') {
   }
   const runs: Record<string, unknown>[] = [];
   for (const runId of runIds) {
-    const isCaptureRun = runId.startsWith('m2c-');
+    const isGuardedRun = runId.startsWith('m2c1-');
+    const isCaptureRun = isGuardedRun || runId.startsWith('m2c-');
     const isCommandRun = runId.startsWith('m2a-');
     const isStagingRun = runId.startsWith('m2b-');
     const path = join(
-      isCaptureRun
-        ? 'artifacts/m2c'
-        : isStagingRun
-          ? 'artifacts/m2b'
-          : isCommandRun
-            ? 'artifacts/m2a'
-            : 'artifacts/m1',
+      isGuardedRun
+        ? 'artifacts/m2c1'
+        : isCaptureRun
+          ? 'artifacts/m2c'
+          : isStagingRun
+            ? 'artifacts/m2b'
+            : isCommandRun
+              ? 'artifacts/m2a'
+              : 'artifacts/m1',
       runId,
     );
     const manifest = object(
@@ -171,13 +203,15 @@ if (mode === 'capture') {
     );
     assert.equal(
       localSummary['milestone'],
-      isCaptureRun
-        ? 'M2C'
-        : isStagingRun
-          ? 'M2B'
-          : isCommandRun
-            ? 'M2A'
-            : 'M1.1',
+      isGuardedRun
+        ? 'M2C.1'
+        : isCaptureRun
+          ? 'M2C'
+          : isStagingRun
+            ? 'M2B'
+            : isCommandRun
+              ? 'M2A'
+              : 'M1.1',
       'Run summary must identify the actual acceptance profile',
     );
     assert.equal(localSummary['runId'], runId);
@@ -329,6 +363,60 @@ if (mode === 'capture') {
           .map((row) => row['test']),
       };
     }
+    let isolationEvidence;
+    if (isGuardedRun) {
+      const data = (id: string) => {
+        const row = sql.find((r) => r['test'] === id);
+        assert.ok(row, `Missing isolation SQL evidence: ${id}`);
+        return object(row['data']);
+      };
+      const r04 = data('R04'),
+        r07 = data('R07'),
+        r08 = data('R08');
+      const migration = object(r07['migration']);
+      assert.deepEqual(migration['before'], migration['after']);
+      assert.deepEqual(migration['catalogBefore'], migration['catalogAfter']);
+      assert.ok(
+        Array.isArray(r04['attempts']) && Array.isArray(r08['attempts']),
+      );
+      const registered = r07['mode'] === 'registered';
+      const r01 = registered ? undefined : data('R01');
+      const probe = r01 ? object(r01['probe']) : undefined;
+      isolationEvidence = {
+        mode: r07['mode'],
+        oldSnapshot: r01?.['old'],
+        registrationTransaction: r01?.['registration'],
+        outboxLocksBeforeRegistration: probe?.['locks'],
+        bindingVisibleInOldSnapshot: probe?.['visibility'],
+        oldWriterOutcome: probe?.['rrAttempt'],
+        readCommittedOutcome: probe?.['rcAttempt'],
+        oldWriterPersistedState: r01?.['state'],
+        missing: r01
+          ? object(object(r01['capture'])['sourceState'])['missing']
+          : undefined,
+        rejectedOperations: r04['attempts'].map((raw: unknown) => {
+          const row = object(raw),
+            attempt = object(row['attempt']);
+          return {
+            transaction: row['transaction'],
+            operation: attempt['operation'],
+            failure: attempt['failure'],
+            completion: attempt['completion'],
+          };
+        }),
+        runtimeDenials: r08['attempts'].length,
+        snapshotBeforeSha256: createHash('sha256')
+          .update(JSON.stringify(migration['before']))
+          .digest('hex'),
+        snapshotAfterSha256: createHash('sha256')
+          .update(JSON.stringify(migration['after']))
+          .digest('hex'),
+        catalogUnchanged: true,
+        requiredCases: registered
+          ? ['R04', 'R06', 'R07', 'R08']
+          : ['R01', 'R02', 'R03', 'R04', 'R05', 'R06', 'R07', 'R08'],
+      };
+    }
     runs.push({
       runId,
       head,
@@ -344,6 +432,7 @@ if (mode === 'capture') {
       migrationMode: manifest['migrationMode'],
       pipelineImage: manifest['pipelineImage'],
       captureEvidence,
+      isolationEvidence,
       pipelinePostgres: manifest['pipelinePostgres'],
       acceptance: manifest['acceptance'],
       signals,
@@ -355,13 +444,16 @@ if (mode === 'capture') {
   }
   assert.equal(
     runIds.length,
-    m2c ? 18 : m2b ? 12 : m2a ? 4 : 3,
+    m2c1 ? 24 : m2c ? 18 : m2b ? 12 : m2a ? 4 : 3,
     'Expected selected standalone integrations plus two fresh acceptance runs',
   );
-  assert.equal(new Set(runIds).size, m2c ? 18 : m2b ? 12 : m2a ? 4 : 3);
+  assert.equal(
+    new Set(runIds).size,
+    m2c1 ? 24 : m2c ? 18 : m2b ? 12 : m2a ? 4 : 3,
+  );
   assert.equal(
     new Set(runs.map((run) => JSON.stringify(run['epoch']))).size,
-    m2c ? 18 : m2b ? 12 : m2a ? 4 : 3,
+    m2c1 ? 24 : m2c ? 18 : m2b ? 12 : m2a ? 4 : 3,
   );
   assert.equal((await checked('git', ['status', '--porcelain'])).trim(), '');
   await writeFile(
@@ -374,6 +466,13 @@ if (mode === 'capture') {
         testedCode: head,
         status: failed ? 'FAIL' : 'PASS',
         clean: true,
+        counterexample: m2c1
+          ? object(
+              JSON.parse(
+                await readFile('docs/evidence/M2C.1-reproduction.json', 'utf8'),
+              ),
+            )
+          : undefined,
         commands: results,
         runs,
         remoteCI: 'NOT RUN',
@@ -417,6 +516,7 @@ if (mode === 'capture') {
                   acceptance: r['acceptance'],
                   signals: r['signals'],
                   captureEvidence: r['captureEvidence'],
+                  isolationEvidence: r['isolationEvidence'],
                   cleanup: r['cleanup'],
                   localArtifacts: r['localArtifacts'],
                 };
@@ -484,6 +584,12 @@ if (mode === 'capture') {
     await cp('artifacts/m2a', join(directory, 'm2a'), { recursive: true });
   if (m2c)
     await cp('artifacts/m2b', join(directory, 'm2b'), { recursive: true });
+  if (m2c1) {
+    for (const extra of ['m2c', 'm2c.1', 'm2c1-repro'])
+      await cp(`artifacts/${extra}`, join(directory, extra), {
+        recursive: true,
+      });
+  }
   // Retain historical and developmental failures as well as the final acceptance runs.
   await cp('artifacts/m1', join(directory, 'm1'), { recursive: true });
   await writeFile(
