@@ -73,6 +73,19 @@ void test('S02 real precision and coherent current/outbox parity', async (t) => 
     ).outbox([f.key]),
     /Owned transaction failed/,
   );
+  assert.ok(current.body.payload_json);
+  const differentNumericText = canonicalEvent({
+    ...current.body,
+    payload_json: current.body.payload_json.replace(
+      '9007199254740993',
+      '9007199254740993.0',
+    ),
+  });
+  await assert.rejects(
+    pipeline().stage([differentNumericText]),
+    (error) => error instanceof IntegrityError && error.code === 'P3001',
+  );
+  assert.deepEqual(await snapshot(p, [current.body.event_id]), observed);
   evidence('S02', {
     command: f.command.commandId,
     noOp: noOp.result,
@@ -351,6 +364,21 @@ void test('S06 conflicts roll back batches and never repair corrupt evidence', a
 void test('S07 SQL constraints and actual restricted credentials enforce the boundary', async (t) => {
   const { s, p, epoch } = await setup(t);
   const f = await fixture(epoch);
+  const otherEpoch = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const wrongBinding = canonicalEvent({
+    ...f.event.body,
+    source_epoch: otherEpoch,
+    event_id: `${otherEpoch}:${f.key.entityId}:${f.key.version}`,
+  });
+  await assert.rejects(
+    pipeline().stage([wrongBinding]),
+    (error) => error instanceof IntegrityError && error.code === 'P3002',
+  );
+  assert.deepEqual(await snapshot(p, [wrongBinding.body.event_id]), {
+    events: [],
+    deliveries: [],
+    observations: [],
+  });
   for (const missing of ['elasticsearch', 'rabbitmq', 'consumer']) {
     await p.query('BEGIN');
     await rawInsert(p, f.event);

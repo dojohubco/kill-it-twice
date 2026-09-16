@@ -111,6 +111,12 @@ export async function oracle(
   );
   for (const row of [...state.deliveries, ...state.observations])
     assert.equal(row['state'], 'pending');
+  for (const row of [...state.deliveries, ...state.observations])
+    assert.equal(
+      row['xid'],
+      stored['xid'],
+      'Event and initial obligations were inserted by one pipeline transaction',
+    );
   assert.equal(stored['body_hex'], event.bodyBytes.toString('hex'));
   assert.equal(stored['content_sha256'], stored['independent_hash']);
   assert.equal(

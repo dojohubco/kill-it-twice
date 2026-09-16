@@ -76,6 +76,7 @@ function prepare(inputs: readonly EventInput[]): CanonicalEvent[] {
 }
 export class Pipeline {
   #owner: TransactionOwner<PipelineWork>;
+  #integrityCauses = new WeakMap<Error, Conflict>();
   #diagnostic: TransactionOwner<{ record(conflict: Conflict): Promise<void> }>;
   constructor(config: ConnectionConfig) {
     this.#owner = new TransactionOwner(config, (client, operation) => {
@@ -113,7 +114,10 @@ export class Pipeline {
                   'code' in error &&
                   (error.code === 'P3001' || error.code === 'P3002')
                 )
-                  throw new Conflict(event, error.code, error);
+                  this.#integrityCauses.set(
+                    error,
+                    new Conflict(event, error.code, error),
+                  );
                 throw error;
               }
             }
@@ -142,9 +146,15 @@ export class Pipeline {
     try {
       return await this.#owner.transaction(work);
     } catch (primary) {
-      const conflict =
+      const cause =
         primary instanceof TransactionError ? primary.cause : primary;
-      if (!(conflict instanceof Conflict)) throw primary;
+      const conflict =
+        cause instanceof Conflict
+          ? cause
+          : cause instanceof Error
+            ? this.#integrityCauses.get(cause)
+            : undefined;
+      if (!conflict) throw primary;
       let diagnosticFailure: unknown;
       try {
         await this.#diagnostic.transaction((tx) => tx.record(conflict));
