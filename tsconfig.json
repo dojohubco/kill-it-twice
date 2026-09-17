@@ -18,7 +18,12 @@
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": true,
     "noUncheckedSideEffectImports": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "apache-arrow/Arrow.node.js": [
+        "./node_modules/apache-arrow/Arrow.node.d.ts"
+      ]
+    }
   },
   "include": ["src/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts"]
 }

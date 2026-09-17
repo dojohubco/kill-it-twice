@@ -26,15 +26,19 @@
     "stage": "node scripts/stage.ts",
     "test:integration:m2c": "node scripts/m1.ts m2c",
     "capture": "node scripts/capture.ts",
-    "test:integration:m2c1": "node scripts/m1.ts m2c1"
+    "test:integration:m2c1": "node scripts/m1.ts m2c1",
+    "test:protocol:es": "node scripts/es-protocol.ts"
   },
   "dependencies": {
+    "@elastic/elasticsearch": "9.5.1",
+    "lossless-json": "4.3.1",
     "pg": "8.23.0"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@types/node": "24.13.5",
     "@types/pg": "8.23.1",
+    "apache-arrow": "21.1.0",
     "eslint": "10.10.0",
     "knip": "6.36.0",
     "prettier": "3.9.7",
