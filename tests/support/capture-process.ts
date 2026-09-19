@@ -11,6 +11,7 @@ export function launchCapture(
   boundary = '',
   follow = false,
   leaseMs = 1500,
+  quiesceRenewals = false,
 ) {
   const child = fork(new URL('./capture-child.ts', import.meta.url), [], {
     execArgv: [],
@@ -66,7 +67,13 @@ export function launchCapture(
     await waitFor(() => closed, Boolean, 'capture child cleanup', 5000);
     evidence(`${label}-cleanup`, { pid, exit, closed, overflow });
   });
-  child.send({ config: captureConfig(label), boundary, follow, leaseMs });
+  child.send({
+    config: captureConfig(label),
+    boundary,
+    follow,
+    leaseMs,
+    quiesceRenewals,
+  });
   const output = () =>
     stdout.trim()
       ? stdout

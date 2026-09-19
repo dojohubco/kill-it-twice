@@ -28,6 +28,9 @@ let claims: Claim[] = [],
   staged: StageResult[] = [],
   sourcePid: number | undefined,
   pipelinePid: number | undefined;
+let quiesceRenewals = false;
+const activeRenewals = new Set<Promise<unknown>>();
+let renewalGate: ReturnType<typeof Promise.withResolvers<void>> | undefined;
 process.once('disconnect', () => {
   if (!intentional) {
     orphan = true;
@@ -39,6 +42,19 @@ for (const signal of ['SIGINT', 'SIGTERM'])
 async function barrier(name: string) {
   if (boundary !== name || reached) return;
   reached = true;
+  if (
+    quiesceRenewals &&
+    name === 'capture.after_pipeline_commit.before_source_ack'
+  ) {
+    // IC06 freezes the process after staging. Do not freeze an unrelated renewal
+    // owner halfway through COMMIT while expecting SKIP LOCKED to reclaim its row.
+    renewalGate = Promise.withResolvers<void>();
+    await deadline(
+      Promise.all(activeRenewals),
+      'renewal owners quiesced',
+      15000,
+    );
+  }
   const release = deadline(
     once(process, 'message', { signal: stop.signal }).then((v: unknown[]) => v),
     'capture release',
@@ -57,13 +73,39 @@ async function barrier(name: string) {
         pipelinePid,
         claims,
         staged,
+        renewalQuiescent:
+          renewalGate !== undefined && activeRenewals.size === 0,
       },
       (error) => (error ? reject(error) : resolve()),
     );
   });
-  const [message] = await release;
-  assert.deepEqual(message, { type: 'release', boundary: name });
+  try {
+    const [message] = await release;
+    assert.deepEqual(message, { type: 'release', boundary: name });
+  } finally {
+    renewalGate?.resolve();
+  }
 }
+// eslint-disable-next-line @typescript-eslint/unbound-method -- private instrumentation preserves the real renewal owner and result
+const originalRenew = SourceCapture.prototype.renew;
+const renewMock = mock.method(
+  SourceCapture.prototype,
+  'renew',
+  async function (
+    this: SourceCapture,
+    ...args: Parameters<SourceCapture['renew']>
+  ) {
+    if (renewalGate) await renewalGate.promise;
+    stop.signal.throwIfAborted();
+    const pending = Reflect.apply(originalRenew, this, args);
+    activeRenewals.add(pending);
+    try {
+      return await pending;
+    } finally {
+      activeRenewals.delete(pending);
+    }
+  },
+);
 // eslint-disable-next-line @typescript-eslint/unbound-method -- test instrumentation explicitly preserves each original receiver
 const originalClaim = SourceCapture.prototype.claim;
 const claimMock = mock.method(
@@ -170,6 +212,7 @@ try {
   );
   const input = object(raw);
   boundary = str(input['boundary']);
+  quiesceRenewals = input['quiesceRenewals'] === true;
   const follow = input['follow'] === true;
   const leaseMs =
     typeof input['leaseMs'] === 'number' ? input['leaseMs'] : 1500;
@@ -209,6 +252,8 @@ try {
   process.exitCode = orphan ? 72 : 1;
 } finally {
   stop.abort();
+  renewalGate?.resolve();
+  renewMock.mock.restore();
   claimMock.mock.restore();
   ackMock.mock.restore();
   stageMock.mock.restore();

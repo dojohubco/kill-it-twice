@@ -284,15 +284,51 @@ void test(
     const { s, p, epoch } = await setup(t);
     await drain();
     const f = await fixture(epoch);
-    const a = launchCapture(t, 'delayed-a', boundaries.post, false, 900);
+    const a = launchCapture(t, 'delayed-a', boundaries.post, false, 900, true);
     const telemetry = await a.barrier();
+    assert.equal(telemetry['renewalQuiescent'], true);
     const claim = claimFrom(telemetry);
+    assert.equal(claim.entityId, f.key.entityId);
     a.signal('SIGSTOP');
+    const stoppedRenewals = (
+      await s.query<Record<string, unknown>>(
+        'SELECT pid,state,backend_xid::text,query FROM pg_stat_activity WHERE application_name=$1',
+        [`${required('M1_RUN_ID')}:delayed-a:renew`],
+      )
+    ).rows;
+    assert.deepEqual(stoppedRenewals, []);
     const observed = await expiry(s, claim);
     const stagedBefore = await snapshot(p, [f.event.body.event_id]);
+    // Explicit scheduling control: an expired row is still ineligible while
+    // another transaction holds its lock. This is not a failed capture claim.
+    await s.query('BEGIN');
+    let lockedResult: unknown;
+    try {
+      await s.query(
+        'SELECT work_id FROM source.capture_work WHERE entity_id=$1 AND entity_version=$2 FOR UPDATE',
+        [claim.entityId, claim.version],
+      );
+      const blocked = launchCapture(t, 'locked-row-control');
+      lockedResult = await blocked.finish('run');
+      assert.equal(object(first(blocked.output())['result'])['claimed'], 0);
+      assert.deepEqual(
+        await snapshot(p, [f.event.body.event_id]),
+        stagedBefore,
+      );
+    } finally {
+      await s.query('ROLLBACK');
+    }
+    evidence('IC06-locked-row-control', { observed, lockedResult });
     const b = launchCapture(t, 'newer-b');
     const bResult = await b.finish('run');
     const terminal = await work(s, f.key.entityId);
+    evidence('IC06-reclaim-observation', {
+      telemetry,
+      stoppedRenewals,
+      observed,
+      bResult,
+      terminal,
+    });
     assert.ok(
       BigInt(String(first(terminal)['generation'])) > BigInt(claim.generation),
     );
