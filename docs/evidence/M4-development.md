@@ -29,3 +29,5 @@ The quarantine identity retains only relevant protocol/identity properties, excl
 - The expanded permission/poison test edit initially had a test-local variable shadowing error and a canonicalEvent temporal-dead-zone error. TypeScript/typed ESLint rejected them; aliases and the already-imported protocol function corrected the tests. These are development test defects, not production delivery loss.
 
 Some developmental runs overlapped further test-only edits; they are not immutable reproducible acceptance snapshots. Final gates must use committed, unchanged code. Their raw manifests and failure outputs are retained, not relabeled as passing runs.
+
+- m4-20260919145735053-35711f58 passed all 22 executable cases (zero failures/skips/cancellations/todos), but the overall run failed its evidence finalizer: it requested a single MQ09 record while the actual test deliberately records MQ09-publisher and MQ09-consumer separately. The checker now independently requires both records, plus the production adapter's mandatory-return observation. Cleanup passed. This failed run is preserved and is not final acceptance.

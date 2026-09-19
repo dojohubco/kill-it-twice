@@ -85,7 +85,13 @@ export async function checkRabbitEvidence(path: string) {
   one('MQ15');
   one('MQ16');
   one('MQ08');
-  one('MQ09');
+  one('MQ09-publisher');
+  one('MQ09-consumer');
+  const returned = one('MQ05-production-return')['returned'];
+  assert.ok(Array.isArray(returned));
+  assert.equal(returned.length, 1);
+  assert.equal(object(returned[0])['returned'], true);
+  assert.equal(object(returned[0])['outcome'], 'configuration');
   one('MQ12');
   one('MQ13');
   const effects = object(reconcile['snapshot'])['effects'];
