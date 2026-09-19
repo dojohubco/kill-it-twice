@@ -947,10 +947,10 @@ await test(name('ES10'), async (t) => {
     },
     async () => {
       stop.abort();
+      const failures: unknown[] = [];
       try {
         // Promise.all rejects on the first worker; cleanup must also await the
         // other bounded in-flight operation before closing its shared transport.
-        const failures: unknown[] = [];
         for (const result of await Promise.allSettled(loops))
           if (result.status === 'rejected') failures.push(result.reason);
         if (failures.length)
@@ -970,6 +970,7 @@ await test(name('ES10'), async (t) => {
               downAt,
               attempts,
               primary: errorText(error),
+              workerFailures: failures.map((failure) => errorText(failure)),
               target: await ledger().target(),
               deliveries: await deliveries(p, [base.eventId, ...source]),
             });
@@ -1290,6 +1291,9 @@ await test(name('ES14'), async (t) => {
     async () => {
       try {
         await new EsAdapter(es).validate(target);
+        // The file-realm runtime can recover before the native setup observer's
+        // security index. The following privileged refresh needs both ready.
+        await admin.request('GET', '/_security/_authenticate');
         return true;
       } catch {
         return false;
@@ -1298,7 +1302,12 @@ await test(name('ES14'), async (t) => {
     Boolean,
     'retained ES restart',
     90000,
-    () => es.close(),
+    async () => {
+      await withCleanup(
+        () => es.close(),
+        () => admin.close(),
+      );
+    },
   );
   await refresh();
   assert.deepEqual(await oracle(s, p, es), before);
