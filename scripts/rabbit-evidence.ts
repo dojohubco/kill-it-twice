@@ -90,6 +90,12 @@ export async function checkRabbitEvidence(path: string) {
     assert.ok(Array.isArray(output) && output.length === 1);
     healthy.push({ id: `MQH0${i}`, pid: exit['pid'], exit: exit['exit'] });
   }
+  const emptyProbe = one('MQ10-empty-probe');
+  assert.deepEqual(emptyProbe['claimed'], []);
+  const probeState = emptyProbe['probeState'];
+  assert.ok(Array.isArray(probeState) && probeState.length === 1);
+  assert.equal(object(probeState[0])['probe_owner'], null);
+  one('MQ10-broker-recovery');
   const unknown = one('MQ04'),
     outage = one('MQ10'),
     reconcile = one('MQ14-reconciliation');

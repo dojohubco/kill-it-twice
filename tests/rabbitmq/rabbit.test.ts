@@ -1035,6 +1035,81 @@ await test(name('MQ11'), async (t) => {
 });
 await test(name('MQ10'), async (t) => {
   const { s, p, c } = await setup(t);
+  // Supplemental real-SQL scheduler fixture, not a manufactured broker outage.
+  // Independent jitter can make target eligibility precede per-item eligibility.
+  const scheduling = await mutation(
+    s,
+    '{"name":"cooldown without eligible work","loyalty_points":10}',
+  );
+  await captureDrain();
+  const scheduler = rabbitLedger(),
+    target = await scheduler.target(),
+    incarnation = randomUUID();
+  const claims = await scheduler.claim(target, incarnation, 1, 30000);
+  assert.equal(claims.length, 1);
+  assert.ok(claims[0]);
+  assert.equal(claims[0].eventId, scheduling.eventId);
+  assert.equal(
+    await scheduler.settle(
+      target,
+      claims[0],
+      incarnation,
+      'transient',
+      null,
+      'Supplemental scheduler fixture; no remote publication attempted',
+      5000,
+    ),
+    'settled',
+  );
+  assert.equal(
+    await scheduler.admission(
+      target,
+      claims[0],
+      incarnation,
+      'transient',
+      'Supplemental scheduler fixture',
+      1,
+    ),
+    true,
+  );
+  await databaseWaitFor(
+    p,
+    async () =>
+      (
+        await p.query<{ due: boolean }>(
+          'SELECT next_probe_at<=clock_timestamp() due FROM pipeline.rabbit_target',
+        )
+      ).rows[0]?.due,
+    (v) => v === true,
+    'Target due before delayed item',
+    2000,
+  );
+  const nothing = await scheduler.claim(
+    await scheduler.target(),
+    randomUUID(),
+    1,
+    30000,
+  );
+  assert.deepEqual(nothing, []);
+  const probeState = (
+    await p.query(
+      'SELECT mode,probe_owner::text,probe_generation::text,probe_until::text,next_probe_at::text,clock_timestamp()::text observed_at FROM pipeline.rabbit_target',
+    )
+  ).rows;
+  evidence('MQ10-empty-probe', {
+    eventId: scheduling.eventId,
+    claimed: nothing,
+    probeState,
+    delayed: await intent(p, scheduling.eventId),
+    classification:
+      'supplemental real SQL scheduling control; no fake broker confirmation',
+  });
+  assert.equal(
+    record(probeState[0])['probe_owner'],
+    null,
+    'No work means no occupied recovery probe',
+  );
+  await drain(p, c);
   const es = new EsTransport(esConfig());
   t.after(() => es.close());
   const broker = `${required('RABBIT_PROJECT')}-rabbitmq-1`;
@@ -1088,7 +1163,10 @@ await test(name('MQ10'), async (t) => {
       recoveredPublications.push(result);
       if (
         result.outcomes.some(
-          (o) => o.eventId === f.eventId && o.status === 'settled',
+          (o) =>
+            o.eventId === f.eventId &&
+            o.status === 'settled' &&
+            o.outcome === 'confirmed',
         )
       )
         stopPublish.abort();
@@ -1098,6 +1176,13 @@ await test(name('MQ10'), async (t) => {
     clearTimeout(publishDeadline);
     stopPublish.abort();
   }
+  evidence('MQ10-broker-recovery', {
+    eventId: f.eventId,
+    brokerStoppedMs,
+    attempts,
+    recoveredPublications,
+    after: await intent(p, f.eventId),
+  });
   assert.ok(
     recoveredPublications.some((r) =>
       r.outcomes.some(

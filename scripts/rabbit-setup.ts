@@ -22,9 +22,11 @@ export async function migrateRabbit(
     assert.match(x, /^[a-f0-9]{48}$/);
   await p.query('BEGIN');
   try {
-    await p.query(
-      await readFile('migrations/pipeline/004-rabbitmq.sql', 'utf8'),
-    );
+    for (const path of [
+      'migrations/pipeline/004-rabbitmq.sql',
+      'migrations/pipeline/005-rabbit-probe.sql',
+    ])
+      await p.query(await readFile(path, 'utf8'));
     await p.query(
       `ALTER ROLE pipeline_rabbit LOGIN PASSWORD '${publisherPassword}'; ALTER ROLE pipeline_receipts LOGIN PASSWORD '${observerPassword}'`,
     );
