@@ -24,6 +24,7 @@ if (mode === 'compose') {
   for (const files of [
     ['compose.m1.yaml'],
     ['compose.m1.yaml', 'compose.m2b.yaml'],
+    ['compose.m3.yaml'],
   ])
     await checked(
       'docker',
@@ -40,6 +41,7 @@ if (mode === 'compose') {
         M1_PASSWORD_FILE: '/nonsecret-quality-fixture/postgres-password',
         M2B_PASSWORD_FILE: '/nonsecret-quality-fixture/pipeline-password',
         M2C_PIPELINE_PORT: '0',
+        M3_PRIVATE_DIR: '/nonsecret-quality-fixture/es',
       },
     );
 } else if (mode === 'workflow') {

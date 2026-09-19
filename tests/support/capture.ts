@@ -49,8 +49,11 @@ export async function work(s: pg.Client, entity?: string) {
     )
   ).rows;
 }
-export async function drain(label = 'drain') {
-  const w = worker(label);
+export async function drain(
+  label = 'drain',
+  options?: Partial<CaptureOptions>,
+) {
+  const w = worker(label, options);
   const results = [];
   for (let i = 0; i < 120; i++) {
     const result = await w.captureOnce();

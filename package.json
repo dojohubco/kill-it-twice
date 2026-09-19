@@ -27,7 +27,11 @@
     "test:integration:m2c": "node scripts/m1.ts m2c",
     "capture": "node scripts/capture.ts",
     "test:integration:m2c1": "node scripts/m1.ts m2c1",
-    "test:protocol:es": "node scripts/es-protocol.ts"
+    "test:protocol:es": "node scripts/es-protocol.ts",
+    "test:integration:m3": "node scripts/m1.ts m3",
+    "deliver:es": "node scripts/deliver-es.ts",
+    "review:m3": "node scripts/review-m3.ts",
+    "test:protocol:es-permissions": "node scripts/es-permissions.ts"
   },
   "dependencies": {
     "@elastic/elasticsearch": "9.5.1",

@@ -1,4 +1,4 @@
-name: Source capture and local staging gates through M2C.1
+name: Source capture and durable Elasticsearch gates through M3
 on:
   push:
   pull_request:
@@ -7,7 +7,7 @@ permissions:
 jobs:
   acceptance:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -23,8 +23,8 @@ jobs:
           echo "$GITHUB_WORKSPACE/.tools/npm/node_modules/.bin" >> "$GITHUB_PATH"
       - run: node scripts/ci-step.ts npm ci --no-audit --no-fund
       - run: node scripts/ci-step.ts npm run tools:provision
-      - name: Quality and fresh PostgreSQL acceptance
-        run: node scripts/ci-step.ts make verify-m2c1
+      - name: Quality, prior profiles and real Elasticsearch acceptance
+        run: node scripts/ci-step.ts make verify-m3
       - name: Upload sanitized evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -36,6 +36,7 @@ jobs:
             artifacts/m2b/**/public/**
             artifacts/m2c/**/public/**
             artifacts/m2c1/**/public/**
+            artifacts/m3/**/public/**
             artifacts/ci/public/**
           if-no-files-found: error
           retention-days: 7

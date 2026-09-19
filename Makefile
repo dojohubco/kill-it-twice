@@ -41,3 +41,8 @@ verify-m2c: verify-m2b
 verify-m2c1: verify-m2c
 	npm run test:integration:m2c1
 	npm run test:integration:m2c1 -- --upgrade
+
+.PHONY: verify-m3
+verify-m3: verify-m2c1
+	npm run test:integration:m3
+	npm run test:integration:m3 -- --upgrade

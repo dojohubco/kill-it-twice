@@ -1,3 +1,7 @@
+import { checkEsEvidence } from './es-evidence.ts';
+import { startEs } from './es-service.ts';
+import { migrateEs, registerEs, esSnapshot } from './es-setup.ts';
+import { esCases } from './required-es-cases.ts';
 import { createServer } from 'node:net';
 import {
   initializeCaptureFixture,
@@ -45,32 +49,39 @@ import { CleanupFailure } from './support.ts';
 
 const profile = process.argv[2] ?? 'm1';
 assert.ok(
-  ['m1', 'm2a', 'm2b', 'm2c', 'm2c1', 'm2c1-repro'].includes(profile),
+  ['m1', 'm2a', 'm2b', 'm2c', 'm2c1', 'm2c1-repro', 'm3'].includes(profile),
   'Expected an explicitly supported acceptance or reproduction profile',
 );
+const esProfile = profile === 'm3';
+let esService: Awaited<ReturnType<typeof startEs>> | undefined;
+let receiver: Awaited<ReturnType<typeof registerEs>> | undefined;
+const esPassword = randomBytes(24).toString('hex');
 const reproduction = profile === 'm2c1-repro';
 const guarded = profile === 'm2c1';
-const captureProfile = profile === 'm2c' || guarded || reproduction;
+const captureProfile =
+  profile === 'm2c' || guarded || reproduction || esProfile;
 const twoDatabases = profile === 'm2b' || captureProfile;
 const upgrade = process.argv[3] === '--upgrade';
 assert.ok(
   process.argv[3] === undefined || (twoDatabases && !reproduction && upgrade),
 );
-const inventory = reproduction
-  ? reproductionCases
-  : guarded
-    ? [
-        ...captureCases,
-        ...isolationCases,
-        ...(upgrade ? [] : registrationCases),
-      ]
-    : profile === 'm2c'
-      ? captureCases
-      : profile === 'm2b'
-        ? stagingCases
-        : profile === 'm2a'
-          ? [...requiredCases, ...commandCases, ...commandFaultCases]
-          : requiredCases;
+const inventory = esProfile
+  ? esCases
+  : reproduction
+    ? reproductionCases
+    : guarded
+      ? [
+          ...captureCases,
+          ...isolationCases,
+          ...(upgrade ? [] : registrationCases),
+        ]
+      : profile === 'm2c'
+        ? captureCases
+        : profile === 'm2b'
+          ? stagingCases
+          : profile === 'm2a'
+            ? [...requiredCases, ...commandCases, ...commandFaultCases]
+            : requiredCases;
 const runId = `${profile}-${new Date().toISOString().replace(/[^0-9]/g, '')}-${randomBytes(4).toString('hex')}`;
 const artifactDir = resolve(`artifacts/${profile}`, runId);
 await mkdir(artifactDir, { recursive: true });
@@ -85,6 +96,7 @@ const capturePassword = randomBytes(24).toString('hex');
 const pipelineCapturePassword = randomBytes(24).toString('hex');
 let pipelineId = '';
 const secrets = [
+  esPassword,
   adminPassword,
   writerPassword,
   commandPassword,
@@ -134,11 +146,13 @@ const manifest: Record<string, unknown> = {
   runId,
   profile,
   migrationMode: upgrade
-    ? guarded
-      ? 'populated registered M2C upgrade'
-      : profile === 'm2c'
-        ? 'populated M2B upgrade'
-        : 'populated M2A upgrade'
+    ? esProfile
+      ? 'populated guarded M2C.1 upgrade'
+      : guarded
+        ? 'populated registered M2C upgrade'
+        : profile === 'm2c'
+          ? 'populated M2B upgrade'
+          : 'populated M2A upgrade'
     : 'fresh',
   artifactDir,
   startedAt: new Date().toISOString(),
@@ -499,7 +513,7 @@ try {
                 application_name: `${runId}:capture-setup`,
               },
               writerPassword,
-              ...(guarded
+              ...(guarded || esProfile
                 ? {
                     isolation: upgrade
                       ? ('registered' as const)
@@ -533,9 +547,110 @@ try {
     throw error;
   }
   await admin.end();
+  if (esProfile) {
+    esService = await startEs(`${runId}-es`);
+    const runningEs = esService;
+    secrets.push(runningEs.config.password);
+    for (const service of ['elasticsearch', 'toxiproxy']) {
+      const id = (await runningEs.compose(['ps', '-q', service])).trim();
+      manifest[`${service}Container`] = id;
+      manifest[`${service}Image`] = await record(`${service}-image`, 'docker', [
+        'inspect',
+        '--format',
+        '{{.Image}} {{.Config.Image}}',
+        id,
+      ]);
+    }
+    const p = pipelineAdmin('es-setup');
+    await withCleanup(
+      async () => {
+        await p.connect();
+        const sourceEvidence = async () => {
+          const c = new pg.Client({
+            host: '127.0.0.1',
+            port,
+            database: 'source_m1',
+            user: 'm1_admin',
+            password: adminPassword,
+            application_name: `${runId}:es-upgrade-source`,
+            connectionTimeoutMillis: 5000,
+            query_timeout: 10000,
+          });
+          return withCleanup(
+            async () => {
+              await c.connect();
+              return {
+                source: await sourceSnapshot(c),
+                capture: await captureSnapshot(c),
+              };
+            },
+            () => c.end(),
+          );
+        };
+        const sourceBeforeEs = await sourceEvidence();
+        const before = await pipelineSnapshot(p);
+        await migrateEs(p, esPassword);
+        const sourceAfterEs = await sourceEvidence();
+        assert.deepEqual(sourceAfterEs, sourceBeforeEs);
+        const after = await pipelineSnapshot(p);
+        for (const name of [
+          'source_binding',
+          'destinations',
+          'events',
+          'consumer_observations',
+          'integrity_incidents',
+        ])
+          assert.deepEqual(after[name], before[name]);
+        const original = (
+          await p.query<{ text: string }>(
+            `SELECT row_to_json(t)::text text FROM (SELECT event_id,kind,destination_id,state,created_at FROM pipeline.delivery_intents) t ORDER BY row_to_json(t)::text COLLATE "C"`,
+          )
+        ).rows.map((r) => r.text);
+        assert.deepEqual(original, before['delivery_intents']);
+        receiver = await registerEs(
+          p,
+          runningEs.client,
+          pipelineId,
+          sourceEpoch,
+        );
+        secrets.push(receiver.password);
+        await writeFile(
+          join(artifactDir, 'es-upgrade.json'),
+          JSON.stringify(
+            {
+              before,
+              after,
+              sourceBeforeEs,
+              sourceAfterEs,
+              original,
+              receiver: {
+                index: receiver.index,
+                indexUuid: receiver.indexUuid,
+                clusterUuid: receiver.clusterUuid,
+                destinationId: receiver.destinationId,
+              },
+            },
+            null,
+            2,
+          ) + '\n',
+        );
+      },
+      () => p.end(),
+    );
+  }
   const testEnv = {
     ...env,
     M1_RUN_ID: runId,
+    PIPELINE_ES_PASSWORD: esPassword,
+    ES_URL: esService?.config.node ?? '',
+    ES_CA: esService?.config.ca ?? '',
+    ES_SETUP_PASSWORD: esService?.config.password ?? '',
+    ES_USERNAME: receiver?.username ?? '',
+    ES_PASSWORD: receiver?.password ?? '',
+    ES_INDEX: receiver?.index ?? '',
+    ES_PROXY_URL: esService?.proxyNode ?? '',
+    ES_PROXY_API: esService?.proxyApi ?? '',
+    ES_PROJECT: `${runId}-es`,
     M1_ARTIFACT_DIR: artifactDir,
     M1_PORT: String(port),
     M1_ADMIN_PASSWORD: adminPassword,
@@ -561,7 +676,7 @@ try {
     [
       '--test',
       '--test-concurrency=1',
-      '--test-timeout=60000',
+      esProfile ? '--test-timeout=240000' : '--test-timeout=60000',
       '--test-reporter=./scripts/test-reporter.ts',
       `--test-reporter-destination=${join(artifactDir, 'tests.json')}`,
       '--test-reporter=junit',
@@ -569,7 +684,7 @@ try {
       ...new Set(inventory.map((entry) => entry.file)),
     ],
     testEnv,
-    captureProfile ? 240_000 : 180_000,
+    esProfile ? 1200000 : captureProfile ? 240_000 : 180_000,
   );
   if (output) console.log(output);
   manifest['acceptance'] = checkAcceptance(
@@ -577,6 +692,10 @@ try {
     { code: 0, signal: null, timedOut: false, outputOverflow: false },
     inventory,
   );
+  if (esProfile)
+    manifest['esEvidence'] = await checkEsEvidence(
+      join(artifactDir, 'sql-evidence.jsonl'),
+    );
   async function retainedSnapshot() {
     const connection = new pg.Client({
       host: '127.0.0.1',
@@ -639,7 +758,8 @@ try {
     return withCleanup(
       async () => {
         await c.connect();
-        return pipelineSnapshot(c);
+        const base = await pipelineSnapshot(c);
+        return esProfile ? { ...base, ...(await esSnapshot(c)) } : base;
       },
       () => c.end(),
     );
@@ -736,6 +856,34 @@ try {
   diagnostics.fail(error);
 } finally {
   cleaningUp = true;
+  if (esService) {
+    const runningEs = esService;
+    await diagnostics.finalize('Elasticsearch logs', async () =>
+      writeFile(
+        join(artifactDir, 'es.log'),
+        clean(await runningEs.compose(['logs', '--tail', '200', '--no-color'])),
+      ),
+    );
+    await diagnostics.finalize('Elasticsearch cleanup', runningEs.cleanup);
+    const esResources: Record<string, string> = {};
+    for (const kind of ['container', 'volume', 'network'])
+      await diagnostics.finalize(`ES remaining ${kind}`, async () => {
+        const remaining = await record(`es-remaining-${kind}`, 'docker', [
+          kind,
+          'ls',
+          ...(kind === 'container' ? ['-a'] : []),
+          '-q',
+          '--filter',
+          `label=com.docker.compose.project=${runId}-es`,
+        ]);
+        assert.equal(remaining, '');
+        esResources[kind] = remaining;
+      });
+    manifest['elasticsearchCleanup'] = {
+      status: Object.keys(esResources).length === 3 ? 'PASS' : 'FAIL',
+      resources: esResources,
+    };
+  }
   if (started) {
     await diagnostics.finalize('postgres logs', () =>
       record('postgres-logs', 'docker', [
@@ -832,6 +980,7 @@ try {
           developmental: manifest['developmental'],
           acceptance: manifest['acceptance'],
           cleanup: manifest['cleanup'],
+          elasticsearchCleanup: manifest['elasticsearchCleanup'],
           primaryError: diagnostics.primary,
           cleanupErrors: diagnostics.cleanup,
           evidenceLocation:
@@ -861,6 +1010,8 @@ try {
       'restart-evidence.json',
       'upgrade-evidence.json',
       'capture-upgrade.json',
+      'es-upgrade.json',
+      'es.log',
     ]);
     for (const file of await readdir(artifactDir)) {
       if (
