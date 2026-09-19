@@ -1,0 +1,20 @@
+services:
+  rabbitmq:
+    image: rabbitmq:4.3.6-management@sha256:de62d9901fb73aaa8767b9c1e9ea32f2938f69d1b83e430f7c5ca854081d2128
+    hostname: m4-broker
+    user: '${M4_UID:-1000}:0'
+    environment:
+      RABBITMQ_ENABLED_PLUGINS_FILE: /etc/rabbitmq/private/enabled_plugins
+      RABBITMQ_CONFIG_FILE: /etc/rabbitmq/private/rabbitmq
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: '+S 2:2 +A 4'
+      HOME: /var/lib/rabbitmq
+    mem_limit: 1g
+    ulimits:
+      nofile: { soft: 65536, hard: 65536 }
+    ports: ['127.0.0.1::5671', '127.0.0.1::15671']
+    volumes:
+      - rabbit-data:/var/lib/rabbitmq
+      - ${M4_PRIVATE_DIR:?Use the isolated M4 runner}:/etc/rabbitmq/private:ro,Z
+    stop_grace_period: 20s
+volumes:
+  rabbit-data:

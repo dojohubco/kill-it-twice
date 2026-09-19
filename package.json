@@ -36,10 +36,13 @@
     "test:reproduction:m3-oracle": "node scripts/m1.ts m3-repro",
     "test:integration:m31": "node scripts/m1.ts m3-oracle",
     "verify:m3": "node scripts/verify-m3.ts",
-    "review:m31": "node scripts/review-m3.ts"
+    "review:m31": "node scripts/review-m3.ts",
+    "test:protocol:rabbit": "node scripts/rabbit-protocol.ts",
+    "test:integration:m4": "node scripts/m1.ts m4"
   },
   "dependencies": {
     "@elastic/elasticsearch": "9.5.1",
+    "amqplib": "2.0.1",
     "lossless-json": "4.3.1",
     "pg": "8.23.0"
   },
