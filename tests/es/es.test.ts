@@ -1,3 +1,9 @@
+import {
+  declareMappingRejection,
+  type ExpectedRejection,
+} from '../support/es-expectations.ts';
+import { expectationInventoryCase } from '../../scripts/required-oracle-cases.ts';
+const expectedRejections: ExpectedRejection[] = [];
 import { launchCapture } from '../support/capture-process.ts';
 import { launchEs } from '../support/es-process.ts';
 import {
@@ -315,6 +321,14 @@ await test(name('ES05'), async (t) => {
         `{"name":"bulk-${i}","loyalty_points":${[17, 233, 499].includes(i) ? '"not-a-number"' : i}}`,
       ),
     );
+  const expectedBulkRejects = [17, 233, 499].map((i) => {
+    const f = fixtures[i];
+    assert.ok(f);
+    return f;
+  });
+  for (const f of expectedBulkRejects)
+    expectedRejections.push(await declareMappingRejection(s, p, f, 'ES05'));
+  assert.equal(expectedBulkRejects.length, 3);
   const capture = await drain('bulk-500-through-16-record-capture');
   assert.ok(capture.length >= 32);
   const before = await untouched(p);
@@ -416,6 +430,10 @@ await test(name('ES05'), async (t) => {
     [fixtures.map((f) => f.eventId)],
   );
   assert.equal(failures.rows.length, 3);
+  assert.deepEqual(
+    failures.rows.map((r) => r['event_id']).sort(),
+    expectedBulkRejects.map((f) => f.eventId).sort(),
+  );
   for (const d of failures.rows)
     assert.match(String(d['context']), /document_parsing_exception/);
   const attemptsBefore = (
@@ -475,6 +493,8 @@ await test(name('ES06'), async (t) => {
     const f = await staged(
       state === 'dead_letter' ? '{"loyalty_points":"not-a-number"}' : undefined,
     );
+    if (state === 'dead_letter')
+      expectedRejections.push(await declareMappingRejection(s, p, f, 'ES06'));
     let claim;
     if (state === 'leased' || state === 'retry_wait') {
       const workerId = randomUUID();
@@ -1186,7 +1206,7 @@ await test(name('ES14'), async (t) => {
   await finish(es, p);
   const refresh = () => admin.request('POST', `/${target.index}/_refresh`);
   await refresh();
-  const baseline = await oracle(s, p, es);
+  const baseline = await oracle(s, p, es, expectedRejections);
   const positive = baseline.find((r) => !r.unresolved);
   assert.ok(positive);
   const expected = await ledger().read(positive.id);
@@ -1198,7 +1218,7 @@ await test(name('ES14'), async (t) => {
     `/${target.index}/_doc/${encodeURIComponent(expected.documentId)}`,
   );
   await refresh();
-  await assert.rejects(oracle(s, p, es));
+  await assert.rejects(oracle(s, p, es, expectedRejections));
   negative.push('missing detected');
   // A physical-delete tombstone retains its version. external_gte is used ONLY by
   // privileged corruption restoration, never by the production delivery adapter.
@@ -1230,7 +1250,7 @@ await test(name('ES14'), async (t) => {
   const extra = 'owned-extra';
   await admin.request('PUT', `/${target.index}/_doc/${extra}`, repair.json);
   await refresh();
-  await assert.rejects(oracle(s, p, es));
+  await assert.rejects(oracle(s, p, es, expectedRejections));
   negative.push('extra detected');
   await admin.request('DELETE', `/${target.index}/_doc/${extra}`);
   const corrupted = object(parse(repair.json));
@@ -1246,7 +1266,7 @@ await test(name('ES14'), async (t) => {
     ),
   );
   await refresh();
-  await assert.rejects(oracle(s, p, es));
+  await assert.rejects(oracle(s, p, es, expectedRejections));
   negative.push('corruption detected');
   await admin.request(
     'POST',
@@ -1262,7 +1282,7 @@ await test(name('ES14'), async (t) => {
     JSON.stringify({ 'index.gc_deletes': '60s' }),
   );
   await refresh();
-  const before = await oracle(s, p, es);
+  const before = await oracle(s, p, es, expectedRejections);
   const containers = await command(
     'docker',
     [
@@ -1312,7 +1332,7 @@ await test(name('ES14'), async (t) => {
     },
   );
   await refresh();
-  assert.deepEqual(await oracle(s, p, es), before);
+  assert.deepEqual(await oracle(s, p, es, expectedRejections), before);
   evidence('ES14-restart', {
     container: id,
     clusterUuid: target.clusterUuid,
@@ -1324,6 +1344,30 @@ await test(name('ES14'), async (t) => {
 
 // Last: controlled replacement intentionally leaves this owned target blocked. No
 // attempt is made to adopt its new UUID. Earlier reconciliation/restart evidence is retained.
+await test(expectationInventoryCase.name, async (t) => {
+  const { s, p, es, admin, target } = await setup(t);
+  assert.equal(
+    expectedRejections.filter((r) => r.fixture === 'ES05').length,
+    3,
+  );
+  assert.equal(
+    expectedRejections.filter((r) => r.fixture === 'ES06').length,
+    1,
+  );
+  assert.equal(expectedRejections.length, 4);
+  await admin.request('POST', `/${target.index}/_refresh`);
+  const reconciled = await oracle(s, p, es, expectedRejections);
+  assert.equal(reconciled.filter((r) => r.unresolved).length, 3);
+  evidence('O07', {
+    expectedRejections,
+    declaredBeforeDelivery: true,
+    originalBulkExpectedApplied: 497,
+    originalBulkExpectedRejected: 3,
+    latestUnresolved: reconciled.filter((r) => r.unresolved).map((r) => r.id),
+    historyAndReceiverChecked: true,
+  });
+});
+
 await test(name('ES11'), async (t) => {
   const { p, es, admin, target } = await setup(t);
   for (const [method, path, body] of [

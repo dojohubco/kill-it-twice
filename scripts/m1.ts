@@ -1,5 +1,9 @@
-import { oracleReproductionCases } from './required-oracle-cases.ts';
-import { checkEsEvidence } from './es-evidence.ts';
+import {
+  oracleReproductionCases,
+  oracleCases,
+  expectationInventoryCase,
+} from './required-oracle-cases.ts';
+import { checkEsEvidence, checkOracleEvidence } from './es-evidence.ts';
 import { startEs } from './es-service.ts';
 import { migrateEs, registerEs, esSnapshot } from './es-setup.ts';
 import { esCases } from './required-es-cases.ts';
@@ -50,13 +54,22 @@ import { CleanupFailure } from './support.ts';
 
 const profile = process.argv[2] ?? 'm1';
 assert.ok(
-  ['m1', 'm2a', 'm2b', 'm2c', 'm2c1', 'm2c1-repro', 'm3', 'm3-repro'].includes(
-    profile,
-  ),
+  [
+    'm1',
+    'm2a',
+    'm2b',
+    'm2c',
+    'm2c1',
+    'm2c1-repro',
+    'm3',
+    'm3-repro',
+    'm3-oracle',
+  ].includes(profile),
   'Expected an explicitly supported acceptance or reproduction profile',
 );
 const oracleReproduction = profile === 'm3-repro';
-const esProfile = profile === 'm3' || oracleReproduction;
+const oracleAcceptance = profile === 'm3-oracle';
+const esProfile = profile === 'm3' || oracleReproduction || oracleAcceptance;
 let esService: Awaited<ReturnType<typeof startEs>> | undefined;
 let receiver: Awaited<ReturnType<typeof registerEs>> | undefined;
 const esPassword = randomBytes(24).toString('hex');
@@ -69,25 +82,27 @@ const upgrade = process.argv[3] === '--upgrade';
 assert.ok(
   process.argv[3] === undefined || (twoDatabases && !reproduction && upgrade),
 );
-const inventory = oracleReproduction
-  ? oracleReproductionCases
-  : esProfile
-    ? esCases
-    : reproduction
-      ? reproductionCases
-      : guarded
-        ? [
-            ...captureCases,
-            ...isolationCases,
-            ...(upgrade ? [] : registrationCases),
-          ]
-        : profile === 'm2c'
-          ? captureCases
-          : profile === 'm2b'
-            ? stagingCases
-            : profile === 'm2a'
-              ? [...requiredCases, ...commandCases, ...commandFaultCases]
-              : requiredCases;
+const inventory = oracleAcceptance
+  ? oracleCases
+  : oracleReproduction
+    ? oracleReproductionCases
+    : esProfile
+      ? [...esCases, expectationInventoryCase]
+      : reproduction
+        ? reproductionCases
+        : guarded
+          ? [
+              ...captureCases,
+              ...isolationCases,
+              ...(upgrade ? [] : registrationCases),
+            ]
+          : profile === 'm2c'
+            ? captureCases
+            : profile === 'm2b'
+              ? stagingCases
+              : profile === 'm2a'
+                ? [...requiredCases, ...commandCases, ...commandFaultCases]
+                : requiredCases;
 const runId = `${profile}-${new Date().toISOString().replace(/[^0-9]/g, '')}-${randomBytes(4).toString('hex')}`;
 const artifactDir = resolve(`artifacts/${profile}`, runId);
 await mkdir(artifactDir, { recursive: true });
@@ -701,8 +716,12 @@ try {
     { code: 0, signal: null, timedOut: false, outputOverflow: false },
     inventory,
   );
-  if (esProfile && !oracleReproduction)
+  if (profile === 'm3')
     manifest['esEvidence'] = await checkEsEvidence(
+      join(artifactDir, 'sql-evidence.jsonl'),
+    );
+  if (oracleAcceptance)
+    manifest['oracleEvidence'] = await checkOracleEvidence(
       join(artifactDir, 'sql-evidence.jsonl'),
     );
   async function retainedSnapshot() {

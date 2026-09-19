@@ -91,7 +91,23 @@ export async function checkEsEvidence(path: string) {
   one('ES13');
   const restart = object(one('ES14-restart'));
   assert.equal(restart['unchanged'], true);
+  const expectations = object(one('O07'));
+  assert.equal(expectations['declaredBeforeDelivery'], true);
+  assert.equal(expectations['originalBulkExpectedApplied'], 497);
+  assert.equal(expectations['originalBulkExpectedRejected'], 3);
+  assert.equal(expectations['historyAndReceiverChecked'], true);
+  const declarations = expectations['expectedRejections'];
+  assert.ok(Array.isArray(declarations));
+  assert.equal(
+    declarations.filter((d) => object(d)['fixture'] === 'ES05').length,
+    3,
+  );
+  assert.equal(
+    declarations.filter((d) => object(d)['fixture'] === 'ES06').length,
+    1,
+  );
   return {
+    reconciliation: expectations,
     faults,
     actualBulk: {
       operations: 500,
@@ -102,5 +118,50 @@ export async function checkEsEvidence(path: string) {
     measuredOutageMs: outage['measuredStoppedMs'],
     automaticSameWorkerRecovery: true,
     retainedReceiverRestart: true,
+  };
+}
+
+// Required independent evidence for the isolated M3.1 receiver/oracle profile.
+export async function checkOracleEvidence(path: string) {
+  const rows = (await readFile(path, 'utf8'))
+    .trim()
+    .split('\n')
+    .map((line) => object(JSON.parse(line)));
+  const cases: Record<string, unknown> = {};
+  for (const id of ['O01', 'O02', 'O03', 'O04', 'O05', 'O06']) {
+    const matches = rows.filter((r) => r['test'] === id);
+    assert.equal(matches.length, 1, `Missing/duplicate oracle evidence ${id}`);
+    cases[id] = object(matches[0])['data'];
+  }
+  const old = object(object(cases['O01'])['row']);
+  assert.equal(old['sourceRevision'], '2');
+  assert.equal(old['version'], '1');
+  assert.equal(old['convergence'], 'EXPECTED DEGRADED');
+  const absent = object(object(cases['O02'])['row']);
+  assert.equal(absent['source'], null);
+  assert.equal(absent['expectedReceiverRevision'], null);
+  const corrected = object(object(cases['O03'])['row']);
+  assert.equal(corrected['version'], '3');
+  assert.equal(corrected['convergence'], 'CONVERGED');
+  const tombstone = object(object(cases['O04'])['degraded']);
+  assert.equal(tombstone['version'], '2');
+  assert.equal(object(tombstone['source'])['is_deleted'], true);
+  assert.equal(object(object(cases['O04'])['current'])['version'], '4');
+  const controls = object(cases['O06'])['negative'];
+  assert.ok(Array.isArray(controls));
+  assert.ok(controls.includes('actual missing retained old document'));
+  assert.ok(controls.includes('actual changed retained old document'));
+  return {
+    requiredCaseIds: Object.keys(cases),
+    retainedOldVersion: old['version'],
+    unresolvedSourceVersion: old['sourceRevision'],
+    correctedVersion: corrected['version'],
+    retainedTombstoneVersion: tombstone['version'],
+    negativeControls: controls,
+    declaredRejections: rows
+      .filter(
+        (r) => r['test'] === 'expected-rejection-declared-before-delivery',
+      )
+      .map((r) => r['data']),
   };
 }

@@ -33,7 +33,8 @@
     "review:m3": "node scripts/review-m3.ts",
     "test:protocol:es-permissions": "node scripts/es-permissions.ts",
     "test:protocol:es-auth-restart": "node scripts/es-auth-restart.ts",
-    "test:reproduction:m3-oracle": "node scripts/m1.ts m3-repro"
+    "test:reproduction:m3-oracle": "node scripts/m1.ts m3-repro",
+    "test:integration:m31": "node scripts/m1.ts m3-oracle"
   },
   "dependencies": {
     "@elastic/elasticsearch": "9.5.1",
