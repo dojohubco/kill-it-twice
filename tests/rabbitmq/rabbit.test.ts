@@ -458,6 +458,20 @@ for (const [i, boundary] of [
     const child = launchRabbit(t, `MQH0${i + 1}`, boundary, role);
     const reached = await child.barrier();
     const released = await child.finish('release');
+    const ordinary = record(record(released.output[0])['result']);
+    if (role === 'publisher') {
+      assert.equal(ordinary['claimed'], 1);
+      const outcomes = ordinary['outcomes'];
+      assert.ok(Array.isArray(outcomes));
+      assert.equal(outcomes.length, 1);
+      assert.equal(record(outcomes[0])['eventId'], f.eventId);
+      assert.equal(record(outcomes[0])['outcome'], 'confirmed');
+      assert.equal(record(outcomes[0])['status'], 'settled');
+    } else {
+      assert.equal(ordinary['acknowledged'], 1);
+      assert.deepEqual(ordinary['processed'], [f.eventId]);
+    }
+
     await drain(p, c);
     assert.equal((await effects(c, f.eventId)).length, 1);
     assert.deepEqual(
@@ -942,6 +956,7 @@ await test(name('MQ12'), async (t) => {
     event_id: `${foreignEpoch}:${String(b['entity_id'])}:${String(b['entity_version'])}`,
   });
   const fixtures = [
+    { raw: Buffer.alloc(131072, 120), id: 'malformed-at-transport-cap' },
     { raw: wrongEpoch.wireBytes, id: wrongEpoch.body.event_id },
     { raw: Buffer.from([0xc3, 0x28]), id: 'malformed-utf8' },
     {
@@ -1052,6 +1067,14 @@ await test(name('MQH06'), async (t) => {
   ).rows;
   assert.equal(before.length, 1);
   const released = await child.finish('release');
+  const ordinary = record(record(released.output[0])['result']);
+  assert.equal(ordinary['acknowledged'], 1);
+  assert.deepEqual(ordinary['processed'], []);
+  assert.ok(
+    Array.isArray(ordinary['quarantined']) &&
+      ordinary['quarantined'].length === 1,
+  );
+
   assert.deepEqual(
     (
       await c.query('SELECT * FROM consumer.quarantine WHERE raw_bytes=$1', [

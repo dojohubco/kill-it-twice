@@ -193,9 +193,31 @@ if (mode === 'capture') {
       ),
       cleanup: r['cleanup'],
       elasticsearchCleanup: r['elasticsearchCleanup'],
-      esEvidence: r['esEvidence'],
+      esEvidence: r['esEvidence']
+        ? {
+            actualBulk: object(r['esEvidence'])['actualBulk'],
+            measuredOutageMs: object(r['esEvidence'])['measuredOutageMs'],
+            faults: (object(r['esEvidence'])['faults'] as unknown[]).length,
+          }
+        : undefined,
       oracleEvidence: r['oracleEvidence'],
-      rabbitEvidence: r['rabbitEvidence'],
+      rabbitEvidence: r['rabbitEvidence']
+        ? {
+            declaredMutationCount: object(r['rabbitEvidence'])[
+              'declaredMutationCount'
+            ],
+            consumerEffects: object(r['rabbitEvidence'])['consumerEffects'],
+            singlePublicationCrashCount: (
+              object(r['rabbitEvidence'])[
+                'singlePublicationCrashes'
+              ] as unknown[]
+            ).length,
+            brokerStoppedMs: object(r['rabbitEvidence'])['brokerStoppedMs'],
+            unknownConfirmEvent: object(r['rabbitEvidence'])[
+              'unknownConfirmEvent'
+            ],
+          }
+        : undefined,
       rabbitCleanup: r['rabbitCleanup'],
       prerequisite: r['prerequisite'],
       testExecution: r['testExecution'],

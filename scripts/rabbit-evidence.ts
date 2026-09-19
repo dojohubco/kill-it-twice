@@ -58,6 +58,17 @@ export async function checkRabbitEvidence(path: string) {
     assert.equal(props['correlationId'], correlation);
     assert.equal(object(props['headers'])['x-delivery-count'] ?? 0, i);
   }
+  const quarantine = one('MQ12');
+  const quarantineKill = object(quarantine['killed']);
+  assert.deepEqual(quarantineKill['exit'], { code: null, signal: 'SIGKILL' });
+  assert.equal(quarantineKill['ordinarySuccessBytes'], 0);
+  assert.equal(quarantineKill['pid'], object(quarantine['reached'])['pid']);
+  faults.push({
+    boundary: 'consumer.after_quarantine_commit.before_ack',
+    eventId: 'quarantine-crash',
+    pid: quarantineKill['pid'],
+    exit: quarantineKill['exit'],
+  });
   const healthy = [];
   for (let i = 1; i <= 6; i++) {
     const r = one(`MQH0${i}`);
