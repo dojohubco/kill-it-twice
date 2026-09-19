@@ -43,6 +43,20 @@ export async function checkEsEvidence(path: string) {
       else {
         assert.ok(Array.isArray(exit['output']));
         assert.equal(exit['output'].length, 1);
+        const success = object(exit['output'][0]);
+        assert.equal(success['type'], 'es-success');
+        assert.equal(success['claimed'], 1);
+        const claims = object(r['barrier'])['claims'];
+        assert.ok(Array.isArray(claims));
+        assert.equal(claims.length, 1);
+        assert.deepEqual(success['outcomes'], [
+          {
+            eventId: r['eventId'],
+            generation: object(claims[0])['generation'],
+            outcome: 'applied',
+            status: 'settled',
+          },
+        ]);
       }
       faults.push({
         boundary,

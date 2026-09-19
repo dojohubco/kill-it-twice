@@ -618,6 +618,23 @@ await test(name('ES07'), async (t) => {
         assert.equal(version(observed['_version']), '1');
       }
       const exit = await child.finish(kill ? 'kill' : 'release');
+      if (!kill) {
+        const success = object(exit.output[0]);
+        assert.equal(success['type'], 'es-success');
+        assert.equal(success['claimed'], 1);
+        assert.deepEqual(success['outcomes'], [
+          {
+            eventId: f.eventId,
+            generation: token['generation'],
+            outcome: 'applied',
+            status: 'settled',
+          },
+        ]);
+        assert.equal(
+          first(await deliveries(p, [f.eventId]))['state'],
+          'satisfied',
+        );
+      }
       await finish(es, p);
       const after = await deliveries(p, [f.eventId]);
       assert.equal(after[0]?.['state'], 'satisfied');
@@ -801,6 +818,17 @@ await test(name('ES09'), async (t) => {
   await observedApplication(es, healthyFixture.documentId);
   await removeToxic();
   const healthyExit = await healthy.finish('release');
+  const healthyResult = object(healthyExit.output[0]);
+  assert.equal(healthyResult['type'], 'es-success');
+  assert.equal(healthyResult['claimed'], 1);
+  assert.deepEqual(healthyResult['outcomes'], [
+    {
+      eventId: healthyFixture.eventId,
+      generation: '1',
+      outcome: 'applied',
+      status: 'settled',
+    },
+  ]);
   assert.equal(
     (await deliveries(p, [healthyFixture.eventId]))[0]?.['state'],
     'satisfied',
@@ -1065,6 +1093,30 @@ await test(name('ES13'), async (t) => {
   const original = await untouched(p);
   await finish(es, p);
   assert.deepEqual(await untouched(p), original);
+  // Synthetic operational counters, rolled back: even status JSON must avoid the
+  // driver's ordinary JSON-number conversion for exact BIGINT metadata.
+  await p.query('BEGIN');
+  let exactStatus;
+  try {
+    await p.query(
+      'UPDATE pipeline.es_target SET failures=9007199254740993,probe_generation=9223372036854775807',
+    );
+    exactStatus = object(
+      first(
+        (
+          await p.query<{ value: unknown }>(
+            'SELECT pipeline.es_status(1) value',
+          )
+        ).rows,
+      ).value,
+    );
+    const exactTarget = object(exactStatus['target']);
+    assert.equal(exactTarget['failures'], '9007199254740993');
+    assert.equal(exactTarget['probe_generation'], '9223372036854775807');
+    assert.equal(exactTarget['generation'], '1');
+  } finally {
+    await p.query('ROLLBACK');
+  }
   const protectedSource = (
     await s.query(
       'SELECT source_epoch::text,command_id::text,result_entity_id::text,result_version::text FROM source.command_receipts ORDER BY command_id',
@@ -1090,6 +1142,7 @@ await test(name('ES13'), async (t) => {
     preservedOriginalRows: old.length,
     sourceReceipts: protectedSource.length,
     rabbitAndConsumerUnchanged: true,
+    syntheticStatusCounters: exactStatus,
   });
 });
 
@@ -1240,6 +1293,29 @@ await test(name('ES11'), async (t) => {
       assert.equal(error.statusCode, 403);
       return true;
     });
+  const protectedFixture = await staged();
+  await finish(es, p);
+  const protectedBefore = await remote(es, protectedFixture.documentId);
+  const bulkDenials = [];
+  for (const operation of ['delete', 'update']) {
+    const request =
+      JSON.stringify({ [operation]: { _id: protectedFixture.documentId } }) +
+      '\n' +
+      (operation === 'update' ? '{"doc":{}}\n' : '');
+    const response = object(
+      await es.request('POST', `/${target.index}/_bulk`, request),
+    );
+    assert.equal(response['errors'], true);
+    assert.ok(Array.isArray(response['items']));
+    assert.equal(response['items'].length, 1);
+    const item = object(object(response['items'][0])[operation]);
+    assert.equal(exactInteger(item['status']), '403');
+    bulkDenials.push({ operation, response: stringify(response) });
+  }
+  assert.deepEqual(
+    await remote(es, protectedFixture.documentId),
+    protectedBefore,
+  );
   const f = await staged();
   const bad = new EsTransport({
     ...esConfig(),
@@ -1299,6 +1375,8 @@ await test(name('ES11'), async (t) => {
     deadBefore,
   );
   evidence('ES11', {
+    bulkDenials,
+    protectedDocumentId: protectedFixture.documentId,
     credentialFailureEvent: f.eventId,
     wrongMetadataEvent: metadataFixture.eventId,
     replacementEvent: another.eventId,

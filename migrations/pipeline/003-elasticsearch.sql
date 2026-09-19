@@ -247,7 +247,7 @@ END $$;
 CREATE FUNCTION pipeline.es_status(n integer) RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 BEGIN
  IF n IS NULL OR n NOT BETWEEN 1 AND 100 THEN RAISE EXCEPTION 'Invalid inspection bound' USING ERRCODE='P5001'; END IF;
- RETURN jsonb_build_object('observed_at',clock_timestamp()::text,'target',(SELECT to_jsonb(t) FROM pipeline.es_target t),
+ RETURN jsonb_build_object('observed_at',clock_timestamp()::text,'target',(SELECT to_jsonb(t)||jsonb_build_object('generation',t.generation::text,'probe_generation',t.probe_generation::text,'failures',t.failures::text) FROM pipeline.es_target t),
  'counts',(SELECT jsonb_object_agg(state,c) FROM (SELECT state,count(*)::text c FROM pipeline.delivery_intents WHERE kind='elasticsearch' GROUP BY state) q),
  'dead_letters',COALESCE((SELECT jsonb_agg(to_jsonb(d)) FROM (SELECT * FROM pipeline.es_dead_letters ORDER BY recorded_at,event_id LIMIT n) d),'[]'::jsonb));
 END $$;
