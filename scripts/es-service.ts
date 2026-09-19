@@ -138,6 +138,7 @@ export async function startEs(project: string) {
       signal: AbortSignal.timeout(5000),
     });
     assert.equal(response.status, 201);
+    const setupObserver = client;
     async function provisionRuntime(
       username: string,
       runtimePassword: string,
@@ -268,6 +269,10 @@ export async function startEs(project: string) {
               assert.ok(realm && typeof realm === 'object' && 'type' in realm);
               assert.equal(realm.type, 'file');
               await runtime.request('GET', `/${index}`);
+              // Initialization still performs privileged setup/verification after
+              // this returns. File-runtime readiness cannot stand in for the
+              // native setup identity while its security index is recovering.
+              await setupObserver.request('GET', '/_security/_authenticate');
               return;
             } catch (error) {
               last = error;
