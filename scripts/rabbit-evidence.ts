@@ -1,11 +1,19 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { basename, dirname } from 'node:path';
 import { object } from './acceptance.ts';
 export async function checkRabbitEvidence(path: string) {
   const rows = (await readFile(path, 'utf8'))
     .trim()
     .split('\n')
     .map((l) => object(JSON.parse(l)));
+  assert.ok(rows.length);
+  for (const row of rows)
+    assert.equal(
+      row['runId'],
+      basename(dirname(path)),
+      'Evidence belongs to another run',
+    );
   const matching = (name: string) =>
     rows.filter((r) => r['test'] === name).map((r) => object(r['data']));
   const one = (name: string) => {
@@ -53,6 +61,10 @@ export async function checkRabbitEvidence(path: string) {
     if (i === 0) {
       wire = d['wireHex'];
       correlation = props['correlationId'];
+      assert.ok(typeof wire === 'string' && /^[a-f0-9]+$/.test(wire));
+      assert.ok(
+        typeof correlation === 'string' && /^[a-f0-9-]{36}$/.test(correlation),
+      );
     }
     assert.equal(d['wireHex'], wire);
     assert.equal(props['correlationId'], correlation);
