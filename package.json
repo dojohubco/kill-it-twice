@@ -42,7 +42,8 @@
     "deliver:rabbit": "node scripts/deliver-rabbit.ts",
     "consume": "node scripts/consume.ts",
     "observe:consumer": "node scripts/observe-consumer.ts",
-    "review:m4": "node scripts/review-m4.ts"
+    "review:m4": "node scripts/review-m4.ts",
+    "test:reproduction:m41": "node scripts/m1.ts m41-repro"
   },
   "dependencies": {
     "@elastic/elasticsearch": "9.5.1",

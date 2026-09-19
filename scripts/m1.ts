@@ -9,6 +9,8 @@ import {
   rabbitSnapshot,
   consumerSnapshot,
 } from './rabbit-setup.ts';
+import { batchReproductionCases } from './required-batch-cases.ts';
+import { checkBatchEvidence } from './batch-evidence.ts';
 import { rabbitCases } from './required-rabbit-cases.ts';
 import { EsTransport } from '../src/es/transport.ts';
 import { EsLedger } from '../src/es/ledger.ts';
@@ -93,12 +95,14 @@ assert.ok(
     'm3-repro',
     'm3-oracle',
     'm4',
+    'm41-repro',
   ].includes(profile),
   'Expected an explicitly supported acceptance or reproduction profile',
 );
 const oracleReproduction = profile === 'm3-repro';
 const oracleAcceptance = profile === 'm3-oracle';
-const rabbitProfile = profile === 'm4';
+const batchReproduction = profile === 'm41-repro';
+const rabbitProfile = profile === 'm4' || batchReproduction;
 const esProfile =
   profile === 'm3' || oracleReproduction || oracleAcceptance || rabbitProfile;
 let rabbitService: Awaited<ReturnType<typeof startRabbit>> | undefined;
@@ -125,29 +129,31 @@ const upgrade = process.argv[3] === '--upgrade';
 assert.ok(
   process.argv[3] === undefined || (twoDatabases && !reproduction && upgrade),
 );
-const inventory = rabbitProfile
-  ? rabbitCases
-  : oracleAcceptance
-    ? oracleCases
-    : oracleReproduction
-      ? oracleReproductionCases
-      : esProfile
-        ? [...esCases, expectationInventoryCase]
-        : reproduction
-          ? reproductionCases
-          : guarded
-            ? [
-                ...captureCases,
-                ...isolationCases,
-                ...(upgrade ? [] : registrationCases),
-              ]
-            : profile === 'm2c'
-              ? captureCases
-              : profile === 'm2b'
-                ? stagingCases
-                : profile === 'm2a'
-                  ? [...requiredCases, ...commandCases, ...commandFaultCases]
-                  : requiredCases;
+const inventory = batchReproduction
+  ? batchReproductionCases
+  : rabbitProfile
+    ? rabbitCases
+    : oracleAcceptance
+      ? oracleCases
+      : oracleReproduction
+        ? oracleReproductionCases
+        : esProfile
+          ? [...esCases, expectationInventoryCase]
+          : reproduction
+            ? reproductionCases
+            : guarded
+              ? [
+                  ...captureCases,
+                  ...isolationCases,
+                  ...(upgrade ? [] : registrationCases),
+                ]
+              : profile === 'm2c'
+                ? captureCases
+                : profile === 'm2b'
+                  ? stagingCases
+                  : profile === 'm2a'
+                    ? [...requiredCases, ...commandCases, ...commandFaultCases]
+                    : requiredCases;
 const runId = `${profile}-${new Date().toISOString().replace(/[^0-9]/g, '')}-${randomBytes(4).toString('hex')}`;
 const artifactDir = resolve(`artifacts/${profile}`, runId);
 await mkdir(artifactDir, { recursive: true });
@@ -229,11 +235,13 @@ const manifest: Record<string, unknown> = {
   startedAt: new Date().toISOString(),
   status: 'RUNNING',
   commands: [],
-  intent: oracleReproduction
-    ? 'Historical M3 oracle counterexample only; expected assertion failure is not M3 acceptance'
-    : reproduction
-      ? 'Historical defect reproduction only; intentionally missing work is not acceptance'
-      : 'Acceptance',
+  intent: batchReproduction
+    ? 'Historical byte-accounting diagnostic: expected rejection is not successful consumer processing'
+    : oracleReproduction
+      ? 'Historical M3 oracle counterexample only; expected assertion failure is not M3 acceptance'
+      : reproduction
+        ? 'Historical defect reproduction only; intentionally missing work is not acceptance'
+        : 'Acceptance',
 };
 let sequence = 0;
 let interrupted: NodeJS.Signals | undefined;
@@ -1015,7 +1023,12 @@ try {
     { code: 0, signal: null, timedOut: false, outputOverflow: false },
     inventory,
   );
-  if (rabbitProfile)
+  if (batchReproduction)
+    manifest['batchEvidence'] = await checkBatchEvidence(
+      join(artifactDir, 'sql-evidence.jsonl'),
+      true,
+    );
+  if (profile === 'm4')
     manifest['rabbitEvidence'] = await checkRabbitEvidence(
       join(artifactDir, 'sql-evidence.jsonl'),
     );
