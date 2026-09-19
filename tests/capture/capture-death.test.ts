@@ -108,10 +108,38 @@ for (const [id, name, stage, mode] of [
         [`${required('M1_RUN_ID')}:${label}%`],
       )
     ).rows;
+    const renewalName = `${required('M1_RUN_ID')}:${label}:renew`;
+    const renewals = sourceSessions.filter(
+      (r) => r['application_name'] === renewalName,
+    );
+    evidence(`${id}-source-session-observation`, {
+      sourceSessions,
+      renewalName,
+      renewals,
+    });
     assert.ok(
-      sourceSessions.every((r) => r['state'] !== 'idle in transaction'),
+      sourceSessions
+        .filter((r) => r['application_name'] !== renewalName)
+        .every((r) => r['state'] !== 'idle in transaction'),
       'A and C never remain open while waiting for pipeline',
     );
+    // Independent, short renewal transactions are required while B is outstanding.
+    // Observe their actual completion instead of treating a scheduling snapshot
+    // between renewal statements as an open claim/ACK transaction.
+    if (renewals.length)
+      await databaseWaitFor(
+        s,
+        async () =>
+          (
+            await s.query<Record<string, unknown>>(
+              'SELECT pid,state,backend_xid::text FROM pg_stat_activity WHERE application_name=$1 AND pid=ANY($2::integer[])',
+              [renewalName, renewals.map((r) => r['pid'])],
+            )
+          ).rows,
+        (rows) => rows.length === 0,
+        'observed renewal sessions finish while pipeline remains paused',
+        5000,
+      );
     let locks: unknown[] = [];
     if (stage === 'pre') {
       const session = first(sessions);
