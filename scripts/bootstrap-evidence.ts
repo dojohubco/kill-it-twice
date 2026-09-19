@@ -32,6 +32,7 @@ export async function checkBootstrapEvidence(path: string, upgrade: boolean) {
       child = object(r['exit']);
     assert.deepEqual(child['exit'], { code: null, signal: 'SIGKILL' });
     assert.equal(child['ordinarySuccessBytes'], 0);
+    assert.equal(child['sessionGone'], true);
     assert.equal(object(r['barrier'])['pid'], child['pid']);
     assert.equal(object(r['tx'])['state'], 'idle in transaction');
     faults.push({
@@ -46,12 +47,16 @@ export async function checkBootstrapEvidence(path: string, upgrade: boolean) {
       child = object(r['exit']);
     assert.deepEqual(child['exit'], { code: 0, signal: null });
     assert.ok(Number(child['ordinarySuccessBytes']) > 0);
+    assert.equal(child['sessionGone'], true);
   }
   const last = one('BS14');
   const baseline = object(last['snapshot'])['baseline_revisions'];
   assert.ok(Array.isArray(baseline));
   assert.equal(baseline.length, 257);
+  const manifest = object(last['snapshot'])['bootstrap_manifest'];
+  assert.ok(Array.isArray(manifest) && typeof manifest[0] === 'string');
   return {
+    seedManifest: object(JSON.parse(manifest[0])),
     upgrade: false,
     baselineCount: 257,
     selectedBaselineEvents: last['selected'],

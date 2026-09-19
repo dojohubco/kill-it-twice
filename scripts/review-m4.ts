@@ -351,6 +351,24 @@ if (mode === 'capture') {
           join(bundle, 'baseline-runs', basename(dirname(match[1]))),
           { recursive: true },
         );
+    if (m5a) {
+      const repeatLog = await readFile(
+        join(baselineDir, 'upgrade-repeat.stdout.log'),
+        'utf8',
+      );
+      for (const match of repeatLog.matchAll(/^PASS: (.+\/run\.json)$/gm))
+        if (match[1])
+          await cp(
+            dirname(match[1]),
+            join(bundle, 'baseline-runs', basename(dirname(match[1]))),
+            { recursive: true },
+          );
+      await cp(
+        'artifacts/m41/m41-20260919210931336-fbbd6276',
+        join(bundle, 'baseline-interrupted-profile'),
+        { recursive: true },
+      );
+    }
     const development = join(bundle, 'development');
     await mkdir(development, { recursive: true });
     for (const entry of await readdir(artifactRoot, { withFileTypes: true })) {

@@ -1,3 +1,7 @@
+import type { SourceRow } from '../../src/source.ts';
+import { AmqpSession } from '../../src/rabbitmq/session.ts';
+import { deadline } from '../support/fault-protocol.ts';
+import { control } from '../support/capture.ts';
 import { command } from '../../scripts/support.ts';
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -15,7 +19,7 @@ import {
   consumer,
   rawPublish,
   ledgerWire,
-  metadata,
+  amqpConfig,
   topology,
 } from '../support/rabbit.ts';
 import { execute, request } from '../support/commands.ts';
@@ -52,6 +56,7 @@ import {
   assertSeedMap,
   recipeExpectations,
 } from '../support/bootstrap.ts';
+let retainedNoop: { commandId: string; result: SourceRow } | undefined;
 const name = (id: string) => {
   const entry = bootstrapCases.find((c) => c.id === id);
   assert.ok(entry);
@@ -108,11 +113,20 @@ await test(name('BS01'), async (t) => {
   } finally {
     await es.close();
   }
-  const queue = await metadata().request(
-    'GET',
-    `/api/queues/${encodeURIComponent(topology().vhost)}/${topology().queue}`,
-  );
-  assert.equal(object(queue)['messages'], 0);
+  const observer = new AmqpSession();
+  let queue;
+  try {
+    await observer.open(amqpConfig('consumer'));
+    queue = await deadline(
+      (await observer.channel(false)).checkQueue(topology().queue),
+      'empty bootstrap queue',
+      5000,
+    );
+    assert.equal(queue.messageCount, 0);
+    assert.equal(queue.consumerCount, 0);
+  } finally {
+    await observer.close();
+  }
   evidence('BS01', { state: await seedSnapshot(s), queue });
 });
 await test(name('BS02'), async (t) => {
@@ -255,6 +269,28 @@ await test(name('BS05'), async (t) => {
     execute(request(recipe.epoch, 'update', r.entity_id, r.payload)),
     code('P7001'),
   );
+  // Privileged, uncommitted negative-control receipt proves the replay branch is gated too.
+  await s.query('BEGIN');
+  const fixtureKey = randomUUID();
+  await s.query(
+    `INSERT INTO source.command_receipts(source_epoch,command_id,contract_version,operation,target_id,request_payload,completed,result_entity_id,result_version,result_change_id,result_recorded_at,result_deleted,result_payload) SELECT source_epoch,$1,1,'update',entity_id,payload,true,entity_id,1,NULL,recorded_at,false,payload FROM source.baseline_revisions WHERE entity_id=$2`,
+    [fixtureKey, r.entity_id],
+  );
+  await s.query('SET LOCAL ROLE source_command');
+  await assert.rejects(
+    s.query("SELECT * FROM source.execute_command($1,$2,1,'update',$3,$4)", [
+      recipe.epoch,
+      fixtureKey,
+      r.entity_id,
+      r.payload,
+    ]),
+    code('P7001'),
+  );
+  await s.query('ROLLBACK');
+  assert.equal(
+    (await s.query('SELECT * FROM source.command_receipts')).rowCount,
+    0,
+  );
   const cli = await command(
     process.execPath,
     [
@@ -380,14 +416,47 @@ async function activationFault(
   await query;
   await w.query<Record<string, unknown>>('ROLLBACK'); // Real successful RC write is deliberately rolled back; no unjournaled mutation.
   assert.equal((await b.status(recipe.epoch)).phase, 'active');
+  let oldFailure:
+    { code: string | undefined; where: string | undefined } | undefined;
   await assert.rejects(
     old.query<Record<string, unknown>>(
       'SELECT source.create_entity(\'{"oldSnapshot":true}\')',
     ),
-    (e) => code('P7001')(e) || code('25001')(e),
+    (e) => {
+      assert.ok(e instanceof pg.DatabaseError);
+      oldFailure = { code: e.code, where: e.where };
+      return code('P7001')(e) || code('25001')(e);
+    },
   );
   await old.query<Record<string, unknown>>('ROLLBACK');
-  evidence(id + '-snapshot', { oldSnapshot, closedOrUnsupported: true });
+  evidence(id + '-snapshot', {
+    oldSnapshot,
+    oldFailure,
+    closedOrUnsupported: true,
+  });
+  const emptyCapture = await control(
+    'active-with-unreplicated-baselines',
+  ).summary();
+  for (const key of [
+    'pending_due',
+    'pending_delayed',
+    'leased_current',
+    'leased_expired',
+    'acknowledged',
+    'blocked',
+    'missing',
+  ] as const)
+    assert.equal(emptyCapture[key], '0');
+  assert.equal((await s.query('SELECT * FROM source.outbox')).rowCount, 0);
+  assert.equal(
+    (await s.query('SELECT * FROM source.command_receipts')).rowCount,
+    0,
+  );
+  evidence('BS06A-active-before-mutations', {
+    emptyCapture,
+    baselineCount: (await members(s)).length,
+    replicationComplete: false,
+  });
   const committed = await seedSnapshot(s);
   if (phase === 'after_commit') {
     const exit = await child.finish('kill');
@@ -486,6 +555,18 @@ await test(name('BS07'), async (t) => {
   const { s } = await setup(t);
   const r = await member(s, '1');
   const command = request(recipe.epoch, 'update', r.entity_id, r.payload);
+  retainedNoop = {
+    commandId: command.commandId,
+    result: {
+      entity_id: r.entity_id,
+      source_epoch: recipe.epoch,
+      entity_version: '1',
+      change_id: null,
+      recorded_at: r.recorded_at,
+      is_deleted: false,
+      payload_json: r.payload,
+    },
+  };
   const before = (
     await s.query<Record<string, unknown>>('SELECT * FROM source.outbox')
   ).rows;
@@ -511,6 +592,7 @@ await test(name('BS07'), async (t) => {
   await holder.query<Record<string, unknown>>('COMMIT');
   const a = await waiting;
   evidence('BS07-contention', { blocked: blocked.rows });
+  assert.deepEqual(a.result, retainedNoop.result);
   assert.equal(a.result.change_id, null);
   assert.equal(a.result.entity_version, '1');
   assert.equal(a.result.payload_json, r.payload);
@@ -550,17 +632,28 @@ await test(name('BS08'), async (t) => {
   );
   const w = await connect('writer', 'snapshot-write');
   t.after(() => w.end());
+  const isolationEvidence: unknown[] = [];
   for (const level of ['REPEATABLE READ', 'SERIALIZABLE']) {
     await w.query<Record<string, unknown>>(`BEGIN ISOLATION LEVEL ${level}`);
-    await w.query<Record<string, unknown>>(
-      'SELECT source_epoch FROM source.source_identity',
-    );
+    const observed = (
+      await w.query(
+        "SELECT source_epoch::text,current_setting('transaction_isolation') isolation,pg_current_snapshot()::text snapshot FROM source.source_identity",
+      )
+    ).rows;
     await assert.rejects(
       w.query<Record<string, unknown>>(
         "SELECT source.mutate_entity($1,'update','{\"changed\":true}')",
         [r.entity_id],
       ),
-      code('25001'),
+      (error) => {
+        assert.ok(error instanceof pg.DatabaseError);
+        isolationEvidence.push({
+          observed,
+          code: error.code,
+          where: error.where,
+        });
+        return code('25001')(error);
+      },
     );
     await w.query<Record<string, unknown>>('ROLLBACK');
   }
@@ -581,7 +674,7 @@ await test(name('BS08'), async (t) => {
   );
   await s.query<Record<string, unknown>>('ROLLBACK');
   assert.deepEqual(await seedSnapshot(s), before);
-  evidence('BS08', { state: await seedSnapshot(s) });
+  evidence('BS08', { state: await seedSnapshot(s), isolationEvidence });
 });
 await test(name('BS09'), async (t) => {
   const { s } = await setup(t);
@@ -746,6 +839,56 @@ await test(name('BS12'), async (t) => {
   const { s } = await setup(t);
   const r = await member(s, '2'),
     before = await seedSnapshot(s);
+  const catalog = (
+    await s.query<{
+      proname: string;
+      owner: string;
+      prosecdef: boolean;
+      proconfig: string[];
+      public_revoked: boolean;
+    }>(
+      `SELECT p.proname,pg_get_userbyid(p.proowner) owner,p.prosecdef,p.proconfig,NOT EXISTS(SELECT FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE a.grantee=0 AND a.privilege_type='EXECUTE') public_revoked FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='source' AND p.proname=ANY($1::text[]) ORDER BY p.proname`,
+      [
+        [
+          'begin_bootstrap',
+          'bootstrap_status',
+          'seed_chunk',
+          'seal_bootstrap',
+          'activate_bootstrap',
+          'prepare_revision',
+          'capture_revision',
+          'require_command_completion',
+        ],
+      ],
+    )
+  ).rows;
+  assert.equal(catalog.length, 8);
+  for (const f of catalog) {
+    assert.equal(
+      f.owner,
+      f.proname === 'seed_chunk' ? 'source_seed_owner' : 'source_owner',
+    );
+    assert.equal(f.prosecdef, f.proname !== 'prepare_revision');
+    assert.deepEqual(f.proconfig, ['search_path=pg_catalog, pg_temp']);
+    assert.equal(f.public_revoked, true);
+  }
+  const tables = (
+    await s.query<{ relname: string }>(
+      "SELECT relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='source' AND c.relkind='r' ORDER BY relname",
+    )
+  ).rows.map((r) => r.relname);
+  assert.deepEqual(tables, [
+    'baseline_revisions',
+    'bootstrap_chunks',
+    'bootstrap_manifest',
+    'capture_binding',
+    'capture_work',
+    'command_receipts',
+    'entities',
+    'outbox',
+    'source_identity',
+  ]);
+
   const roles = {
     source_writer: 'M1_WRITER_PASSWORD',
     source_command: 'M2A_COMMAND_PASSWORD',
@@ -845,7 +988,7 @@ await test(name('BS12'), async (t) => {
     /pipeline identity mismatch/,
   );
   assert.deepEqual(await seedSnapshot(s), before);
-  evidence('BS12', { unchanged: true });
+  evidence('BS12', { unchanged: true, catalog, tables });
 });
 await test(name('BS14'), async (t) => {
   const { s, p, c } = await setup(t);
@@ -871,6 +1014,70 @@ await test(name('BS14'), async (t) => {
   assert.throws(() =>
     check(map.map((r, i) => (i ? r : { ...r, payload: '{}' }))),
   );
+  const progress = (
+    await s.query<{
+      source_epoch: string;
+      bootstrap_key: string;
+      phase: string;
+      origin: string;
+      seed: string;
+      recipe_version: number;
+      requested_count: string;
+      completed_count: string;
+      chunk_size: number;
+    }>(
+      'SELECT source_epoch::text,bootstrap_key::text,phase,origin,seed,recipe_version,requested_count::text,completed_count::text,chunk_size FROM source.bootstrap_manifest',
+    )
+  ).rows[0];
+  const chunks = (
+    await s.query<{ first: string; count: number }>(
+      'SELECT first_ordinal::text first,item_count count FROM source.bootstrap_chunks ORDER BY first_ordinal',
+    )
+  ).rows;
+  const checkProgress = (state: typeof progress, parts: typeof chunks) => {
+    assert.deepEqual(state, {
+      source_epoch: recipe.epoch,
+      bootstrap_key: recipe.key,
+      phase: 'active',
+      origin: 'fresh',
+      seed: recipe.seed,
+      recipe_version: 1,
+      requested_count: '257',
+      completed_count: '257',
+      chunk_size: 32,
+    });
+    assert.deepEqual(
+      parts,
+      Array.from({ length: 9 }, (_, i) => ({
+        first: String(1 + i * 32),
+        count: i === 8 ? 1 : 32,
+      })),
+    );
+  };
+  checkProgress(progress, chunks);
+  assert.ok(progress);
+  assert.throws(() =>
+    checkProgress({ ...progress, completed_count: '256' }, chunks),
+  );
+  assert.throws(() => checkProgress(progress, chunks.slice(1)));
+  assert.ok(retainedNoop);
+  const receipt = (
+    await s.query<SourceRow>(
+      `SELECT result_entity_id::text entity_id,source_epoch::text,result_version::text entity_version,result_change_id::text change_id,to_char(result_recorded_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') recorded_at,result_deleted is_deleted,result_payload::text payload_json FROM source.command_receipts WHERE command_id=$1`,
+      [retainedNoop.commandId],
+    )
+  ).rows;
+  const expectedReceipt = retainedNoop.result;
+  const checkReceipt = (rows: SourceRow[]) =>
+    assert.deepEqual(rows, [expectedReceipt]);
+  checkReceipt(receipt);
+  assert.throws(() => checkReceipt([]));
+  assert.throws(() =>
+    checkReceipt([{ ...expectedReceipt, entity_version: '2' }]),
+  );
+  assert.throws(() =>
+    checkReceipt([{ ...expectedReceipt, payload_json: '{}' }]),
+  );
   assert.equal(
     (
       await s.query<{ n: string }>(
@@ -880,7 +1087,19 @@ await test(name('BS14'), async (t) => {
     '0',
   );
   evidence('BS14', {
-    negativeControls: ['missing baseline', 'extra baseline', 'altered content'],
+    negativeControls: [
+      'missing baseline',
+      'extra baseline',
+      'altered content',
+      'altered progress',
+      'missing chunk',
+      'missing receipt',
+      'wrong receipt revision',
+      'wrong receipt payload',
+    ],
+    progress,
+    chunks,
+    receipt,
     selected: [...selected],
     snapshot: await seedSnapshot(s),
     retainedRestart:
