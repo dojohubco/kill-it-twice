@@ -1294,6 +1294,8 @@ await test(name('ES14'), async (t) => {
         // The file-realm runtime can recover before the native setup observer's
         // security index. The following privileged refresh needs both ready.
         await admin.request('GET', '/_security/_authenticate');
+        const native = object(await admin.request('GET', '/.security/_count'));
+        assert.equal(exactInteger(object(native['_shards'])['failed']), '0');
         return true;
       } catch {
         return false;

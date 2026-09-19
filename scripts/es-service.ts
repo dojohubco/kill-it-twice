@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { command, withCleanup } from './support.ts';
-import { EsTransport, object } from '../src/es/transport.ts';
+import { EsTransport, object, exactInteger } from '../src/es/transport.ts';
 
 export async function startEs(project: string) {
   assert.match(project, /^m3-[a-z0-9-]+$/);
@@ -273,6 +273,13 @@ export async function startEs(project: string) {
               // this returns. File-runtime readiness cannot stand in for the
               // native setup identity while its security index is recovering.
               await setupObserver.request('GET', '/_security/_authenticate');
+              const native = object(
+                await setupObserver.request('GET', '/.security/_count'),
+              );
+              assert.equal(
+                exactInteger(object(native['_shards'])['failed']),
+                '0',
+              );
               return;
             } catch (error) {
               last = error;
