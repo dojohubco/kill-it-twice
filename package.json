@@ -38,7 +38,11 @@
     "verify:m3": "node scripts/verify-m3.ts",
     "review:m31": "node scripts/review-m3.ts",
     "test:protocol:rabbit": "node scripts/rabbit-protocol.ts",
-    "test:integration:m4": "node scripts/m1.ts m4"
+    "test:integration:m4": "node scripts/m1.ts m4",
+    "deliver:rabbit": "node scripts/deliver-rabbit.ts",
+    "consume": "node scripts/consume.ts",
+    "observe:consumer": "node scripts/observe-consumer.ts",
+    "review:m4": "node scripts/review-m4.ts"
   },
   "dependencies": {
     "@elastic/elasticsearch": "9.5.1",

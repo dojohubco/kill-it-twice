@@ -18,8 +18,10 @@ const clean = (text: string) => redact(text, secrets);
 const diagnostics = new Diagnostics(clean);
 try {
   const timeout =
-    executable === 'make' && args.length === 1 && args[0] === 'verify-m3'
-      ? 1800000
+    executable === 'make' &&
+    args.length === 1 &&
+    ['verify-m3', 'verify-m4'].includes(args[0] ?? '')
+      ? 3000000
       : 600000;
   const result = await command(executable, args, process.env, timeout, true, {
     secrets,
