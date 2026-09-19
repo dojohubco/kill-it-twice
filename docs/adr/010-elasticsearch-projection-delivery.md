@@ -1,6 +1,6 @@
 # ADR 010 — Elasticsearch projection and durable delivery
 
-Date: 2026-09-17. Status: authorized design; implementation and real acceptance pending.
+Date: 2026-09-17. Status as of 2026-09-19: implemented and locally verified; awaiting independent M3 review. The initial design preceded production changes. [M3 evidence](../evidence/M3.md) records two clean complete acceptance gates and the actual development corrections.
 
 ## Content and protocol
 

@@ -1,6 +1,6 @@
-# Kill It Twice — controlled source and local staging through M2B
+# Kill It Twice — controlled source, capture and Elasticsearch through M3
 
-This repository implements the controlled source mutation/version/outbox contract with real PostgreSQL, restricted runtime credentials and actual writer SIGKILLs. M1.1 hardens transaction ownership and the acceptance harness after external adversarial review. M2A adds durable source-command receipts using the accepted transaction owner. M2B adds lossless canonical revisions and atomic pending obligations in a separate PostgreSQL database. G1–G5 remain **NOT IMPLEMENTED**. Read [SPEC v1](SPEC.md), [M1.1 scope](docs/milestones/M1.1.md), [transaction decision](docs/adr/005-managed-source-transactions.md), and [historical M1 evidence](docs/evidence/M1.md).
+This repository implements controlled source commands, immutable canonical staging, bounded capture/acknowledgement and durable Elasticsearch delivery with real services, restricted credentials and actual process/network faults. M3 preserves exact source content while delivering a separate versioned search projection. RabbitMQ delivery, consumer execution, backfill and UI remain absent; G1–G5 remain **NOT IMPLEMENTED**. Read [SPEC v1](SPEC.md), [M3 scope](docs/milestones/M3.md), [delivery decision](docs/adr/010-elasticsearch-projection-delivery.md), and [local M3 evidence](docs/evidence/M3.md). Earlier milestone reports retain their original scope and results.
 
 Prerequisites: Linux x64, Node **24.19.0**, npm **12.0.2**, Docker with Compose, Git, make and tar. Node's native runner executes TypeScript; TypeScript **5.9.3** checks it separately. Keep one root lockfile and exact package pins.
 

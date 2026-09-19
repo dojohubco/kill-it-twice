@@ -1,6 +1,7 @@
 {
   "format": 1,
   "scope": "Supplemental real Elasticsearch authentication/startup experiments; not a full M3 gate",
+  "httpStatusCountNote": "None means no HTTP status was observed (connection/transport or local observation error); it is not an HTTP response code.",
   "runs": [
     {
       "kind": "native rejection reproduction",
