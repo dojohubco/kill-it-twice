@@ -1,0 +1,2319 @@
+{
+  "format": 1,
+  "milestone": "M3.1",
+  "baseline": "c3cb8f7c8398d8db4d158f2307f790244f4199e6",
+  "testedCode": "02bf6e23cb29faf17a3c6e10e93467f17172706c",
+  "inputSha256": "ea0b433791142883989a3407ef957aaec15f57abbfdd1dc427f5a8a908a8f8c0",
+  "status": "PASS",
+  "commands": [
+    {
+      "name": "npm-ci",
+      "executable": "npm",
+      "args": ["ci", "--no-audit", "--no-fund"],
+      "expected": 0,
+      "code": 0,
+      "signal": null,
+      "timedOut": false,
+      "outputOverflow": false,
+      "cleanupErrors": [],
+      "startedAt": "2026-09-19T12:28:41.960Z",
+      "finishedAt": "2026-09-19T12:28:44.684Z",
+      "stdoutSha256": "c9d39f478d3bd47f2d73a27bf226d235e922235884a9b7423eec751f7f0b8745",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "verify-m3-first",
+      "executable": "make",
+      "args": ["verify-m3"],
+      "expected": 0,
+      "code": 0,
+      "signal": null,
+      "timedOut": false,
+      "outputOverflow": false,
+      "cleanupErrors": [],
+      "startedAt": "2026-09-19T12:28:44.696Z",
+      "finishedAt": "2026-09-19T12:46:37.509Z",
+      "stdoutSha256": "7287224ca628c3aeb04c9f66354a7f1d84adbbf2210ccbd0a73fceba1da24a88",
+      "stderrSha256": "64abb4987db9ac27324f1150794039a15c6254013889ef9257bc8ccb57245986"
+    },
+    {
+      "name": "verify-m3-repeat",
+      "executable": "make",
+      "args": ["verify-m3"],
+      "expected": 0,
+      "code": 0,
+      "signal": null,
+      "timedOut": false,
+      "outputOverflow": false,
+      "cleanupErrors": [],
+      "startedAt": "2026-09-19T12:46:37.532Z",
+      "finishedAt": "2026-09-19T13:05:05.718Z",
+      "stdoutSha256": "ee647746e98700cd6dce4fde01d9366d3ffce2ae9349d451a9133d88d8991b28",
+      "stderrSha256": "64abb4987db9ac27324f1150794039a15c6254013889ef9257bc8ccb57245986"
+    },
+    {
+      "name": "full-verify",
+      "executable": "make",
+      "args": ["verify"],
+      "expected": 2,
+      "code": 2,
+      "signal": null,
+      "timedOut": false,
+      "outputOverflow": false,
+      "cleanupErrors": [],
+      "startedAt": "2026-09-19T13:05:05.735Z",
+      "finishedAt": "2026-09-19T13:05:05.751Z",
+      "stdoutSha256": "f58bce3a7a99ad4c94b0a41f4ca7c802fdb1187f3eb8ee252c43014f4a85f365",
+      "stderrSha256": "45c31aa2a3e1df25c46e925d371e46addd7e20a4b29163bc1d41ddcc043f1dd1"
+    }
+  ],
+  "profiles": [
+    {
+      "runId": "m1-20260919122904021-d66c50a3",
+      "profile": "m1",
+      "mode": "fresh",
+      "status": "PASS",
+      "counts": {
+        "passed": 22,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "caseIds": [
+        "PG",
+        "T01",
+        "T02",
+        "T03",
+        "T04",
+        "T05",
+        "T06",
+        "T07",
+        "T10-SOURCE",
+        "M11-F01",
+        "M11-F01-TAG",
+        "M11-F02",
+        "M11-LIFETIME",
+        "M11-DEADLOCK",
+        "M11-OBSERVE",
+        "T08",
+        "T09",
+        "T10-FAULT",
+        "M11-HEALTHY-PRE",
+        "M11-ORPHAN-PRE",
+        "M11-HEALTHY-POST",
+        "M11-ORPHAN-POST"
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "testExecution": {
+        "status": "PASS",
+        "requiredCaseIds": [
+          "PG",
+          "T01",
+          "T02",
+          "T03",
+          "T04",
+          "T05",
+          "T06",
+          "T07",
+          "T10-SOURCE",
+          "M11-F01",
+          "M11-F01-TAG",
+          "M11-F02",
+          "M11-LIFETIME",
+          "M11-DEADLOCK",
+          "M11-OBSERVE",
+          "T08",
+          "T09",
+          "T10-FAULT",
+          "M11-HEALTHY-PRE",
+          "M11-ORPHAN-PRE",
+          "M11-HEALTHY-POST",
+          "M11-ORPHAN-POST"
+        ]
+      },
+      "evidenceErrors": [],
+      "localRun": "/home/tornike/Documents/Projects/kill-it-twice/artifacts/m1/m1-20260919122904021-d66c50a3/run.json",
+      "manifestSha256": "68c7d60f51d3ea711eb56fa48733ecadd5c1ef154b3fb33e83320b536f074320"
+    },
+    {
+      "runId": "m2a-20260919122917493-2823b3e0",
+      "profile": "m2a",
+      "mode": "fresh",
+      "status": "PASS",
+      "counts": {
+        "passed": 36,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "caseIds": [
+        "PG",
+        "T01",
+        "T02",
+        "T03",
+        "T04",
+        "T05",
+        "T06",
+        "T07",
+        "T10-SOURCE",
+        "M11-F01",
+        "M11-F01-TAG",
+        "M11-F02",
+        "M11-LIFETIME",
+        "M11-DEADLOCK",
+        "M11-OBSERVE",
+        "T08",
+        "T09",
+        "T10-FAULT",
+        "M11-HEALTHY-PRE",
+        "M11-ORPHAN-PRE",
+        "M11-HEALTHY-POST",
+        "M11-ORPHAN-POST",
+        "C01",
+        "C02",
+        "C03",
+        "C04",
+        "C05",
+        "C06",
+        "C07",
+        "C08",
+        "C11",
+        "C12",
+        "C09",
+        "C10",
+        "C09-HEALTHY",
+        "C10-HEALTHY"
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "testExecution": {
+        "status": "PASS",
+        "requiredCaseIds": [
+          "PG",
+          "T01",
+          "T02",
+          "T03",
+          "T04",
+          "T05",
+          "T06",
+          "T07",
+          "T10-SOURCE",
+          "M11-F01",
+          "M11-F01-TAG",
+          "M11-F02",
+          "M11-LIFETIME",
+          "M11-DEADLOCK",
+          "M11-OBSERVE",
+          "T08",
+          "T09",
+          "T10-FAULT",
+          "M11-HEALTHY-PRE",
+          "M11-ORPHAN-PRE",
+          "M11-HEALTHY-POST",
+          "M11-ORPHAN-POST",
+          "C01",
+          "C02",
+          "C03",
+          "C04",
+          "C05",
+          "C06",
+          "C07",
+          "C08",
+          "C11",
+          "C12",
+          "C09",
+          "C10",
+          "C09-HEALTHY",
+          "C10-HEALTHY"
+        ]
+      },
+      "evidenceErrors": [],
+      "localRun": "/home/tornike/Documents/Projects/kill-it-twice/artifacts/m2a/m2a-20260919122917493-2823b3e0/run.json",
+      "manifestSha256": "04186e45482c25c75a7553c23c2596715ee0d68e03fc04bc2b277354cf91fafc"
+    },
+    {
+      "runId": "m2b-20260919122936487-d438efaf",
+      "profile": "m2b",
+      "mode": "fresh",
+      "status": "PASS",
+      "counts": {
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "caseIds": [
+        "S01-GOLDEN",
+        "S01-REJECT",
+        "S02",
+        "S03",
+        "S04",
+        "S05",
+        "S06",
+        "S07",
+        "S11",
+        "S12",
+        "S13",
+        "S-UPGRADE",
+        "S08",
+        "S09",
+        "S10-PRE",
+        "S10-POST"
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "testExecution": {
+        "status": "PASS",
+        "requiredCaseIds": [
+          "S01-GOLDEN",
+          "S01-REJECT",
+          "S02",
+          "S03",
+          "S04",
+          "S05",
+          "S06",
+          "S07",
+          "S11",
+          "S12",
+          "S13",
+          "S-UPGRADE",
+          "S08",
+          "S09",
+          "S10-PRE",
+          "S10-POST"
+        ]
+      },
+      "evidenceErrors": [],
+      "localRun": "/home/tornike/Documents/Projects/kill-it-twice/artifacts/m2b/m2b-20260919122936487-d438efaf/run.json",
+      "manifestSha256": "216c59c672d90df097d1093d1245c1ff7514279dc879f9cc943ccaa07ffde365"
+    },
+    {
+      "runId": "m2b-20260919122953785-daa821b6",
+      "profile": "m2b",
+      "mode": "populated M2A upgrade",
+      "status": "PASS",
+      "counts": {
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "caseIds": [
+        "S01-GOLDEN",
+        "S01-REJECT",
+        "S02",
+        "S03",
+        "S04",
+        "S05",
+        "S06",
+        "S07",
+        "S11",
+        "S12",
+        "S13",
+        "S-UPGRADE",
+        "S08",
+        "S09",
+        "S10-PRE",
+        "S10-POST"
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "testExecution": {
+        "status": "PASS",
+        "requiredCaseIds": [
+          "S01-GOLDEN",
+          "S01-REJECT",
+          "S02",
+          "S03",
+          "S04",
+          "S05",
+          "S06",
+          "S07",
+          "S11",
+          "S12",
+          "S13",
+          "S-UPGRADE",
+          "S08",
+          "S09",
+          "S10-PRE",
+          "S10-POST"
+        ]
+      },
+      "evidenceErrors": [],
+      "localRun": "/home/tornike/Documents/Projects/kill-it-twice/artifacts/m2b/m2b-20260919122953785-daa821b6/run.json",
+      "manifestSha256": "b04df5e7e18585fe9e04816feb6cc1fe2fdd791355bc8603677388ebc8c22ed0"
+    },
+    {
+      "runId": "m2c-20260919123013856-f46d2fb1",
+      "profile": "m2c",
+      "mode": "fresh",
+      "status": "PASS",
+      "counts": {
+        "passed": 19,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "caseIds": [
+        "IC01",
+        "IC02",
+        "IC03",
+        "IC04",
+        "IC05",
+        "IC06",
+        "IC07",
+        "IC08",
+        "IC09",
+        "IC10",
+        "IC11-CLAIM",
+        "IC11-PRE",
+        "IC11-POST",
+        "IC11-ACK",
+        "IC12",
+        "IC13",
+        "IC14",
+        "IC15",
+        "IC16"
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "testExecution": {
+        "status": "PASS",
+        "requiredCaseIds": [
+          "IC01",
+          "IC02",
+          "IC03",
+          "IC04",
+          "IC05",
+          "IC06",
+          "IC07",
+          "IC08",
+          "IC09",
+          "IC10",
+          "IC11-CLAIM",
+          "IC11-PRE",
+          "IC11-POST",
+          "IC11-ACK",
+          "IC12",
+          "IC13",
+          "IC14",
+          "IC15",
+          "IC16"
+        ]
+      },
+      "evidenceErrors": [],
+      "localRun": "/home/tornike/Documents/Projects/kill-it-twice/artifacts/m2c/m2c-20260919123013856-f46d2fb1/run.json",
+      "manifestSha256": "4290dfab7ed62a996138c9bacaab68103d40841271b3890bbd0a55aa91304fb6"
+    },
+    {
+      "runId": "m2c-20260919123057206-a11851f8",
+      "profile": "m2c",
+      "mode": "populated M2B upgrade",
+      "status": "PASS",
+      "counts": {
+        "passed": 19,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "caseIds": [
+        "IC01",
+        "IC02",
+        "IC03",
+        "IC04",
+        "IC05",
+        "IC06",
+        "IC07",
+        "IC08",
+        "IC09",
+        "IC10",
+        "IC11-CLAIM",
+        "IC11-PRE",
+        "IC11-POST",
+        "IC11-ACK",
+        "IC12",
+        "IC13",
+        "IC14",
+        "IC15",
+        "IC16"
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "testExecution": {
+        "status": "PASS",
+        "requiredCaseIds": [
+          "IC01",
+          "IC02",
+          "IC03",
+          "IC04",
+          "IC05",
+          "IC06",
+          "IC07",
+          "IC08",
+          "IC09",
+          "IC10",
+          "IC11-CLAIM",
+          "IC11-PRE",
+          "IC11-POST",
+          "IC11-ACK",
+          "IC12",
+          "IC13",
+          "IC14",
+          "IC15",
+          "IC16"
+        ]
+      },
+      "evidenceErrors": [],
+      "localRun": "/home/tornike/Documents/Projects/kill-it-twice/artifacts/m2c/m2c-20260919123057206-a11851f8/run.json",
+      "manifestSha256": "f6400779652d83445ce1eff181ecf91adfa21e1b62fcaa69798ac011ba47db67"
+    },
+    {
+      "runId": "m2c1-20260919123145552-4393a1f0",
+      "profile": "m2c1",
+      "mode": "fresh",
+      "status": "PASS",
+      "counts": {
+        "passed": 27,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "caseIds": [
+        "IC01",
+        "IC02",
+        "IC03",
+        "IC04",
+        "IC05",
+        "IC06",
+        "IC07",
+        "IC08",
+        "IC09",
+        "IC10",
+        "IC11-CLAIM",
+        "IC11-PRE",
+        "IC11-POST",
+        "IC11-ACK",
+        "IC12",
+        "IC13",
+        "IC14",
+        "IC15",
+        "IC16",
+        "R04",
+        "R06",
+        "R07",
+        "R08",
+        "R01",
+        "R02",
+        "R03",
+        "R05"
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "testExecution": {
+        "status": "PASS",
+        "requiredCaseIds": [
+          "IC01",
+          "IC02",
+          "IC03",
+          "IC04",
+          "IC05",
+          "IC06",
+          "IC07",
+          "IC08",
+          "IC09",
+          "IC10",
+          "IC11-CLAIM",
+          "IC11-PRE",
+          "IC11-POST",
+          "IC11-ACK",
+          "IC12",
+          "IC13",
+          "IC14",
+          "IC15",
+          "IC16",
+          "R04",
+          "R06",
+          "R07",
+          "R08",
+          "R01",
+          "R02",
+          "R03",
+          "R05"
+        ]
+      },
+      "evidenceErrors": [],
+      "localRun": "/home/tornike/Documents/Projects/kill-it-twice/artifacts/m2c1/m2c1-20260919123145552-4393a1f0/run.json",
+      "manifestSha256": "c777ca478583feabaaf67b4b94033622dcb3193734aeb1d35ce261658ba6a6f0"
+    },
+    {
+      "runId": "m2c1-20260919123235180-339148d2",
+      "profile": "m2c1",
+      "mode": "populated registered M2C upgrade",
+      "status": "PASS",
+      "counts": {
+        "passed": 23,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "caseIds": [
+        "IC01",
+        "IC02",
+        "IC03",
+        "IC04",
+        "IC05",
+        "IC06",
+        "IC07",
+        "IC08",
+        "IC09",
+        "IC10",
+        "IC11-CLAIM",
+        "IC11-PRE",
+        "IC11-POST",
+        "IC11-ACK",
+        "IC12",
+        "IC13",
+        "IC14",
+        "IC15",
+        "IC16",
+        "R04",
+        "R06",
+        "R07",
+        "R08"
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "testExecution": {
+        "status": "PASS",
+        "requiredCaseIds": [
+          "IC01",
+          "IC02",
+          "IC03",
+          "IC04",
+          "IC05",
+          "IC06",
+          "IC07",
+          "IC08",
+          "IC09",
+          "IC10",
+          "IC11-CLAIM",
+          "IC11-PRE",
+          "IC11-POST",
+          "IC11-ACK",
+          "IC12",
+          "IC13",
+          "IC14",
+          "IC15",
+          "IC16",
+          "R04",
+          "R06",
+          "R07",
+          "R08"
+        ]
+      },
+      "evidenceErrors": [],
+      "localRun": "/home/tornike/Documents/Projects/kill-it-twice/artifacts/m2c1/m2c1-20260919123235180-339148d2/run.json",
+      "manifestSha256": "8a12cfd2e45dd1814b9ac39716dd6728f8bb9a5c4a0acc43bbfbae8895835545"
+    },
+    {
+      "runId": "m3-20260919123319955-3f5d2296",
+      "profile": "m3",
+      "mode": "fresh",
+      "status": "PASS",
+      "counts": {
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "caseIds": [
+        "ES01",
+        "ES02",
+        "ES03",
+        "ES04",
+        "ES05",
+        "ES06",
+        "ES07",
+        "ES08",
+        "ES09",
+        "ES10",
+        "ES11",
+        "ES12",
+        "ES13",
+        "ES14",
+        "O07"
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "elasticsearchCleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "esEvidence": {
+        "reconciliation": {
+          "expectedRejections": [
+            {
+              "eventId": "d8549abc-64f7-47ed-a065-71a4b1608d47:34:1",
+              "commandId": "8a738103-1164-40aa-8513-6e84e42d5d35",
+              "payloadText": "{\"name\": \"bulk-17\", \"loyalty_points\": \"not-a-number\"}",
+              "payloadSha256": "e0486a1293eb40ba288f0f7efac8ae1692cdd21d345b8714474529b75d4ea210",
+              "errorType": "document_parsing_exception",
+              "field": "search_fields.loyalty_points",
+              "rejectedToken": "\"not-a-number\"",
+              "fixture": "ES05"
+            },
+            {
+              "eventId": "d8549abc-64f7-47ed-a065-71a4b1608d47:250:1",
+              "commandId": "b055c078-f147-41ee-a540-95e08bb1ce4f",
+              "payloadText": "{\"name\": \"bulk-233\", \"loyalty_points\": \"not-a-number\"}",
+              "payloadSha256": "38bc04ef7be9d642198b85fe411c468ab2ee89be956154b6cb082799fe8bea1c",
+              "errorType": "document_parsing_exception",
+              "field": "search_fields.loyalty_points",
+              "rejectedToken": "\"not-a-number\"",
+              "fixture": "ES05"
+            },
+            {
+              "eventId": "d8549abc-64f7-47ed-a065-71a4b1608d47:516:1",
+              "commandId": "4bf18100-c0a8-48a5-931d-389b8645aee7",
+              "payloadText": "{\"name\": \"bulk-499\", \"loyalty_points\": \"not-a-number\"}",
+              "payloadSha256": "bdab97c0a7cb02c63fcf5e3afd0797e3db0546c8f4d43333a9656dbd009b9ce2",
+              "errorType": "document_parsing_exception",
+              "field": "search_fields.loyalty_points",
+              "rejectedToken": "\"not-a-number\"",
+              "fixture": "ES05"
+            },
+            {
+              "eventId": "d8549abc-64f7-47ed-a065-71a4b1608d47:521:1",
+              "commandId": "2b0767c8-9674-45ea-bd09-138f12b9ddf9",
+              "payloadText": "{\"loyalty_points\": \"not-a-number\"}",
+              "payloadSha256": "c750649bde25d3598319cb222d8be11f7957ca5784f22fedab0e1d6a94c9c656",
+              "errorType": "document_parsing_exception",
+              "field": "search_fields.loyalty_points",
+              "rejectedToken": "\"not-a-number\"",
+              "fixture": "ES06"
+            }
+          ],
+          "declaredBeforeDelivery": true,
+          "originalBulkExpectedApplied": 497,
+          "originalBulkExpectedRejected": 3,
+          "latestUnresolved": [
+            "d8549abc-64f7-47ed-a065-71a4b1608d47:250:1",
+            "d8549abc-64f7-47ed-a065-71a4b1608d47:516:1",
+            "d8549abc-64f7-47ed-a065-71a4b1608d47:521:1"
+          ],
+          "historyAndReceiverChecked": true
+        },
+        "faults": [
+          {
+            "boundary": "es.after_claim_commit.before_request",
+            "kill": true,
+            "pid": 669900,
+            "exit": {
+              "code": null,
+              "signal": "SIGKILL"
+            },
+            "eventId": "d8549abc-64f7-47ed-a065-71a4b1608d47:523:1"
+          },
+          {
+            "boundary": "es.after_claim_commit.before_request",
+            "kill": false,
+            "pid": 670079,
+            "exit": {
+              "code": 0,
+              "signal": null
+            },
+            "eventId": "d8549abc-64f7-47ed-a065-71a4b1608d47:524:1"
+          },
+          {
+            "boundary": "es.after_remote_apply.before_local_commit",
+            "kill": true,
+            "pid": 670201,
+            "exit": {
+              "code": null,
+              "signal": "SIGKILL"
+            },
+            "eventId": "d8549abc-64f7-47ed-a065-71a4b1608d47:525:1"
+          },
+          {
+            "boundary": "es.after_remote_apply.before_local_commit",
+            "kill": false,
+            "pid": 670362,
+            "exit": {
+              "code": 0,
+              "signal": null
+            },
+            "eventId": "d8549abc-64f7-47ed-a065-71a4b1608d47:526:1"
+          },
+          {
+            "boundary": "es.after_local_commit.before_success",
+            "kill": true,
+            "pid": 670437,
+            "exit": {
+              "code": null,
+              "signal": "SIGKILL"
+            },
+            "eventId": "d8549abc-64f7-47ed-a065-71a4b1608d47:527:1"
+          },
+          {
+            "boundary": "es.after_local_commit.before_success",
+            "kill": false,
+            "pid": 670483,
+            "exit": {
+              "code": 0,
+              "signal": null
+            },
+            "eventId": "d8549abc-64f7-47ed-a065-71a4b1608d47:528:1"
+          }
+        ],
+        "actualBulk": {
+          "operations": 500,
+          "applied": 497,
+          "mappingFailures": 3,
+          "requestBytes": 450814
+        },
+        "measuredOutageMs": 60000.474317,
+        "automaticSameWorkerRecovery": true,
+        "retainedReceiverRestart": true
+      },
+      "prerequisite": {
+        "required": "1048576",
+        "observed": "1048576",
+        "platform": "linux",
+        "phase": "standalone-m3-before-services",
+        "observedAt": "2026-09-19T12:33:20.026Z",
+        "status": "PASS",
+        "reason": null,
+        "assumption": "Local Linux kernel shared with the Docker daemon. Local /proc does not configure or prove a remote Docker host."
+      },
+      "testExecution": {
+        "status": "PASS",
+        "requiredCaseIds": [
+          "ES01",
+          "ES02",
+          "ES03",
+          "ES04",
+          "ES05",
+          "ES06",
+          "ES07",
+          "ES08",
+          "ES09",
+          "ES10",
+          "ES11",
+          "ES12",
+          "ES13",
+          "ES14",
+          "O07"
+        ]
+      },
+      "evidenceErrors": [],
+      "localRun": "/home/tornike/Documents/Projects/kill-it-twice/artifacts/m3/m3-20260919123319955-3f5d2296/run.json",
+      "manifestSha256": "d8e474cf8e6f8854d840e16a7421995e2fe9c6649e51acfa2cbec5e32b952832"
+    },
+    {
+      "runId": "m3-20260919123920057-c656a9d8",
+      "profile": "m3",
+      "mode": "populated guarded M2C.1 upgrade",
+      "status": "PASS",
+      "counts": {
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "caseIds": [
+        "ES01",
+        "ES02",
+        "ES03",
+        "ES04",
+        "ES05",
+        "ES06",
+        "ES07",
+        "ES08",
+        "ES09",
+        "ES10",
+        "ES11",
+        "ES12",
+        "ES13",
+        "ES14",
+        "O07"
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "elasticsearchCleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "esEvidence": {
+        "reconciliation": {
+          "expectedRejections": [
+            {
+              "eventId": "0f0f0817-1b7d-4de5-98d5-8c22ac0a293d:30:1",
+              "commandId": "4b4bf1e5-4ce2-4ee7-8723-3072cec9f296",
+              "payloadText": "{\"name\": \"bulk-17\", \"loyalty_points\": \"not-a-number\"}",
+              "payloadSha256": "e0486a1293eb40ba288f0f7efac8ae1692cdd21d345b8714474529b75d4ea210",
+              "errorType": "document_parsing_exception",
+              "field": "search_fields.loyalty_points",
+              "rejectedToken": "\"not-a-number\"",
+              "fixture": "ES05"
+            },
+            {
+              "eventId": "0f0f0817-1b7d-4de5-98d5-8c22ac0a293d:246:1",
+              "commandId": "7d795d03-aae2-4b47-b138-dcef142082a6",
+              "payloadText": "{\"name\": \"bulk-233\", \"loyalty_points\": \"not-a-number\"}",
+              "payloadSha256": "38bc04ef7be9d642198b85fe411c468ab2ee89be956154b6cb082799fe8bea1c",
+              "errorType": "document_parsing_exception",
+              "field": "search_fields.loyalty_points",
+              "rejectedToken": "\"not-a-number\"",
+              "fixture": "ES05"
+            },
+            {
+              "eventId": "0f0f0817-1b7d-4de5-98d5-8c22ac0a293d:512:1",
+              "commandId": "30022f01-0559-46f9-959f-88f6761beca6",
+              "payloadText": "{\"name\": \"bulk-499\", \"loyalty_points\": \"not-a-number\"}",
+              "payloadSha256": "bdab97c0a7cb02c63fcf5e3afd0797e3db0546c8f4d43333a9656dbd009b9ce2",
+              "errorType": "document_parsing_exception",
+              "field": "search_fields.loyalty_points",
+              "rejectedToken": "\"not-a-number\"",
+              "fixture": "ES05"
+            },
+            {
+              "eventId": "0f0f0817-1b7d-4de5-98d5-8c22ac0a293d:517:1",
+              "commandId": "729b2668-7982-4a68-a68c-2afda89509b4",
+              "payloadText": "{\"loyalty_points\": \"not-a-number\"}",
+              "payloadSha256": "c750649bde25d3598319cb222d8be11f7957ca5784f22fedab0e1d6a94c9c656",
+              "errorType": "document_parsing_exception",
+              "field": "search_fields.loyalty_points",
+              "rejectedToken": "\"not-a-number\"",
+              "fixture": "ES06"
+            }
+          ],
+          "declaredBeforeDelivery": true,
+          "originalBulkExpectedApplied": 497,
+          "originalBulkExpectedRejected": 3,
+          "latestUnresolved": [
+            "0f0f0817-1b7d-4de5-98d5-8c22ac0a293d:246:1",
+            "0f0f0817-1b7d-4de5-98d5-8c22ac0a293d:512:1",
+            "0f0f0817-1b7d-4de5-98d5-8c22ac0a293d:517:1"
+          ],
+          "historyAndReceiverChecked": true
+        },
+        "faults": [
+          {
+            "boundary": "es.after_claim_commit.before_request",
+            "kill": true,
+            "pid": 702178,
+            "exit": {
+              "code": null,
+              "signal": "SIGKILL"
+            },
+            "eventId": "0f0f0817-1b7d-4de5-98d5-8c22ac0a293d:519:1"
+          },
+          {
+            "boundary": "es.after_claim_commit.before_request",
+            "kill": false,
+            "pid": 702382,
+            "exit": {
+              "code": 0,
+              "signal": null
+            },
+            "eventId": "0f0f0817-1b7d-4de5-98d5-8c22ac0a293d:520:1"
+          },
+          {
+            "boundary": "es.after_remote_apply.before_local_commit",
+            "kill": true,
+            "pid": 702469,
+            "exit": {
+              "code": null,
+              "signal": "SIGKILL"
+            },
+            "eventId": "0f0f0817-1b7d-4de5-98d5-8c22ac0a293d:521:1"
+          },
+          {
+            "boundary": "es.after_remote_apply.before_local_commit",
+            "kill": false,
+            "pid": 702660,
+            "exit": {
+              "code": 0,
+              "signal": null
+            },
+            "eventId": "0f0f0817-1b7d-4de5-98d5-8c22ac0a293d:522:1"
+          },
+          {
+            "boundary": "es.after_local_commit.before_success",
+            "kill": true,
+            "pid": 702767,
+            "exit": {
+              "code": null,
+              "signal": "SIGKILL"
+            },
+            "eventId": "0f0f0817-1b7d-4de5-98d5-8c22ac0a293d:523:1"
+          },
+          {
+            "boundary": "es.after_local_commit.before_success",
+            "kill": false,
+            "pid": 702799,
+            "exit": {
+              "code": 0,
+              "signal": null
+            },
+            "eventId": "0f0f0817-1b7d-4de5-98d5-8c22ac0a293d:524:1"
+          }
+        ],
+        "actualBulk": {
+          "operations": 500,
+          "applied": 497,
+          "mappingFailures": 3,
+          "requestBytes": 450798
+        },
+        "measuredOutageMs": 60000.389486000015,
+        "automaticSameWorkerRecovery": true,
+        "retainedReceiverRestart": true
+      },
+      "prerequisite": {
+        "required": "1048576",
+        "observed": "1048576",
+        "platform": "linux",
+        "phase": "standalone-m3-before-services",
+        "observedAt": "2026-09-19T12:39:20.116Z",
+        "status": "PASS",
+        "reason": null,
+        "assumption": "Local Linux kernel shared with the Docker daemon. Local /proc does not configure or prove a remote Docker host."
+      },
+      "testExecution": {
+        "status": "PASS",
+        "requiredCaseIds": [
+          "ES01",
+          "ES02",
+          "ES03",
+          "ES04",
+          "ES05",
+          "ES06",
+          "ES07",
+          "ES08",
+          "ES09",
+          "ES10",
+          "ES11",
+          "ES12",
+          "ES13",
+          "ES14",
+          "O07"
+        ]
+      },
+      "evidenceErrors": [],
+      "localRun": "/home/tornike/Documents/Projects/kill-it-twice/artifacts/m3/m3-20260919123920057-c656a9d8/run.json",
+      "manifestSha256": "15fcc2c5222d31674ad43a5da69efcfa2e4287168f0ab948027675812160026c"
+    },
+    {
+      "runId": "m3-oracle-20260919124450613-c7731379",
+      "profile": "m3-oracle",
+      "mode": "fresh",
+      "status": "PASS",
+      "counts": {
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "caseIds": ["O01", "O02", "O03", "O04", "O05", "O06"],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "elasticsearchCleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "oracleEvidence": {
+        "requiredCaseIds": ["O01", "O02", "O03", "O04", "O05", "O06"],
+        "retainedOldVersion": "1",
+        "unresolvedSourceVersion": "2",
+        "correctedVersion": "3",
+        "retainedTombstoneVersion": "2",
+        "negativeControls": [
+          "wrong version",
+          "wrong projected field",
+          "wrong tombstone",
+          "copied hash with changed canonical content",
+          "extra identity",
+          "actual missing retained old document",
+          "actual changed retained old document"
+        ],
+        "declaredRejections": [
+          {
+            "eventId": "ef4936bf-bf0d-4cc0-a704-fa79ae855a09:8:2",
+            "commandId": "ba1d7911-ea11-43a9-be40-e394ef30fd26",
+            "payloadText": "{\"name\": \"invalid later\", \"loyalty_points\": \"not-a-number\"}",
+            "payloadSha256": "27fd0fe3af21a34f4848f9c2bb1953419b600612ddcb3dbdbbb799ba21618ddd",
+            "errorType": "document_parsing_exception",
+            "field": "search_fields.loyalty_points",
+            "rejectedToken": "\"not-a-number\"",
+            "fixture": "O01"
+          },
+          {
+            "eventId": "ef4936bf-bf0d-4cc0-a704-fa79ae855a09:9:1",
+            "commandId": "67e3266c-4d28-4abf-997b-d0816598df2a",
+            "payloadText": "{\"name\": \"initial rejection\", \"loyalty_points\": \"not-a-number\"}",
+            "payloadSha256": "f91499abe869cd4d8d480f1b3b5a32d50a6553b6d481ee0c868b8a0d8033a8aa",
+            "errorType": "document_parsing_exception",
+            "field": "search_fields.loyalty_points",
+            "rejectedToken": "\"not-a-number\"",
+            "fixture": "O02"
+          },
+          {
+            "eventId": "ef4936bf-bf0d-4cc0-a704-fa79ae855a09:10:3",
+            "commandId": "696a6af1-43cc-4f65-8e2b-c3618bffa44c",
+            "payloadText": "{\"name\": \"bad restore\", \"loyalty_points\": \"not-a-number\"}",
+            "payloadSha256": "90108bbe3c1bc10f4a07f2f7d034324258cab9f79789dfabc8784b614f57556c",
+            "errorType": "document_parsing_exception",
+            "field": "search_fields.loyalty_points",
+            "rejectedToken": "\"not-a-number\"",
+            "fixture": "O04"
+          },
+          {
+            "eventId": "ef4936bf-bf0d-4cc0-a704-fa79ae855a09:11:2",
+            "commandId": "f9638408-fe71-4023-a02c-e2a58feeda9e",
+            "payloadText": "{\"name\": \"later rejected\", \"loyalty_points\": \"not-a-number\"}",
+            "payloadSha256": "406ef631053316eb4e5e6be550e944844af031b723b2c57c0ed51e7d93bc6591",
+            "errorType": "document_parsing_exception",
+            "field": "search_fields.loyalty_points",
+            "rejectedToken": "\"not-a-number\"",
+            "fixture": "O06"
+          }
+        ]
+      },
+      "prerequisite": {
+        "required": "1048576",
+        "observed": "1048576",
+        "platform": "linux",
+        "phase": "standalone-m3-before-services",
+        "observedAt": "2026-09-19T12:44:50.686Z",
+        "status": "PASS",
+        "reason": null,
+        "assumption": "Local Linux kernel shared with the Docker daemon. Local /proc does not configure or prove a remote Docker host."
+      },
+      "testExecution": {
+        "status": "PASS",
+        "requiredCaseIds": ["O01", "O02", "O03", "O04", "O05", "O06"]
+      },
+      "evidenceErrors": [],
+      "localRun": "/home/tornike/Documents/Projects/kill-it-twice/artifacts/m3-oracle/m3-oracle-20260919124450613-c7731379/run.json",
+      "manifestSha256": "6bde3335b5d4d4857514941406f48e4bfdce8616428ed815f16f50191c6d06f2"
+    },
+    {
+      "runId": "m1-20260919124657299-92ffae56",
+      "profile": "m1",
+      "mode": "fresh",
+      "status": "PASS",
+      "counts": {
+        "passed": 22,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "caseIds": [
+        "PG",
+        "T01",
+        "T02",
+        "T03",
+        "T04",
+        "T05",
+        "T06",
+        "T07",
+        "T10-SOURCE",
+        "M11-F01",
+        "M11-F01-TAG",
+        "M11-F02",
+        "M11-LIFETIME",
+        "M11-DEADLOCK",
+        "M11-OBSERVE",
+        "T08",
+        "T09",
+        "T10-FAULT",
+        "M11-HEALTHY-PRE",
+        "M11-ORPHAN-PRE",
+        "M11-HEALTHY-POST",
+        "M11-ORPHAN-POST"
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "testExecution": {
+        "status": "PASS",
+        "requiredCaseIds": [
+          "PG",
+          "T01",
+          "T02",
+          "T03",
+          "T04",
+          "T05",
+          "T06",
+          "T07",
+          "T10-SOURCE",
+          "M11-F01",
+          "M11-F01-TAG",
+          "M11-F02",
+          "M11-LIFETIME",
+          "M11-DEADLOCK",
+          "M11-OBSERVE",
+          "T08",
+          "T09",
+          "T10-FAULT",
+          "M11-HEALTHY-PRE",
+          "M11-ORPHAN-PRE",
+          "M11-HEALTHY-POST",
+          "M11-ORPHAN-POST"
+        ]
+      },
+      "evidenceErrors": [],
+      "localRun": "/home/tornike/Documents/Projects/kill-it-twice/artifacts/m1/m1-20260919124657299-92ffae56/run.json",
+      "manifestSha256": "2f94daf588cd3df4fb261af387c10d7f27849ebdaf448b97c6f9826ed8f43efb"
+    },
+    {
+      "runId": "m2a-20260919124714721-89b649da",
+      "profile": "m2a",
+      "mode": "fresh",
+      "status": "PASS",
+      "counts": {
+        "passed": 36,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "caseIds": [
+        "PG",
+        "T01",
+        "T02",
+        "T03",
+        "T04",
+        "T05",
+        "T06",
+        "T07",
+        "T10-SOURCE",
+        "M11-F01",
+        "M11-F01-TAG",
+        "M11-F02",
+        "M11-LIFETIME",
+        "M11-DEADLOCK",
+        "M11-OBSERVE",
+        "T08",
+        "T09",
+        "T10-FAULT",
+        "M11-HEALTHY-PRE",
+        "M11-ORPHAN-PRE",
+        "M11-HEALTHY-POST",
+        "M11-ORPHAN-POST",
+        "C01",
+        "C02",
+        "C03",
+        "C04",
+        "C05",
+        "C06",
+        "C07",
+        "C08",
+        "C11",
+        "C12",
+        "C09",
+        "C10",
+        "C09-HEALTHY",
+        "C10-HEALTHY"
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "testExecution": {
+        "status": "PASS",
+        "requiredCaseIds": [
+          "PG",
+          "T01",
+          "T02",
+          "T03",
+          "T04",
+          "T05",
+          "T06",
+          "T07",
+          "T10-SOURCE",
+          "M11-F01",
+          "M11-F01-TAG",
+          "M11-F02",
+          "M11-LIFETIME",
+          "M11-DEADLOCK",
+          "M11-OBSERVE",
+          "T08",
+          "T09",
+          "T10-FAULT",
+          "M11-HEALTHY-PRE",
+          "M11-ORPHAN-PRE",
+          "M11-HEALTHY-POST",
+          "M11-ORPHAN-POST",
+          "C01",
+          "C02",
+          "C03",
+          "C04",
+          "C05",
+          "C06",
+          "C07",
+          "C08",
+          "C11",
+          "C12",
+          "C09",
+          "C10",
+          "C09-HEALTHY",
+          "C10-HEALTHY"
+        ]
+      },
+      "evidenceErrors": [],
+      "localRun": "/home/tornike/Documents/Projects/kill-it-twice/artifacts/m2a/m2a-20260919124714721-89b649da/run.json",
+      "manifestSha256": "289086ae566413fac70388b593e00ff44d7238fd903e4d983f36eef7e79001c2"
+    },
+    {
+      "runId": "m2b-20260919124736023-a9768c0f",
+      "profile": "m2b",
+      "mode": "fresh",
+      "status": "PASS",
+      "counts": {
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "caseIds": [
+        "S01-GOLDEN",
+        "S01-REJECT",
+        "S02",
+        "S03",
+        "S04",
+        "S05",
+        "S06",
+        "S07",
+        "S11",
+        "S12",
+        "S13",
+        "S-UPGRADE",
+        "S08",
+        "S09",
+        "S10-PRE",
+        "S10-POST"
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "testExecution": {
+        "status": "PASS",
+        "requiredCaseIds": [
+          "S01-GOLDEN",
+          "S01-REJECT",
+          "S02",
+          "S03",
+          "S04",
+          "S05",
+          "S06",
+          "S07",
+          "S11",
+          "S12",
+          "S13",
+          "S-UPGRADE",
+          "S08",
+          "S09",
+          "S10-PRE",
+          "S10-POST"
+        ]
+      },
+      "evidenceErrors": [],
+      "localRun": "/home/tornike/Documents/Projects/kill-it-twice/artifacts/m2b/m2b-20260919124736023-a9768c0f/run.json",
+      "manifestSha256": "29c38a300c8187c4b960cce1ba57e9579ac97ac5ac8266100ba95d2c159d0f93"
+    },
+    {
+      "runId": "m2b-20260919124756389-56bc37a9",
+      "profile": "m2b",
+      "mode": "populated M2A upgrade",
+      "status": "PASS",
+      "counts": {
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "caseIds": [
+        "S01-GOLDEN",
+        "S01-REJECT",
+        "S02",
+        "S03",
+        "S04",
+        "S05",
+        "S06",
+        "S07",
+        "S11",
+        "S12",
+        "S13",
+        "S-UPGRADE",
+        "S08",
+        "S09",
+        "S10-PRE",
+        "S10-POST"
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "testExecution": {
+        "status": "PASS",
+        "requiredCaseIds": [
+          "S01-GOLDEN",
+          "S01-REJECT",
+          "S02",
+          "S03",
+          "S04",
+          "S05",
+          "S06",
+          "S07",
+          "S11",
+          "S12",
+          "S13",
+          "S-UPGRADE",
+          "S08",
+          "S09",
+          "S10-PRE",
+          "S10-POST"
+        ]
+      },
+      "evidenceErrors": [],
+      "localRun": "/home/tornike/Documents/Projects/kill-it-twice/artifacts/m2b/m2b-20260919124756389-56bc37a9/run.json",
+      "manifestSha256": "5522cfe8b70a73810a9be20fd019cf017f9d4a9f8a59635292f41f05ffc62245"
+    },
+    {
+      "runId": "m2c-20260919124816802-48fe1ed3",
+      "profile": "m2c",
+      "mode": "fresh",
+      "status": "PASS",
+      "counts": {
+        "passed": 19,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "caseIds": [
+        "IC01",
+        "IC02",
+        "IC03",
+        "IC04",
+        "IC05",
+        "IC06",
+        "IC07",
+        "IC08",
+        "IC09",
+        "IC10",
+        "IC11-CLAIM",
+        "IC11-PRE",
+        "IC11-POST",
+        "IC11-ACK",
+        "IC12",
+        "IC13",
+        "IC14",
+        "IC15",
+        "IC16"
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "testExecution": {
+        "status": "PASS",
+        "requiredCaseIds": [
+          "IC01",
+          "IC02",
+          "IC03",
+          "IC04",
+          "IC05",
+          "IC06",
+          "IC07",
+          "IC08",
+          "IC09",
+          "IC10",
+          "IC11-CLAIM",
+          "IC11-PRE",
+          "IC11-POST",
+          "IC11-ACK",
+          "IC12",
+          "IC13",
+          "IC14",
+          "IC15",
+          "IC16"
+        ]
+      },
+      "evidenceErrors": [],
+      "localRun": "/home/tornike/Documents/Projects/kill-it-twice/artifacts/m2c/m2c-20260919124816802-48fe1ed3/run.json",
+      "manifestSha256": "936148a0cd565720fd636ed220889a0a8a0886b04474676c2dc048e3b08f4151"
+    },
+    {
+      "runId": "m2c-20260919124901854-5e0a652d",
+      "profile": "m2c",
+      "mode": "populated M2B upgrade",
+      "status": "PASS",
+      "counts": {
+        "passed": 19,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "caseIds": [
+        "IC01",
+        "IC02",
+        "IC03",
+        "IC04",
+        "IC05",
+        "IC06",
+        "IC07",
+        "IC08",
+        "IC09",
+        "IC10",
+        "IC11-CLAIM",
+        "IC11-PRE",
+        "IC11-POST",
+        "IC11-ACK",
+        "IC12",
+        "IC13",
+        "IC14",
+        "IC15",
+        "IC16"
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "testExecution": {
+        "status": "PASS",
+        "requiredCaseIds": [
+          "IC01",
+          "IC02",
+          "IC03",
+          "IC04",
+          "IC05",
+          "IC06",
+          "IC07",
+          "IC08",
+          "IC09",
+          "IC10",
+          "IC11-CLAIM",
+          "IC11-PRE",
+          "IC11-POST",
+          "IC11-ACK",
+          "IC12",
+          "IC13",
+          "IC14",
+          "IC15",
+          "IC16"
+        ]
+      },
+      "evidenceErrors": [],
+      "localRun": "/home/tornike/Documents/Projects/kill-it-twice/artifacts/m2c/m2c-20260919124901854-5e0a652d/run.json",
+      "manifestSha256": "02e2a11d4ee0655888f7a72daf581476130bc54c8263d65beeab0aeac894b28c"
+    },
+    {
+      "runId": "m2c1-20260919124945489-49f17050",
+      "profile": "m2c1",
+      "mode": "fresh",
+      "status": "PASS",
+      "counts": {
+        "passed": 27,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "caseIds": [
+        "IC01",
+        "IC02",
+        "IC03",
+        "IC04",
+        "IC05",
+        "IC06",
+        "IC07",
+        "IC08",
+        "IC09",
+        "IC10",
+        "IC11-CLAIM",
+        "IC11-PRE",
+        "IC11-POST",
+        "IC11-ACK",
+        "IC12",
+        "IC13",
+        "IC14",
+        "IC15",
+        "IC16",
+        "R04",
+        "R06",
+        "R07",
+        "R08",
+        "R01",
+        "R02",
+        "R03",
+        "R05"
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "testExecution": {
+        "status": "PASS",
+        "requiredCaseIds": [
+          "IC01",
+          "IC02",
+          "IC03",
+          "IC04",
+          "IC05",
+          "IC06",
+          "IC07",
+          "IC08",
+          "IC09",
+          "IC10",
+          "IC11-CLAIM",
+          "IC11-PRE",
+          "IC11-POST",
+          "IC11-ACK",
+          "IC12",
+          "IC13",
+          "IC14",
+          "IC15",
+          "IC16",
+          "R04",
+          "R06",
+          "R07",
+          "R08",
+          "R01",
+          "R02",
+          "R03",
+          "R05"
+        ]
+      },
+      "evidenceErrors": [],
+      "localRun": "/home/tornike/Documents/Projects/kill-it-twice/artifacts/m2c1/m2c1-20260919124945489-49f17050/run.json",
+      "manifestSha256": "148b7df5c113e42ae611ab4e834cdc26e7fe8a52e7c759adb0a26d1909fd2295"
+    },
+    {
+      "runId": "m2c1-20260919125032505-471add2c",
+      "profile": "m2c1",
+      "mode": "populated registered M2C upgrade",
+      "status": "PASS",
+      "counts": {
+        "passed": 23,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "caseIds": [
+        "IC01",
+        "IC02",
+        "IC03",
+        "IC04",
+        "IC05",
+        "IC06",
+        "IC07",
+        "IC08",
+        "IC09",
+        "IC10",
+        "IC11-CLAIM",
+        "IC11-PRE",
+        "IC11-POST",
+        "IC11-ACK",
+        "IC12",
+        "IC13",
+        "IC14",
+        "IC15",
+        "IC16",
+        "R04",
+        "R06",
+        "R07",
+        "R08"
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "testExecution": {
+        "status": "PASS",
+        "requiredCaseIds": [
+          "IC01",
+          "IC02",
+          "IC03",
+          "IC04",
+          "IC05",
+          "IC06",
+          "IC07",
+          "IC08",
+          "IC09",
+          "IC10",
+          "IC11-CLAIM",
+          "IC11-PRE",
+          "IC11-POST",
+          "IC11-ACK",
+          "IC12",
+          "IC13",
+          "IC14",
+          "IC15",
+          "IC16",
+          "R04",
+          "R06",
+          "R07",
+          "R08"
+        ]
+      },
+      "evidenceErrors": [],
+      "localRun": "/home/tornike/Documents/Projects/kill-it-twice/artifacts/m2c1/m2c1-20260919125032505-471add2c/run.json",
+      "manifestSha256": "d5546e8f35e0ee827588226dab3ac3b3d3764505850380f06f1c7936d9f78c0c"
+    },
+    {
+      "runId": "m3-20260919125117924-132c1c59",
+      "profile": "m3",
+      "mode": "fresh",
+      "status": "PASS",
+      "counts": {
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "caseIds": [
+        "ES01",
+        "ES02",
+        "ES03",
+        "ES04",
+        "ES05",
+        "ES06",
+        "ES07",
+        "ES08",
+        "ES09",
+        "ES10",
+        "ES11",
+        "ES12",
+        "ES13",
+        "ES14",
+        "O07"
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "elasticsearchCleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "esEvidence": {
+        "reconciliation": {
+          "expectedRejections": [
+            {
+              "eventId": "f5e78a11-7b14-43f5-9df7-ba8e3129570a:34:1",
+              "commandId": "a19d0f9e-8106-4815-947c-f273f426bb49",
+              "payloadText": "{\"name\": \"bulk-17\", \"loyalty_points\": \"not-a-number\"}",
+              "payloadSha256": "e0486a1293eb40ba288f0f7efac8ae1692cdd21d345b8714474529b75d4ea210",
+              "errorType": "document_parsing_exception",
+              "field": "search_fields.loyalty_points",
+              "rejectedToken": "\"not-a-number\"",
+              "fixture": "ES05"
+            },
+            {
+              "eventId": "f5e78a11-7b14-43f5-9df7-ba8e3129570a:250:1",
+              "commandId": "4e0eba00-7c42-4fc0-a2c8-ac584caa328d",
+              "payloadText": "{\"name\": \"bulk-233\", \"loyalty_points\": \"not-a-number\"}",
+              "payloadSha256": "38bc04ef7be9d642198b85fe411c468ab2ee89be956154b6cb082799fe8bea1c",
+              "errorType": "document_parsing_exception",
+              "field": "search_fields.loyalty_points",
+              "rejectedToken": "\"not-a-number\"",
+              "fixture": "ES05"
+            },
+            {
+              "eventId": "f5e78a11-7b14-43f5-9df7-ba8e3129570a:516:1",
+              "commandId": "8cdd9180-54fa-4236-941b-591ed597a5e6",
+              "payloadText": "{\"name\": \"bulk-499\", \"loyalty_points\": \"not-a-number\"}",
+              "payloadSha256": "bdab97c0a7cb02c63fcf5e3afd0797e3db0546c8f4d43333a9656dbd009b9ce2",
+              "errorType": "document_parsing_exception",
+              "field": "search_fields.loyalty_points",
+              "rejectedToken": "\"not-a-number\"",
+              "fixture": "ES05"
+            },
+            {
+              "eventId": "f5e78a11-7b14-43f5-9df7-ba8e3129570a:521:1",
+              "commandId": "8dcd93d6-9667-4586-862b-7928f52ebb58",
+              "payloadText": "{\"loyalty_points\": \"not-a-number\"}",
+              "payloadSha256": "c750649bde25d3598319cb222d8be11f7957ca5784f22fedab0e1d6a94c9c656",
+              "errorType": "document_parsing_exception",
+              "field": "search_fields.loyalty_points",
+              "rejectedToken": "\"not-a-number\"",
+              "fixture": "ES06"
+            }
+          ],
+          "declaredBeforeDelivery": true,
+          "originalBulkExpectedApplied": 497,
+          "originalBulkExpectedRejected": 3,
+          "latestUnresolved": [
+            "f5e78a11-7b14-43f5-9df7-ba8e3129570a:250:1",
+            "f5e78a11-7b14-43f5-9df7-ba8e3129570a:516:1",
+            "f5e78a11-7b14-43f5-9df7-ba8e3129570a:521:1"
+          ],
+          "historyAndReceiverChecked": true
+        },
+        "faults": [
+          {
+            "boundary": "es.after_claim_commit.before_request",
+            "kill": true,
+            "pid": 780158,
+            "exit": {
+              "code": null,
+              "signal": "SIGKILL"
+            },
+            "eventId": "f5e78a11-7b14-43f5-9df7-ba8e3129570a:523:1"
+          },
+          {
+            "boundary": "es.after_claim_commit.before_request",
+            "kill": false,
+            "pid": 780427,
+            "exit": {
+              "code": 0,
+              "signal": null
+            },
+            "eventId": "f5e78a11-7b14-43f5-9df7-ba8e3129570a:524:1"
+          },
+          {
+            "boundary": "es.after_remote_apply.before_local_commit",
+            "kill": true,
+            "pid": 780576,
+            "exit": {
+              "code": null,
+              "signal": "SIGKILL"
+            },
+            "eventId": "f5e78a11-7b14-43f5-9df7-ba8e3129570a:525:1"
+          },
+          {
+            "boundary": "es.after_remote_apply.before_local_commit",
+            "kill": false,
+            "pid": 780737,
+            "exit": {
+              "code": 0,
+              "signal": null
+            },
+            "eventId": "f5e78a11-7b14-43f5-9df7-ba8e3129570a:526:1"
+          },
+          {
+            "boundary": "es.after_local_commit.before_success",
+            "kill": true,
+            "pid": 780783,
+            "exit": {
+              "code": null,
+              "signal": "SIGKILL"
+            },
+            "eventId": "f5e78a11-7b14-43f5-9df7-ba8e3129570a:527:1"
+          },
+          {
+            "boundary": "es.after_local_commit.before_success",
+            "kill": false,
+            "pid": 780874,
+            "exit": {
+              "code": 0,
+              "signal": null
+            },
+            "eventId": "f5e78a11-7b14-43f5-9df7-ba8e3129570a:528:1"
+          }
+        ],
+        "actualBulk": {
+          "operations": 500,
+          "applied": 497,
+          "mappingFailures": 3,
+          "requestBytes": 450814
+        },
+        "measuredOutageMs": 60000.95381699999,
+        "automaticSameWorkerRecovery": true,
+        "retainedReceiverRestart": true
+      },
+      "prerequisite": {
+        "required": "1048576",
+        "observed": "1048576",
+        "platform": "linux",
+        "phase": "standalone-m3-before-services",
+        "observedAt": "2026-09-19T12:51:17.993Z",
+        "status": "PASS",
+        "reason": null,
+        "assumption": "Local Linux kernel shared with the Docker daemon. Local /proc does not configure or prove a remote Docker host."
+      },
+      "testExecution": {
+        "status": "PASS",
+        "requiredCaseIds": [
+          "ES01",
+          "ES02",
+          "ES03",
+          "ES04",
+          "ES05",
+          "ES06",
+          "ES07",
+          "ES08",
+          "ES09",
+          "ES10",
+          "ES11",
+          "ES12",
+          "ES13",
+          "ES14",
+          "O07"
+        ]
+      },
+      "evidenceErrors": [],
+      "localRun": "/home/tornike/Documents/Projects/kill-it-twice/artifacts/m3/m3-20260919125117924-132c1c59/run.json",
+      "manifestSha256": "2ecc15fc732c01ec127b13d99db9ce8b9bedddd826f2ec33081dd1c8ac6223af"
+    },
+    {
+      "runId": "m3-20260919125710418-72a24484",
+      "profile": "m3",
+      "mode": "populated guarded M2C.1 upgrade",
+      "status": "PASS",
+      "counts": {
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "caseIds": [
+        "ES01",
+        "ES02",
+        "ES03",
+        "ES04",
+        "ES05",
+        "ES06",
+        "ES07",
+        "ES08",
+        "ES09",
+        "ES10",
+        "ES11",
+        "ES12",
+        "ES13",
+        "ES14",
+        "O07"
+      ],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "elasticsearchCleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "esEvidence": {
+        "reconciliation": {
+          "expectedRejections": [
+            {
+              "eventId": "4b853916-44c7-48d4-b9c9-45b9305b2171:30:1",
+              "commandId": "c251e1c4-e7a3-402f-9e35-7d47b06ba662",
+              "payloadText": "{\"name\": \"bulk-17\", \"loyalty_points\": \"not-a-number\"}",
+              "payloadSha256": "e0486a1293eb40ba288f0f7efac8ae1692cdd21d345b8714474529b75d4ea210",
+              "errorType": "document_parsing_exception",
+              "field": "search_fields.loyalty_points",
+              "rejectedToken": "\"not-a-number\"",
+              "fixture": "ES05"
+            },
+            {
+              "eventId": "4b853916-44c7-48d4-b9c9-45b9305b2171:246:1",
+              "commandId": "9ffbca22-1214-4274-a7f6-5ff1e7196336",
+              "payloadText": "{\"name\": \"bulk-233\", \"loyalty_points\": \"not-a-number\"}",
+              "payloadSha256": "38bc04ef7be9d642198b85fe411c468ab2ee89be956154b6cb082799fe8bea1c",
+              "errorType": "document_parsing_exception",
+              "field": "search_fields.loyalty_points",
+              "rejectedToken": "\"not-a-number\"",
+              "fixture": "ES05"
+            },
+            {
+              "eventId": "4b853916-44c7-48d4-b9c9-45b9305b2171:512:1",
+              "commandId": "31681297-8d41-4a7e-86b2-c810a23bf497",
+              "payloadText": "{\"name\": \"bulk-499\", \"loyalty_points\": \"not-a-number\"}",
+              "payloadSha256": "bdab97c0a7cb02c63fcf5e3afd0797e3db0546c8f4d43333a9656dbd009b9ce2",
+              "errorType": "document_parsing_exception",
+              "field": "search_fields.loyalty_points",
+              "rejectedToken": "\"not-a-number\"",
+              "fixture": "ES05"
+            },
+            {
+              "eventId": "4b853916-44c7-48d4-b9c9-45b9305b2171:517:1",
+              "commandId": "0dce0020-8b32-425b-98c1-549e11a9454a",
+              "payloadText": "{\"loyalty_points\": \"not-a-number\"}",
+              "payloadSha256": "c750649bde25d3598319cb222d8be11f7957ca5784f22fedab0e1d6a94c9c656",
+              "errorType": "document_parsing_exception",
+              "field": "search_fields.loyalty_points",
+              "rejectedToken": "\"not-a-number\"",
+              "fixture": "ES06"
+            }
+          ],
+          "declaredBeforeDelivery": true,
+          "originalBulkExpectedApplied": 497,
+          "originalBulkExpectedRejected": 3,
+          "latestUnresolved": [
+            "4b853916-44c7-48d4-b9c9-45b9305b2171:246:1",
+            "4b853916-44c7-48d4-b9c9-45b9305b2171:512:1",
+            "4b853916-44c7-48d4-b9c9-45b9305b2171:517:1"
+          ],
+          "historyAndReceiverChecked": true
+        },
+        "faults": [
+          {
+            "boundary": "es.after_claim_commit.before_request",
+            "kill": true,
+            "pid": 817450,
+            "exit": {
+              "code": null,
+              "signal": "SIGKILL"
+            },
+            "eventId": "4b853916-44c7-48d4-b9c9-45b9305b2171:519:1"
+          },
+          {
+            "boundary": "es.after_claim_commit.before_request",
+            "kill": false,
+            "pid": 817625,
+            "exit": {
+              "code": 0,
+              "signal": null
+            },
+            "eventId": "4b853916-44c7-48d4-b9c9-45b9305b2171:520:1"
+          },
+          {
+            "boundary": "es.after_remote_apply.before_local_commit",
+            "kill": true,
+            "pid": 817699,
+            "exit": {
+              "code": null,
+              "signal": "SIGKILL"
+            },
+            "eventId": "4b853916-44c7-48d4-b9c9-45b9305b2171:521:1"
+          },
+          {
+            "boundary": "es.after_remote_apply.before_local_commit",
+            "kill": false,
+            "pid": 817933,
+            "exit": {
+              "code": 0,
+              "signal": null
+            },
+            "eventId": "4b853916-44c7-48d4-b9c9-45b9305b2171:522:1"
+          },
+          {
+            "boundary": "es.after_local_commit.before_success",
+            "kill": true,
+            "pid": 818014,
+            "exit": {
+              "code": null,
+              "signal": "SIGKILL"
+            },
+            "eventId": "4b853916-44c7-48d4-b9c9-45b9305b2171:523:1"
+          },
+          {
+            "boundary": "es.after_local_commit.before_success",
+            "kill": false,
+            "pid": 818115,
+            "exit": {
+              "code": 0,
+              "signal": null
+            },
+            "eventId": "4b853916-44c7-48d4-b9c9-45b9305b2171:524:1"
+          }
+        ],
+        "actualBulk": {
+          "operations": 500,
+          "applied": 497,
+          "mappingFailures": 3,
+          "requestBytes": 450798
+        },
+        "measuredOutageMs": 60000.03698399999,
+        "automaticSameWorkerRecovery": true,
+        "retainedReceiverRestart": true
+      },
+      "prerequisite": {
+        "required": "1048576",
+        "observed": "1048576",
+        "platform": "linux",
+        "phase": "standalone-m3-before-services",
+        "observedAt": "2026-09-19T12:57:10.492Z",
+        "status": "PASS",
+        "reason": null,
+        "assumption": "Local Linux kernel shared with the Docker daemon. Local /proc does not configure or prove a remote Docker host."
+      },
+      "testExecution": {
+        "status": "PASS",
+        "requiredCaseIds": [
+          "ES01",
+          "ES02",
+          "ES03",
+          "ES04",
+          "ES05",
+          "ES06",
+          "ES07",
+          "ES08",
+          "ES09",
+          "ES10",
+          "ES11",
+          "ES12",
+          "ES13",
+          "ES14",
+          "O07"
+        ]
+      },
+      "evidenceErrors": [],
+      "localRun": "/home/tornike/Documents/Projects/kill-it-twice/artifacts/m3/m3-20260919125710418-72a24484/run.json",
+      "manifestSha256": "825672a630e8d2c223742f8550ebe03d340607af94bfe9c0f91a08bc66ca57cc"
+    },
+    {
+      "runId": "m3-oracle-20260919130324981-23a9f63f",
+      "profile": "m3-oracle",
+      "mode": "fresh",
+      "status": "PASS",
+      "counts": {
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0,
+        "cancelled": 0,
+        "todo": 0
+      },
+      "caseIds": ["O01", "O02", "O03", "O04", "O05", "O06"],
+      "cleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "elasticsearchCleanup": {
+        "status": "PASS",
+        "resources": {
+          "container": "",
+          "volume": "",
+          "network": ""
+        }
+      },
+      "oracleEvidence": {
+        "requiredCaseIds": ["O01", "O02", "O03", "O04", "O05", "O06"],
+        "retainedOldVersion": "1",
+        "unresolvedSourceVersion": "2",
+        "correctedVersion": "3",
+        "retainedTombstoneVersion": "2",
+        "negativeControls": [
+          "wrong version",
+          "wrong projected field",
+          "wrong tombstone",
+          "copied hash with changed canonical content",
+          "extra identity",
+          "actual missing retained old document",
+          "actual changed retained old document"
+        ],
+        "declaredRejections": [
+          {
+            "eventId": "a623d784-4d05-456a-86c9-67a5bac151d6:8:2",
+            "commandId": "45b6f215-b8a6-419d-8dc8-e37fa133ba20",
+            "payloadText": "{\"name\": \"invalid later\", \"loyalty_points\": \"not-a-number\"}",
+            "payloadSha256": "27fd0fe3af21a34f4848f9c2bb1953419b600612ddcb3dbdbbb799ba21618ddd",
+            "errorType": "document_parsing_exception",
+            "field": "search_fields.loyalty_points",
+            "rejectedToken": "\"not-a-number\"",
+            "fixture": "O01"
+          },
+          {
+            "eventId": "a623d784-4d05-456a-86c9-67a5bac151d6:9:1",
+            "commandId": "c4243b18-f949-47cb-bf9e-c6312444e9d2",
+            "payloadText": "{\"name\": \"initial rejection\", \"loyalty_points\": \"not-a-number\"}",
+            "payloadSha256": "f91499abe869cd4d8d480f1b3b5a32d50a6553b6d481ee0c868b8a0d8033a8aa",
+            "errorType": "document_parsing_exception",
+            "field": "search_fields.loyalty_points",
+            "rejectedToken": "\"not-a-number\"",
+            "fixture": "O02"
+          },
+          {
+            "eventId": "a623d784-4d05-456a-86c9-67a5bac151d6:10:3",
+            "commandId": "851e776b-aaa0-41a3-8df6-ce51c8d59618",
+            "payloadText": "{\"name\": \"bad restore\", \"loyalty_points\": \"not-a-number\"}",
+            "payloadSha256": "90108bbe3c1bc10f4a07f2f7d034324258cab9f79789dfabc8784b614f57556c",
+            "errorType": "document_parsing_exception",
+            "field": "search_fields.loyalty_points",
+            "rejectedToken": "\"not-a-number\"",
+            "fixture": "O04"
+          },
+          {
+            "eventId": "a623d784-4d05-456a-86c9-67a5bac151d6:11:2",
+            "commandId": "f2516ad7-318a-4cbd-b7f2-2002f0dfd744",
+            "payloadText": "{\"name\": \"later rejected\", \"loyalty_points\": \"not-a-number\"}",
+            "payloadSha256": "406ef631053316eb4e5e6be550e944844af031b723b2c57c0ed51e7d93bc6591",
+            "errorType": "document_parsing_exception",
+            "field": "search_fields.loyalty_points",
+            "rejectedToken": "\"not-a-number\"",
+            "fixture": "O06"
+          }
+        ]
+      },
+      "prerequisite": {
+        "required": "1048576",
+        "observed": "1048576",
+        "platform": "linux",
+        "phase": "standalone-m3-before-services",
+        "observedAt": "2026-09-19T13:03:25.055Z",
+        "status": "PASS",
+        "reason": null,
+        "assumption": "Local Linux kernel shared with the Docker daemon. Local /proc does not configure or prove a remote Docker host."
+      },
+      "testExecution": {
+        "status": "PASS",
+        "requiredCaseIds": ["O01", "O02", "O03", "O04", "O05", "O06"]
+      },
+      "evidenceErrors": [],
+      "localRun": "/home/tornike/Documents/Projects/kill-it-twice/artifacts/m3-oracle/m3-oracle-20260919130324981-23a9f63f/run.json",
+      "manifestSha256": "64f5f229886a50b30c0201777516de959d9f2bebe2441a56d68e99a5df3c6bdc"
+    }
+  ],
+  "remoteCi": "NOT RUN after M3.1 correction; prior M3 hosted run 35440622786 failed before receiver tests",
+  "evidenceLocation": "Local paths only; bundle is not published",
+  "incomplete": [
+    "RabbitMQ delivery",
+    "consumer",
+    "backfill",
+    "UI",
+    "full G1-G5"
+  ]
+}
