@@ -9,7 +9,8 @@
     "tests/support/capture-child.ts",
     "tests/support/es-child.ts",
     "tests/support/rabbit-child.ts",
-    "tests/support/batch-child.ts"
+    "tests/support/batch-child.ts",
+    "tests/support/bootstrap-child.ts"
   ],
   "project": ["src/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts", "*.js"]
 }

@@ -145,6 +145,7 @@ void test(
       for (const revision of history) {
         assert.equal(revision.source_epoch, epoch);
         assert.equal(revision.entity_id, '9007199254740993');
+        assert.ok(typeof revision.change_id === 'string');
         assert.match(revision.change_id, /^[a-f0-9-]{36}$/);
       }
       const expected: [string, boolean, string | null][] = [

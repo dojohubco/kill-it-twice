@@ -45,7 +45,10 @@
     "review:m4": "node scripts/review-m4.ts",
     "test:reproduction:m41": "node scripts/m1.ts m41-repro",
     "test:integration:m41": "node scripts/m1.ts m41",
-    "review:m41": "node scripts/review-m4.ts --m41"
+    "review:m41": "node scripts/review-m4.ts --m41",
+    "bootstrap": "node scripts/bootstrap.ts",
+    "test:integration:m5a": "node scripts/m1.ts m5a",
+    "review:m5a": "node scripts/review-m4.ts --m5a"
   },
   "dependencies": {
     "@elastic/elasticsearch": "9.5.1",

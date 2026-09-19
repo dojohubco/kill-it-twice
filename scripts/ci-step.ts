@@ -1,3 +1,4 @@
+import { ciTimeout } from './ci-timeout.ts';
 // Capture the same local commands, including failures before PostgreSQL starts.
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -17,12 +18,7 @@ const secrets = [
 const clean = (text: string) => redact(text, secrets);
 const diagnostics = new Diagnostics(clean);
 try {
-  const timeout =
-    executable === 'make' &&
-    args.length === 1 &&
-    ['verify-m3', 'verify-m4'].includes(args[0] ?? '')
-      ? 3000000
-      : 600000;
+  const timeout = ciTimeout(executable, args);
   const result = await command(executable, args, process.env, timeout, true, {
     secrets,
   });

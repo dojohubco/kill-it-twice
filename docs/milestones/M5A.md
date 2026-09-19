@@ -30,3 +30,11 @@ ADR 012 specifies the proposed source migration, database authorization, shared/
 - BS14: retained restart and independent baseline-map/mutation-journal reconciliation, negative controls and scoped cleanup.
 
 Use separate fresh bootstrap and populated upgrade profiles; historical profiles keep their own migrations/assertions. New profile cases are deliberately selected by applicability, never skipped. Every new process fault uses private instrumentation around the actual owned transaction, exact PID/signal/session observations and its healthy control. All waits are bounded. Final complete gates include the unchanged earlier inventory once, with a fresh complete repeat on committed clean code. Unknown commit outcomes stay unknown; explicit identical retry recovers retained evidence.
+
+## Actual pre-implementation baseline observations
+
+On 2026-09-20 local time, `npm ci --no-audit --no-fund` exited 0. The unchanged `make verify-m4-1` executable baseline completed fifteen profiles before its outer execution ended with 143 during final-profile finalization. The final test report itself contained eight passing cases, but that incomplete orchestration is not called PASS. Only its identified run-owned resources and private files were removed. A fresh `npm run test:integration:m41 -- --upgrade` then exited 0 with restart and cleanup, run `m41-20260919211359560-b0247535`. Logs are under ignored `artifacts/m5a/baseline-685b371/`.
+
+The baseline started at 685b371. The authorized design/inventory commit 1e52216 was made while it ran; it changed no executed production or test code. Later baseline manifests therefore identify that clean documentation state. Final M5A acceptance will require one committed application SHA throughout each complete invocation.
+
+Read-only hosted inspection found M4.1 run 35467226835 failed: the wrapper used its 600000 ms fallback because verify-m4-1 was absent from its longer-deadline allowlist. Nine completed profiles passed; complete hosted acceptance was not established. The additive M5A gate includes an explicit finite deadline and a unit regression for command selection. This changes neither local host settings nor service safety checks.

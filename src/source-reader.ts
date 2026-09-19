@@ -16,16 +16,25 @@ export interface Selection {
   notVisible: string[];
 }
 interface ReadWork {
-  read(keys: readonly RevisionKey[], current: boolean): Promise<Selection>;
+  read(
+    keys: readonly RevisionKey[],
+    mode: 'current' | 'outbox' | 'baseline',
+  ): Promise<Selection>;
 }
 export class SourceReader {
   #owner: TransactionOwner<ReadWork>;
   constructor(config: SourceConfig, expectedEpoch: string) {
     uuid(expectedEpoch);
     this.#owner = new TransactionOwner(config, (client, operation) => ({
-      read: (keys, current) =>
+      read: (keys, mode) =>
         operation(async () => {
           countBound(keys.length);
+          const current = mode === 'current';
+          const table = current
+            ? 'entities'
+            : mode === 'baseline'
+              ? 'baseline_revisions'
+              : 'outbox';
           const ids = keys.map((key) => positiveBigint(key.entityId));
           const versions = keys.map((key) => positiveBigint(key.version));
           const settings = (
@@ -48,7 +57,7 @@ export class SourceReader {
             await client.query<Record<string, unknown>>(
               `WITH selected AS MATERIALIZED (
         SELECT DISTINCT e.entity_id,e.entity_version,e.source_epoch,e.change_id,e.recorded_at,e.is_deleted,e.payload::text AS exported
-        FROM source.${current ? 'entities' : 'outbox'} e JOIN unnest($1::bigint[],$2::bigint[]) k(id,version)
+        FROM source.${table} e JOIN unnest($1::bigint[],$2::bigint[]) k(id,version)
         ON e.entity_id=k.id ${current ? '' : 'AND e.entity_version=k.version'} WHERE e.source_epoch=$3
       ), measured AS MATERIALIZED (
         SELECT *, coalesce(octet_length(to_json(exported)::text),4)+1024 AS transfer_bytes FROM selected
@@ -81,7 +90,7 @@ export class SourceReader {
               event_id: `${String(row['source_epoch'])}:${String(row['entity_id'])}:${String(row['entity_version'])}`,
               source_change_id: row['change_id'],
               source_recorded_at: row['recorded_at'],
-              kind: 'mutation',
+              kind: row['change_id'] === null ? 'baseline' : 'mutation',
               is_deleted: row['is_deleted'],
               payload_encoding: codec,
               payload_json: row['payload_json'],
@@ -110,11 +119,15 @@ export class SourceReader {
   }
   outbox(keys: readonly RevisionKey[]): Promise<Selection> {
     countBound(keys.length);
-    return this.#owner.transaction((tx) => tx.read(keys, false));
+    return this.#owner.transaction((tx) => tx.read(keys, 'outbox'));
+  }
+  baseline(keys: readonly RevisionKey[]): Promise<Selection> {
+    countBound(keys.length);
+    return this.#owner.transaction((tx) => tx.read(keys, 'baseline'));
   }
   current(entityId: string): Promise<Selection> {
     return this.#owner.transaction((tx) =>
-      tx.read([{ entityId, version: '1' }], true),
+      tx.read([{ entityId, version: '1' }], 'current'),
     );
   }
 }

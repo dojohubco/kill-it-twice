@@ -56,3 +56,8 @@ verify-m4-1: verify-m4
 	npm run test:reproduction:m41
 	npm run test:integration:m41
 	npm run test:integration:m41 -- --upgrade
+
+.PHONY: verify-m5a
+verify-m5a: verify-m4-1
+	npm run test:integration:m5a
+	npm run test:integration:m5a -- --upgrade

@@ -1,3 +1,9 @@
+import { checkBootstrapEvidence } from './bootstrap-evidence.ts';
+import { migrateBootstrap } from './migrate-bootstrap.ts';
+import {
+  bootstrapCases,
+  bootstrapUpgradeCases,
+} from './required-bootstrap-cases.ts';
 import { Capture } from '../src/capture.ts';
 import { startRabbit } from './rabbit-service.ts';
 import {
@@ -98,6 +104,7 @@ assert.ok(
     'm4',
     'm41-repro',
     'm41',
+    'm5a',
   ].includes(profile),
   'Expected an explicitly supported acceptance or reproduction profile',
 );
@@ -105,7 +112,9 @@ const oracleReproduction = profile === 'm3-repro';
 const oracleAcceptance = profile === 'm3-oracle';
 const batchReproduction = profile === 'm41-repro';
 const batchProfile = profile === 'm41';
-const rabbitProfile = profile === 'm4' || batchReproduction || batchProfile;
+const bootstrapProfile = profile === 'm5a';
+const rabbitProfile =
+  profile === 'm4' || batchReproduction || batchProfile || bootstrapProfile;
 const esProfile =
   profile === 'm3' || oracleReproduction || oracleAcceptance || rabbitProfile;
 let rabbitService: Awaited<ReturnType<typeof startRabbit>> | undefined;
@@ -132,37 +141,41 @@ const upgrade = process.argv[3] === '--upgrade';
 assert.ok(
   process.argv[3] === undefined || (twoDatabases && !reproduction && upgrade),
 );
-const inventory = batchReproduction
-  ? batchReproductionCases
-  : batchProfile
-    ? batchCases
-    : rabbitProfile
-      ? rabbitCases
-      : oracleAcceptance
-        ? oracleCases
-        : oracleReproduction
-          ? oracleReproductionCases
-          : esProfile
-            ? [...esCases, expectationInventoryCase]
-            : reproduction
-              ? reproductionCases
-              : guarded
-                ? [
-                    ...captureCases,
-                    ...isolationCases,
-                    ...(upgrade ? [] : registrationCases),
-                  ]
-                : profile === 'm2c'
-                  ? captureCases
-                  : profile === 'm2b'
-                    ? stagingCases
-                    : profile === 'm2a'
-                      ? [
-                          ...requiredCases,
-                          ...commandCases,
-                          ...commandFaultCases,
-                        ]
-                      : requiredCases;
+const inventory = bootstrapProfile
+  ? upgrade
+    ? bootstrapUpgradeCases
+    : bootstrapCases
+  : batchReproduction
+    ? batchReproductionCases
+    : batchProfile
+      ? batchCases
+      : rabbitProfile
+        ? rabbitCases
+        : oracleAcceptance
+          ? oracleCases
+          : oracleReproduction
+            ? oracleReproductionCases
+            : esProfile
+              ? [...esCases, expectationInventoryCase]
+              : reproduction
+                ? reproductionCases
+                : guarded
+                  ? [
+                      ...captureCases,
+                      ...isolationCases,
+                      ...(upgrade ? [] : registrationCases),
+                    ]
+                  : profile === 'm2c'
+                    ? captureCases
+                    : profile === 'm2b'
+                      ? stagingCases
+                      : profile === 'm2a'
+                        ? [
+                            ...requiredCases,
+                            ...commandCases,
+                            ...commandFaultCases,
+                          ]
+                        : requiredCases;
 const runId = `${profile}-${new Date().toISOString().replace(/[^0-9]/g, '')}-${randomBytes(4).toString('hex')}`;
 const artifactDir = resolve(`artifacts/${profile}`, runId);
 await mkdir(artifactDir, { recursive: true });
@@ -176,7 +189,9 @@ const stagerPassword = randomBytes(24).toString('hex');
 const capturePassword = randomBytes(24).toString('hex');
 const pipelineCapturePassword = randomBytes(24).toString('hex');
 let pipelineId = '';
+const bootstrapPassword = randomBytes(24).toString('hex');
 const secrets = [
+  bootstrapPassword,
   esPassword,
   adminPassword,
   writerPassword,
@@ -229,19 +244,23 @@ function pipelineAdmin(label: string) {
 const manifest: Record<string, unknown> = {
   runId,
   profile,
-  migrationMode: upgrade
-    ? batchProfile
-      ? 'populated M4 consumer upgrade'
-      : rabbitProfile
-        ? 'populated M3.1 upgrade'
-        : esProfile
-          ? 'populated guarded M2C.1 upgrade'
-          : guarded
-            ? 'populated registered M2C upgrade'
-            : profile === 'm2c'
-              ? 'populated M2B upgrade'
-              : 'populated M2A upgrade'
-    : 'fresh',
+  migrationMode: bootstrapProfile
+    ? upgrade
+      ? 'populated M4.1 active source upgrade'
+      : 'fresh closed bootstrap'
+    : upgrade
+      ? batchProfile
+        ? 'populated M4 consumer upgrade'
+        : rabbitProfile
+          ? 'populated M3.1 upgrade'
+          : esProfile
+            ? 'populated guarded M2C.1 upgrade'
+            : guarded
+              ? 'populated registered M2C upgrade'
+              : profile === 'm2c'
+                ? 'populated M2B upgrade'
+                : 'populated M2A upgrade'
+      : 'fresh',
   artifactDir,
   startedAt: new Date().toISOString(),
   status: 'RUNNING',
@@ -613,7 +632,9 @@ try {
             });
             pipelineId = identity.pipelineId;
             manifest['pipelineId'] = pipelineId;
-            await registerCapture(admin, pipelineId, sourceEpoch);
+            if (bootstrapProfile && !upgrade)
+              await migrateBootstrap(admin, bootstrapPassword);
+            else await registerCapture(admin, pipelineId, sourceEpoch);
           } else if (captureProfile) {
             const result = await initializeCaptureFixture(admin, pAdmin, {
               source: {
@@ -926,7 +947,7 @@ try {
           consumerSqlPassword,
           consumerReaderPassword,
         );
-        if (batchProfile && !upgrade) {
+        if ((batchProfile && !upgrade) || bootstrapProfile) {
           const c = new pg.Client({
             ...pConfig,
             database: 'consumer_m4',
@@ -985,6 +1006,7 @@ try {
     M1_RUN_ID: runId,
     M4_UPGRADE: String(upgrade),
     M41_UPGRADE: String(batchProfile && upgrade),
+    SOURCE_BOOTSTRAP_PASSWORD: bootstrapPassword,
     PIPELINE_RABBIT_PASSWORD: publisherSqlPassword,
     PIPELINE_RECEIPTS_PASSWORD: receiptSqlPassword,
     CONSUMER_PASSWORD: consumerSqlPassword,
@@ -1050,6 +1072,11 @@ try {
     { code: 0, signal: null, timedOut: false, outputOverflow: false },
     inventory,
   );
+  if (bootstrapProfile)
+    manifest['bootstrapEvidence'] = await checkBootstrapEvidence(
+      join(artifactDir, 'sql-evidence.jsonl'),
+      upgrade,
+    );
   if (batchReproduction || batchProfile)
     manifest['batchEvidence'] = await checkBatchEvidence(
       join(artifactDir, 'sql-evidence.jsonl'),
@@ -1087,7 +1114,7 @@ try {
             application_name: string;
             state: string;
           }>(
-            "SELECT pid, application_name, state FROM pg_stat_activity WHERE usename IN ('source_writer','source_command','source_reader','source_capture')",
+            "SELECT pid, application_name, state FROM pg_stat_activity WHERE usename IN ('source_writer','source_command','source_reader','source_capture','source_bootstrap')",
           )
         ).rows;
         assert.deepEqual(sessions, [], 'runtime writer session leaked');
@@ -1119,7 +1146,27 @@ try {
         const capture = captureProfile
           ? await captureSnapshot(connection)
           : undefined;
-        return { epoch, entities, outbox, receipts, sessions, capture };
+        const bootstrap: Record<string, unknown> = {};
+        if (bootstrapProfile)
+          for (const table of [
+            'bootstrap_manifest',
+            'bootstrap_chunks',
+            'baseline_revisions',
+          ])
+            bootstrap[table] = (
+              await connection.query<{ text: string }>(
+                `SELECT row_to_json(t)::text text FROM source.${table} t ORDER BY row_to_json(t)::text COLLATE "C"`,
+              )
+            ).rows.map((r) => r.text);
+        return {
+          epoch,
+          entities,
+          outbox,
+          receipts,
+          sessions,
+          capture,
+          ...(bootstrapProfile ? { bootstrap } : {}),
+        };
       },
       () => connection.end(),
     );

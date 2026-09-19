@@ -169,3 +169,9 @@ M4's application-owned topology registration cannot detect an identically recrea
 ## M4.1 consumer byte-accounting clarification — 2026-09-19
 
 The normal consumer transaction limit is 32 original received messages and 1048576 bytes of their canonical wire-body buffers, including the unchanged body/hash wrapper. Equal boundary values are admitted. Deduplicating identical events reduces database work but never reduces original application count/byte retention accounting. Consumer migration 002 replaces the demonstrated body+108 SQL estimate with the octet length of the exact reconstructed canonical wire (93 wrapper bytes for a valid hash). The ceiling, protocol, effects and COMMIT-before-ACK semantics are unchanged. This byte limit is distinct from bounded metadata, prefetch retention, decoded copies and hex SQL parameter overhead; it is not a total heap-memory claim.
+
+## M5A retained baseline bootstrap and activation — 2026-09-20
+
+ADR 012 authorizes genuine retained version-1 source baselines with NULL change identity. Controlled bounded chunks commit ordinal membership, current entities, immutable baseline revisions and progress together, without mutation outbox/work/command receipts or automatic staging. A closed bootstrap seals complete recipe evidence, then atomically binds capture and becomes active. Ordinary mutations retain READ COMMITTED capture enforcement; baseline no-ops retain exact historical receipts against baseline evidence, while mutation receipts match outbox evidence. Existing active epochs cannot be reseeded or reclassified.
+
+Explicit bounded baseline reads preserve the frozen eleven-field envelope/codec and source revision kind. Selected small fixtures use existing real sinks; baseline inbox/projection includes a zero-unit aggregate without a mutation effect. Mutation backlog zero does not mean baselines were replicated. No scanner, pipeline run checkpoint, completion fence or scale acceptance is added.

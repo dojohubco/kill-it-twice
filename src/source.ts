@@ -25,7 +25,7 @@ export interface SourceRow {
   entity_id: string;
   source_epoch: string;
   entity_version: string;
-  change_id: string;
+  change_id: string | null;
   recorded_at: string;
   is_deleted: boolean;
   payload_json: string | null;
@@ -80,7 +80,7 @@ function sourceRow(value: Record<string, unknown>): SourceRow {
   } = value;
   if (
     typeof source_epoch !== 'string' ||
-    typeof change_id !== 'string' ||
+    !(change_id === null || typeof change_id === 'string') ||
     typeof recorded_at !== 'string' ||
     typeof is_deleted !== 'boolean' ||
     !(payload_json === null || typeof payload_json === 'string')
