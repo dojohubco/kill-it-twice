@@ -756,8 +756,13 @@ await test(name('MQ09'), async (t) => {
   assert.ok(Array.isArray(deliveries));
   const original = field(record(deliveries[0]), 'channelId');
   const connection = await waitFor(
-    async () => {
-      const all = await metadata(true).request('GET', '/api/connections');
+    async (signal) => {
+      const all = await metadata(true).request(
+        'GET',
+        '/api/connections',
+        undefined,
+        signal,
+      );
       assert.ok(Array.isArray(all));
       const found: unknown = all.find(
         (x) =>
@@ -872,6 +877,35 @@ await test(name('MQ10'), async (t) => {
       await delay(200);
     }
   }
+  const stopPublish = new AbortController();
+  const recoveredPublications: Awaited<ReturnType<RabbitDelivery['once']>>[] =
+    [];
+  const publishDeadline = setTimeout(() => stopPublish.abort(), 15000);
+  try {
+    await w.follow(stopPublish.signal, (result) => {
+      recoveredPublications.push(result);
+      if (
+        result.outcomes.some(
+          (o) => o.eventId === f.eventId && o.status === 'settled',
+        )
+      )
+        stopPublish.abort();
+      return Promise.resolve();
+    });
+  } finally {
+    clearTimeout(publishDeadline);
+    stopPublish.abort();
+  }
+  assert.ok(
+    recoveredPublications.some((r) =>
+      r.outcomes.some(
+        (o) =>
+          o.eventId === f.eventId &&
+          o.status === 'settled' &&
+          o.outcome === 'confirmed',
+      ),
+    ),
+  );
   await drain(p, c);
   const route = await proxy(t, 'consumer-db');
   const valid = await mutation(
@@ -881,9 +915,13 @@ await test(name('MQ10'), async (t) => {
   await captureDrain();
   await publisher().once();
   const qBefore = (await c.query('SELECT * FROM consumer.quarantine')).rows;
+  let interruptDatabase = true;
   class InterruptedDatabase extends ConsumerDatabase {
     override async process(...args: Parameters<ConsumerDatabase['process']>) {
-      await route.enabled(false);
+      if (interruptDatabase) {
+        interruptDatabase = false;
+        await route.enabled(false);
+      }
       return super.process(...args);
     }
   }
@@ -903,18 +941,30 @@ await test(name('MQ10'), async (t) => {
     (await c.query('SELECT * FROM consumer.quarantine')).rows,
     qBefore,
   );
-  await route.enabled(true);
-  const recovered = await new Consumer(
-    new ConsumerDatabase({
-      ...consumerConfig(),
-      host: route.host,
-      port: route.port,
-    }),
-    amqpConfig('consumer'),
-    metadata(),
-    topology(),
-  ).once();
-  assert.equal(recovered.acknowledged, 1);
+  const stopRecovery = new AbortController();
+  const recovery: (
+    Awaited<ReturnType<Consumer['once']>> | { error: string; retryMs: number }
+  )[] = [];
+  const recoveryDeadline = setTimeout(() => stopRecovery.abort(), 15000);
+  try {
+    await failed.follow(stopRecovery.signal, async (result) => {
+      recovery.push(result);
+      if ('error' in result) {
+        assert.ok(result.retryMs > 0);
+        await route.enabled(true);
+      } else if (result.acknowledged === 1) stopRecovery.abort();
+    });
+  } finally {
+    clearTimeout(recoveryDeadline);
+    stopRecovery.abort();
+  }
+  const recovered = recovery.find(
+    (r) => 'acknowledged' in r && r.acknowledged === 1,
+  );
+  assert.ok(
+    recovered,
+    'Same consumer follow loop reconnects and ACKs the retained message',
+  );
   await drain(p, c);
   const esContainer = `${required('ES_PROJECT')}-elasticsearch-1`;
   await docker(['stop', '--time', '10', esContainer]);
@@ -934,7 +984,9 @@ await test(name('MQ10'), async (t) => {
     brokerStoppedMs,
     attempts,
     admissionAttempts,
+    automaticPublisherRecovery: recoveredPublications,
     consumerDatabaseRecovered: recovered,
+    automaticConsumerRecovery: recovery,
     esIndependentEvent: unaffected.eventId,
   });
 });
@@ -1528,9 +1580,9 @@ await test(name('MQ16'), async (t) => {
   const broker = `${required('RABBIT_PROJECT')}-rabbitmq-1`;
   await docker(['restart', '--time', '10', broker]);
   await waitFor(
-    async () => {
+    async (signal) => {
       try {
-        await validateTopology(metadata(), topology());
+        await validateTopology(metadata(), topology(), signal);
         return true;
       } catch {
         return false;
@@ -1550,6 +1602,32 @@ await test(name('MQ16'), async (t) => {
   const after = await intent(p, f.eventId);
   assert.equal(after['rabbit_attempt_id'], before['rabbit_attempt_id']);
   assert.equal(after['settled_at'], before['settled_at']);
+  const authFixture = await mutation(
+    s,
+    '{"name":"bad broker credential remains retryable after setup correction","loyalty_points":16}',
+  );
+  await captureDrain();
+  const badCredential = new RabbitDelivery(
+    rabbitLedger(),
+    new Publisher({ ...amqpConfig(), password: randomUUID() }, metadata()),
+  );
+  const authResult = await badCredential.once();
+  assert.equal(authResult.outcomes.length, 1);
+  assert.equal(authResult.outcomes[0]?.outcome, 'auth');
+  assert.equal((await rabbitLedger().target()).mode, 'blocked');
+  assert.equal((await intent(p, authFixture.eventId))['state'], 'retry_wait');
+  await assert.rejects(publisher().once(), /target unavailable/);
+  const authAttempts = (
+    await p.query(
+      'SELECT event_id,outcome,context FROM pipeline.rabbit_attempts WHERE event_id=$1',
+      [authFixture.eventId],
+    )
+  ).rows;
+  assert.equal(authAttempts.length, 1);
+  // Controlled test setup repairs only this intentionally wrong credential experiment's
+  // operational block. Runtime has no rebind, unblock or replay capability.
+  await p.query("UPDATE pipeline.rabbit_target SET mode='ready',reason=NULL");
+  await drain(p, c);
   const session = new AmqpSession();
   await session.open(amqpConfig());
   const ch = await session.channel(true);
@@ -1590,6 +1668,7 @@ await test(name('MQ16'), async (t) => {
   const stopped = await consumer().once(stopping.signal, 25);
   assert.equal(stopped.acknowledged, 0);
   evidence('MQ16', {
+    badCredential: { authResult, authAttempts, eventId: authFixture.eventId },
     eventId: f.eventId,
     target: tBefore,
     identity: identityBefore,

@@ -19,7 +19,12 @@ export class BrokerMetadata {
   constructor(config: MetadataConnection) {
     this.#config = { ...config };
   }
-  request(method: string, path: string, value?: unknown): Promise<unknown> {
+  request(
+    method: string,
+    path: string,
+    value?: unknown,
+    signal?: AbortSignal,
+  ): Promise<unknown> {
     const data = value === undefined ? undefined : JSON.stringify(value);
     if (data && Buffer.byteLength(data) > 65536)
       throw new Error('Metadata request exceeds 64 KiB');
@@ -35,7 +40,9 @@ export class BrokerMetadata {
           rejectUnauthorized: true,
           auth: `${this.#config.username}:${this.#config.password}`,
           agent: false,
-          signal: AbortSignal.timeout(5000),
+          signal: signal
+            ? AbortSignal.any([signal, AbortSignal.timeout(5000)])
+            : AbortSignal.timeout(5000),
           headers: data
             ? {
                 'content-type': 'application/json',
@@ -126,13 +133,23 @@ export interface Topology {
 export async function validateTopology(
   api: BrokerMetadata,
   t: Topology,
+  signal?: AbortSignal,
 ): Promise<void> {
   const v = encodeURIComponent(t.vhost),
     e = encodeURIComponent(t.exchange),
     q = encodeURIComponent(t.queue);
-  const exchange = record(await api.request('GET', `/api/exchanges/${v}/${e}`));
-  const queue = record(await api.request('GET', `/api/queues/${v}/${q}`));
-  const bindings = await api.request('GET', `/api/bindings/${v}/e/${e}/q/${q}`);
+  const exchange = record(
+    await api.request('GET', `/api/exchanges/${v}/${e}`, undefined, signal),
+  );
+  const queue = record(
+    await api.request('GET', `/api/queues/${v}/${q}`, undefined, signal),
+  );
+  const bindings = await api.request(
+    'GET',
+    `/api/bindings/${v}/e/${e}/q/${q}`,
+    undefined,
+    signal,
+  );
   const args = record(queue['arguments']);
   if (
     exchange['type'] !== 'direct' ||

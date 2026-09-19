@@ -185,9 +185,11 @@ export function amqpFailure(error: unknown): BrokerFailure {
   if (error instanceof BrokerFailure) return error;
   const message = error instanceof Error ? error.message : '';
   return new BrokerFailure(
-    /ACCESS_REFUSED|403|authentication|Handshake terminated/.test(message)
+    /\bACCESS[_-]REFUSED\b|\b403\b|authentication failed/i.test(message)
       ? 'auth'
-      : /NOT_FOUND|404|PRECONDITION_FAILED|406/.test(message)
+      : /\bNOT[_-]FOUND\b|\b404\b|\bPRECONDITION[_-]FAILED\b|\b406\b/.test(
+            message,
+          )
         ? 'configuration'
         : 'transient',
     'AMQP operation failed; channel outcome unresolved',

@@ -1,3 +1,4 @@
+import { amqpFailure } from '../../src/rabbitmq/session.ts';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { randomUUID } from 'node:crypto';
@@ -160,5 +161,25 @@ await test('MQ-unit admission bounds reject before database or network work', as
   );
   await assert.rejects(
     new Consumer(new ConsumerDatabase(sql), config, meta, t).once(undefined, 0),
+  );
+});
+
+await test('MQ-unit connection errors with numeric ports are not authentication evidence', () => {
+  for (const message of [
+    'connect ECONNREFUSED 127.0.0.1:40321',
+    'connect ECONNREFUSED 127.0.0.1:40424',
+    'Handshake terminated',
+  ])
+    assert.equal(amqpFailure(new Error(message)).classification, 'transient');
+  assert.equal(
+    amqpFailure(
+      new Error('Handshake terminated by server: 403 (ACCESS-REFUSED)'),
+    ).classification,
+    'auth',
+  );
+  assert.equal(
+    amqpFailure(new Error('Channel closed: 406 (PRECONDITION-FAILED)'))
+      .classification,
+    'configuration',
   );
 });
