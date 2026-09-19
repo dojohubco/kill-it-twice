@@ -78,10 +78,20 @@ async function directRejection(group: Cohort, label: string) {
     assert.ok(e instanceof TransactionError);
     assert.equal(e.outcome, 'rolled_back');
     assert.equal(e.sqlState, 'P6002');
+    assert.ok(e.cause instanceof pg.DatabaseError);
+    assert.equal(
+      e.cause.message,
+      label === 'B04-too-many'
+        ? 'Invalid consumer batch'
+        : 'Consumer batch exceeds 1 MiB',
+    );
     observation = {
       sqlState: e.sqlState,
       outcome: e.outcome,
-      message: e.message,
+      message: e.cause.message,
+      phase: e.phase,
+      completionTag: e.completionTag,
+      cleanupErrors: e.cleanupErrors,
     };
     return true;
   });
@@ -475,21 +485,26 @@ void test(name('B08'), async (t) => {
     );
   await publishCohort(group);
   const trace = batchTrace(),
-    restore = installBatchTiming(trace, [32, 3]),
     worker = observedWorker(trace);
+  let restore = installBatchTiming(trace, [32]);
   try {
     const first = await worker.once(undefined, 10000);
     assert.equal(first.received, 32);
     assert.equal(first.acknowledged, 32);
     await queueState(0);
     await assertCohort(s, c, group);
+    restore(); // Scope private consumer instrumentation away from the real publisher.
     // Same Consumer object, no external restart, new source commands and ordinary bounded capture.
     const small = [];
     for (let i = 0; i < 3; i++) small.push(await mutation(s));
     const { drain: capture } = await import('../support/capture.ts');
     await capture('B08-small');
     const { publisher } = await import('../support/rabbit.ts');
-    assert.equal((await publisher().once()).claimed, 3);
+    const published = await publisher().once();
+    assert.equal(published.claimed, 3);
+    assert.ok(published.outcomes.every((r) => r.outcome === 'confirmed'));
+    evidence('B08-small-publication', published);
+    restore = installBatchTiming(trace, [3]);
     const second = await worker.once(undefined, 10000);
     assert.equal(second.received, 3);
     assert.equal(second.acknowledged, 3);
@@ -518,6 +533,7 @@ void test(name('B08'), async (t) => {
       sameConsumerObject: true,
     });
   } finally {
+    evidence('B08-trace', trace);
     restore();
   }
 });
