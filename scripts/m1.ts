@@ -1,3 +1,19 @@
+import { Capture } from '../src/capture.ts';
+import { startRabbit } from './rabbit-service.ts';
+import {
+  migrateRabbit,
+  prepareRabbit,
+  setupTopology,
+  initializeConsumer,
+  bindRabbit,
+  rabbitSnapshot,
+  consumerSnapshot,
+} from './rabbit-setup.ts';
+import { rabbitCases } from './required-rabbit-cases.ts';
+import { EsTransport } from '../src/es/transport.ts';
+import { EsLedger } from '../src/es/ledger.ts';
+import { EsAdapter } from '../src/es/adapter.ts';
+import { Delivery } from '../src/es/worker.ts';
 import {
   observePrerequisite,
   requirePrerequisite,
@@ -12,6 +28,7 @@ import {
   oracleCases,
   expectationInventoryCase,
 } from './required-oracle-cases.ts';
+import { checkRabbitEvidence } from './rabbit-evidence.ts';
 import { checkEsEvidence, checkOracleEvidence } from './es-evidence.ts';
 import { startEs } from './es-service.ts';
 import { migrateEs, registerEs, esSnapshot } from './es-setup.ts';
@@ -35,6 +52,8 @@ import {
   pipelineSnapshot,
   migrateCapturePipeline,
   migrateCaptureSource,
+  migrateCaptureIsolation,
+  registerCapture,
 } from './migrate-staging.ts';
 import { stagingCases } from './required-staging-cases.ts';
 import { Source } from '../src/source.ts';
@@ -73,12 +92,27 @@ assert.ok(
     'm3',
     'm3-repro',
     'm3-oracle',
+    'm4',
   ].includes(profile),
   'Expected an explicitly supported acceptance or reproduction profile',
 );
 const oracleReproduction = profile === 'm3-repro';
 const oracleAcceptance = profile === 'm3-oracle';
-const esProfile = profile === 'm3' || oracleReproduction || oracleAcceptance;
+const rabbitProfile = profile === 'm4';
+const esProfile =
+  profile === 'm3' || oracleReproduction || oracleAcceptance || rabbitProfile;
+let rabbitService: Awaited<ReturnType<typeof startRabbit>> | undefined;
+let rabbitTarget: Awaited<ReturnType<typeof prepareRabbit>> | undefined;
+let rabbitCredentials: Awaited<ReturnType<typeof setupTopology>> | undefined;
+const mqPasswords = Array.from({ length: 4 }, () =>
+  randomBytes(24).toString('hex'),
+);
+const [
+  publisherSqlPassword = '',
+  receiptSqlPassword = '',
+  consumerSqlPassword = '',
+  consumerReaderPassword = '',
+] = mqPasswords;
 let esService: Awaited<ReturnType<typeof startEs>> | undefined;
 let receiver: Awaited<ReturnType<typeof registerEs>> | undefined;
 const esPassword = randomBytes(24).toString('hex');
@@ -91,27 +125,29 @@ const upgrade = process.argv[3] === '--upgrade';
 assert.ok(
   process.argv[3] === undefined || (twoDatabases && !reproduction && upgrade),
 );
-const inventory = oracleAcceptance
-  ? oracleCases
-  : oracleReproduction
-    ? oracleReproductionCases
-    : esProfile
-      ? [...esCases, expectationInventoryCase]
-      : reproduction
-        ? reproductionCases
-        : guarded
-          ? [
-              ...captureCases,
-              ...isolationCases,
-              ...(upgrade ? [] : registrationCases),
-            ]
-          : profile === 'm2c'
-            ? captureCases
-            : profile === 'm2b'
-              ? stagingCases
-              : profile === 'm2a'
-                ? [...requiredCases, ...commandCases, ...commandFaultCases]
-                : requiredCases;
+const inventory = rabbitProfile
+  ? rabbitCases
+  : oracleAcceptance
+    ? oracleCases
+    : oracleReproduction
+      ? oracleReproductionCases
+      : esProfile
+        ? [...esCases, expectationInventoryCase]
+        : reproduction
+          ? reproductionCases
+          : guarded
+            ? [
+                ...captureCases,
+                ...isolationCases,
+                ...(upgrade ? [] : registrationCases),
+              ]
+            : profile === 'm2c'
+              ? captureCases
+              : profile === 'm2b'
+                ? stagingCases
+                : profile === 'm2a'
+                  ? [...requiredCases, ...commandCases, ...commandFaultCases]
+                  : requiredCases;
 const runId = `${profile}-${new Date().toISOString().replace(/[^0-9]/g, '')}-${randomBytes(4).toString('hex')}`;
 const artifactDir = resolve(`artifacts/${profile}`, runId);
 await mkdir(artifactDir, { recursive: true });
@@ -135,6 +171,7 @@ const secrets = [
   stagerPassword,
   capturePassword,
   pipelineCapturePassword,
+  ...mqPasswords,
 ];
 const env = {
   ...process.env,
@@ -178,13 +215,15 @@ const manifest: Record<string, unknown> = {
   runId,
   profile,
   migrationMode: upgrade
-    ? esProfile
-      ? 'populated guarded M2C.1 upgrade'
-      : guarded
-        ? 'populated registered M2C upgrade'
-        : profile === 'm2c'
-          ? 'populated M2B upgrade'
-          : 'populated M2A upgrade'
+    ? rabbitProfile
+      ? 'populated M3.1 upgrade'
+      : esProfile
+        ? 'populated guarded M2C.1 upgrade'
+        : guarded
+          ? 'populated registered M2C upgrade'
+          : profile === 'm2c'
+            ? 'populated M2B upgrade'
+            : 'populated M2A upgrade'
     : 'fresh',
   artifactDir,
   startedAt: new Date().toISOString(),
@@ -464,7 +503,7 @@ try {
       }) + '\n',
     );
     if (twoDatabases) {
-      if (upgrade) {
+      if (upgrade && !rabbitProfile) {
         const owner = new Source({
           host: '127.0.0.1',
           port,
@@ -541,6 +580,21 @@ try {
             });
             pipelineId = identity.pipelineId;
             manifest['pipelineId'] = pipelineId;
+          } else if (rabbitProfile) {
+            await migrateCapturePipeline(pAdmin, pipelineCapturePassword);
+            await migrateCaptureSource(admin, capturePassword);
+            await migrateCaptureIsolation(admin);
+            const identity = await pipelineIdentity({
+              host: '127.0.0.1',
+              port: pipelinePort,
+              database: 'pipeline_m2b',
+              user: 'pipeline_capture',
+              password: pipelineCapturePassword,
+              application_name: `${runId}:identity`,
+            });
+            pipelineId = identity.pipelineId;
+            manifest['pipelineId'] = pipelineId;
+            await registerCapture(admin, pipelineId, sourceEpoch);
           } else if (captureProfile) {
             const result = await initializeCaptureFixture(admin, pAdmin, {
               source: {
@@ -687,9 +741,228 @@ try {
       () => p.end(),
     );
   }
+  if (rabbitProfile) {
+    assert.ok(esService && receiver);
+    rabbitService = await startRabbit(`${runId}-rabbit`);
+    secrets.push(rabbitService.password);
+    manifest['rabbitmq'] = {
+      version: rabbitService.info['rabbitmq_version'],
+      listeners: rabbitService.info['listeners'],
+      container: await rabbitService.compose(['ps', '-q', 'rabbitmq']),
+      image: await rabbitService.compose(['images', '--format', 'json']),
+    };
+    const p = pipelineAdmin('rabbit-setup');
+    await withCleanup(
+      async () => {
+        await p.connect();
+        const pConfig = {
+          host: '127.0.0.1',
+          port: pipelinePort,
+          database: 'pipeline_m2b',
+          user: 'pipeline_admin',
+          password: pipelinePassword,
+          application_name: `${runId}:rabbit-upgrade`,
+        };
+        assert.ok(esService && receiver && rabbitService);
+        if (upgrade) {
+          const sourceConfig = {
+            host: '127.0.0.1',
+            port,
+            database: 'source_m1',
+            user: 'source_command',
+            password: commandPassword,
+            application_name: `${runId}:m4-upgrade-command`,
+          };
+          const source = new Source(sourceConfig);
+          const journal = [];
+          const create = {
+            sourceEpoch,
+            contractVersion: 1,
+            commandId: randomUUID(),
+            operation: 'create' as const,
+            entityId: null,
+            payloadJson:
+              '{"name":"M4 upgrade","country":"GE","loyalty_points":1}',
+          };
+          const created = await source.command(create);
+          journal.push({ command: create, reply: created });
+          const update = {
+            ...create,
+            commandId: randomUUID(),
+            operation: 'update' as const,
+            entityId: created.result.entity_id,
+            payloadJson:
+              '{"name":"M4 upgrade changed","country":"GE","loyalty_points":2}',
+          };
+          journal.push({
+            command: update,
+            reply: await source.command(update),
+          });
+          await writeFile(
+            join(artifactDir, 'm4-initial-journal.json'),
+            JSON.stringify(journal, null, 2) + '\n',
+          );
+          const capture = new Capture({
+            source: {
+              ...sourceConfig,
+              user: 'source_capture',
+              password: capturePassword,
+            },
+            pipeline: {
+              ...pConfig,
+              user: 'pipeline_capture',
+              password: pipelineCapturePassword,
+            },
+            binding: { sourceEpoch, pipelineId },
+          });
+          await capture.captureOnce();
+          const transport = new EsTransport({
+            ...esService.config,
+            username: receiver.username,
+            password: receiver.password,
+          });
+          await withCleanup(
+            async () => {
+              const worker = new Delivery(
+                new EsLedger({
+                  ...pConfig,
+                  user: 'pipeline_es',
+                  password: esPassword,
+                }),
+                new EsAdapter(transport),
+              );
+              await worker.once();
+            },
+            () => transport.close(),
+          );
+        }
+        const sourceEvidence = async () => {
+          const db = new pg.Client({
+            host: '127.0.0.1',
+            port,
+            database: 'source_m1',
+            user: 'm1_admin',
+            password: adminPassword,
+            connectionTimeoutMillis: 5000,
+            query_timeout: 10000,
+          });
+          return withCleanup(
+            async () => {
+              await db.connect();
+              return {
+                ...(await sourceSnapshot(db)),
+                ...(await captureSnapshot(db)),
+              };
+            },
+            () => db.end(),
+          );
+        };
+        const sourceBeforeRabbit = await sourceEvidence();
+        const oldIntents = (
+          await p.query<{ text: string }>(
+            'SELECT to_jsonb(t)::text text FROM pipeline.delivery_intents t ORDER BY event_id,kind',
+          )
+        ).rows;
+        const oldObservations = (
+          await p.query<{ text: string }>(
+            'SELECT to_jsonb(t)::text text FROM pipeline.consumer_observations t ORDER BY event_id',
+          )
+        ).rows;
+        const before = {
+          ...(await pipelineSnapshot(p)),
+          ...(await esSnapshot(p)),
+        };
+        await migrateRabbit(p, publisherSqlPassword, receiptSqlPassword);
+        const after = {
+          ...(await pipelineSnapshot(p)),
+          ...(await esSnapshot(p)),
+        };
+        for (const table of [
+          'source_binding',
+          'destinations',
+          'events',
+          'integrity_incidents',
+          'es_target',
+          'es_attempts',
+          'es_dead_letters',
+        ])
+          assert.deepEqual(after[table], before[table]);
+        const preservedIntents = (
+          await p.query<{ text: string }>(
+            "SELECT (to_jsonb(t)-'rabbit_attempt_id')::text text FROM pipeline.delivery_intents t ORDER BY event_id,kind",
+          )
+        ).rows;
+        const preservedObservations = (
+          await p.query<{ text: string }>(
+            "SELECT (to_jsonb(t)-ARRAY['next_check_at','consumer_id','registration_id','receipt_hash','receipt_bytes','receipt_id','observed_at'])::text text FROM pipeline.consumer_observations t ORDER BY event_id",
+          )
+        ).rows;
+        assert.deepEqual(preservedIntents, oldIntents);
+        assert.deepEqual(preservedObservations, oldObservations);
+        rabbitTarget = await prepareRabbit(p, pipelineId, sourceEpoch);
+        await initializeConsumer(
+          p,
+          pConfig,
+          rabbitTarget,
+          consumerSqlPassword,
+          consumerReaderPassword,
+        );
+        rabbitCredentials = await setupTopology(
+          rabbitService.api,
+          rabbitTarget,
+          false,
+          {
+            host: '127.0.0.1',
+            port: rabbitService.amqpPort,
+            username: 'm4_setup',
+            password: rabbitService.password,
+            ca: rabbitService.ca,
+            vhost: rabbitTarget.vhost,
+          },
+        );
+        secrets.push(...Object.values(rabbitCredentials));
+        await bindRabbit(p, rabbitTarget);
+        assert.deepEqual(await sourceEvidence(), sourceBeforeRabbit);
+        await writeFile(
+          join(artifactDir, 'rabbit-upgrade.json'),
+          JSON.stringify(
+            {
+              before,
+              after,
+              registration: rabbitTarget,
+              sourceBeforeRabbit,
+              sourceAfterRabbit: await sourceEvidence(),
+              oldIntents,
+              preservedIntents,
+              oldObservations,
+              preservedObservations,
+              mode: upgrade ? 'populated M3.1' : 'fresh',
+            },
+            null,
+            2,
+          ) + '\n',
+        );
+      },
+      () => p.end(),
+    );
+  }
   const testEnv = {
     ...env,
     M1_RUN_ID: runId,
+    M4_UPGRADE: String(upgrade),
+    PIPELINE_RABBIT_PASSWORD: publisherSqlPassword,
+    PIPELINE_RECEIPTS_PASSWORD: receiptSqlPassword,
+    CONSUMER_PASSWORD: consumerSqlPassword,
+    CONSUMER_READER_PASSWORD: consumerReaderPassword,
+    RABBIT_PORT: String(rabbitService?.amqpPort ?? 0),
+    RABBIT_CA: rabbitService?.ca ?? '',
+    RABBIT_API: rabbitService?.config.url ?? '',
+    RABBIT_SETUP_PASSWORD: rabbitService?.password ?? '',
+    RABBIT_PUBLISHER_PASSWORD: rabbitCredentials?.publisher ?? '',
+    RABBIT_CONSUMER_PASSWORD: rabbitCredentials?.consumer ?? '',
+    RABBIT_OBSERVER_PASSWORD: rabbitCredentials?.observer ?? '',
+    RABBIT_TARGET: JSON.stringify(rabbitTarget ?? {}),
+    RABBIT_PROJECT: `${runId}-rabbit`,
     PIPELINE_ES_PASSWORD: esPassword,
     ES_URL: esService?.config.node ?? '',
     ES_CA: esService?.config.ca ?? '',
@@ -742,6 +1015,10 @@ try {
     { code: 0, signal: null, timedOut: false, outputOverflow: false },
     inventory,
   );
+  if (rabbitProfile)
+    manifest['rabbitEvidence'] = await checkRabbitEvidence(
+      join(artifactDir, 'sql-evidence.jsonl'),
+    );
   if (profile === 'm3')
     manifest['esEvidence'] = await checkEsEvidence(
       join(artifactDir, 'sql-evidence.jsonl'),
@@ -813,11 +1090,45 @@ try {
       async () => {
         await c.connect();
         const base = await pipelineSnapshot(c);
-        return esProfile ? { ...base, ...(await esSnapshot(c)) } : base;
+        return esProfile
+          ? {
+              ...base,
+              ...(await esSnapshot(c)),
+              ...(rabbitProfile ? await rabbitSnapshot(c) : {}),
+            }
+          : base;
       },
       () => c.end(),
     );
   }
+  async function retainedConsumer() {
+    const c = new pg.Client({
+      host: '127.0.0.1',
+      port: pipelinePort,
+      database: 'consumer_m4',
+      user: 'pipeline_admin',
+      password: pipelinePassword,
+      application_name: `${runId}:consumer-restart`,
+      connectionTimeoutMillis: 5000,
+      query_timeout: 10000,
+    });
+    return withCleanup(
+      async () => {
+        await c.connect();
+        assert.deepEqual(
+          (
+            await c.query(
+              "SELECT pid FROM pg_stat_activity WHERE usename IN ('pipeline_rabbit','pipeline_receipts','consumer_runtime','consumer_receipt_reader')",
+            )
+          ).rows,
+          [],
+        );
+        return consumerSnapshot(c);
+      },
+      () => c.end(),
+    );
+  }
+  const consumerBefore = rabbitProfile ? await retainedConsumer() : undefined;
   const pipelineBefore = twoDatabases ? await retainedPipeline() : undefined;
   const beforeRestart = await retainedSnapshot();
   await record('restart', 'docker', [
@@ -873,6 +1184,8 @@ try {
       manifest['pipelineContainer'],
     );
   }
+  const consumerAfter = rabbitProfile ? await retainedConsumer() : undefined;
+  assert.deepEqual(consumerAfter, consumerBefore);
   const afterRestart = await retainedSnapshot();
   assert.deepEqual(
     afterRestart,
@@ -897,6 +1210,8 @@ try {
         afterRestart,
         pipelineBefore,
         pipelineAfter,
+        consumerBefore,
+        consumerAfter,
         unchanged: true,
       },
       null,
@@ -910,6 +1225,39 @@ try {
   diagnostics.fail(error);
 } finally {
   cleaningUp = true;
+  if (rabbitService) {
+    const runningRabbit = rabbitService;
+    await diagnostics.finalize('RabbitMQ logs', async () =>
+      writeFile(
+        join(artifactDir, 'rabbit.log'),
+        clean(
+          await runningRabbit.compose(['logs', '--tail', '150', '--no-color']),
+        ),
+      ),
+    );
+    await diagnostics.finalize('RabbitMQ cleanup', runningRabbit.cleanup);
+    const resources: Record<string, string> = {};
+    for (const kind of ['container', 'volume', 'network'])
+      await diagnostics.finalize(`RabbitMQ remaining ${kind}`, async () => {
+        resources[kind] = await record(`rabbit-remaining-${kind}`, 'docker', [
+          kind,
+          'ls',
+          ...(kind === 'container' ? ['-a'] : []),
+          '-q',
+          '--filter',
+          `label=com.docker.compose.project=${runId}-rabbit`,
+        ]);
+        assert.equal(resources[kind], '');
+      });
+    manifest['rabbitCleanup'] = {
+      status:
+        Object.keys(resources).length === 3 &&
+        Object.values(resources).every((v) => v === '')
+          ? 'PASS'
+          : 'FAIL',
+      resources,
+    };
+  }
   if (esService) {
     const runningEs = esService;
     await diagnostics.finalize('Elasticsearch logs', async () =>
