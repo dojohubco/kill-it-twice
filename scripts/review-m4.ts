@@ -5,12 +5,18 @@ import { mkdir, readFile, writeFile, cp, readdir, rm } from 'node:fs/promises';
 import { join, resolve, basename, dirname } from 'node:path';
 import { command, errorText } from './support.ts';
 import { object } from './acceptance.ts';
-const mode = process.argv[2];
-const milestone = 'M4';
-const baseline = '47e14920d8fa1b1bab154efe253ba85736b28c6f';
-const artifactRoot = 'artifacts/m4';
-const remoteCi =
-  'M4 NOT RUN remotely. Prior M3.1 run 35445223962 observed successful; no M4 push or dispatch authorized.';
+const args = process.argv.slice(2).filter((arg) => arg !== '--m41');
+const mode = args[0];
+const m41 = process.argv.includes('--m41');
+const milestone = m41 ? 'M4.1' : 'M4';
+const gate = m41 ? 'verify-m4-1' : 'verify-m4';
+const baseline = m41
+  ? '77a13205a99f23cd73e353b87bed007f0a36cc75'
+  : '47e14920d8fa1b1bab154efe253ba85736b28c6f';
+const artifactRoot = m41 ? 'artifacts/m41' : 'artifacts/m4';
+const remoteCi = m41
+  ? 'M4.1 NOT RUN remotely. Prior M4 run 35458462908 completed successfully at 77a1320; artifact 10589247521 SHA-256 8e2f5081d1c3b8fa4afe6e37215df88160dff5ccb279550c5f7376e27a3e4d57 inspected read-only. No M4.1 push or dispatch authorized.'
+  : 'M4 NOT RUN remotely. Prior M3.1 run 35445223962 observed successful; no M4 push or dispatch authorized.';
 async function git(args: string[]) {
   const r = await command('git', args, process.env, 30000, true);
   assert.equal(r.code, 0, r.stderr);
@@ -72,8 +78,8 @@ if (mode === 'capture') {
     manifest['inputSha256'] = hash(JSON.stringify(inputs));
     for (const [name, executable, args, expected] of [
       ['npm-ci', 'npm', ['ci', '--no-audit', '--no-fund'], 0],
-      ['verify-m4-first', 'make', ['verify-m4'], 0],
-      ['verify-m4-repeat', 'make', ['verify-m4'], 0],
+      [`${gate}-first`, 'make', [gate], 0],
+      [`${gate}-repeat`, 'make', [gate], 0],
       ['full-verify', 'make', ['verify'], 2],
     ] as const) {
       const startedAt = new Date().toISOString();
@@ -115,12 +121,12 @@ if (mode === 'capture') {
     }
     assert.equal(
       runs.length,
-      26,
-      'Thirteen explicit profiles per gate, two complete gates',
+      m41 ? 32 : 26,
+      'Explicit profiles per gate, two complete gates',
     );
     assert.equal(
       new Set(runs).size,
-      26,
+      m41 ? 32 : 26,
       'Each profile uses fresh owned resources',
     );
     const executedProfiles: string[] = [];
@@ -148,6 +154,9 @@ if (mode === 'capture') {
       'm3-oracle:fresh',
       'm4:fresh',
       'm4:populated M3.1 upgrade',
+      ...(m41
+        ? ['m41-repro:fresh', 'm41:fresh', 'm41:populated M4 consumer upgrade']
+        : []),
     ];
     assert.deepEqual(executedProfiles, [
       ...expectedProfiles,
@@ -164,7 +173,7 @@ if (mode === 'capture') {
   }
   console.log(`${String(manifest['status'])}: ${directory}/capture.json`);
 } else if (mode === 'summary' || mode === 'bundle') {
-  const input = process.argv[3];
+  const input = args[1];
   assert.ok(input, 'Supply local capture directory');
   const directory = resolve(input);
   const captured = object(
@@ -218,6 +227,7 @@ if (mode === 'capture') {
             ],
           }
         : undefined,
+      batchEvidence: r['batchEvidence'],
       rabbitCleanup: r['rabbitCleanup'],
       prerequisite: r['prerequisite'],
       testExecution: r['testExecution'],
@@ -234,7 +244,41 @@ if (mode === 'capture') {
     inputSha256: captured['inputSha256'],
     status: captured['status'],
     commands: captured['commands'],
-    profiles,
+    profiles: m41
+      ? profiles.map((p) => ({
+          runId: p.runId,
+          profile: p.profile,
+          mode: p.mode,
+          status: p.status,
+          counts: p.counts,
+          caseIds: p.caseIds,
+          cleanup: object(p.cleanup)['status'],
+          esCleanup: p.elasticsearchCleanup,
+          rabbitCleanup: p.rabbitCleanup,
+          batchEvidence: p.batchEvidence
+            ? (() => {
+                const b = object(p.batchEvidence);
+                const f = b['fault'] ? object(b['fault']) : undefined;
+                return {
+                  ...b,
+                  ...(f
+                    ? {
+                        fault: {
+                          pid: f['pid'],
+                          exit: f['exit'],
+                          eventCount: Array.isArray(f['eventIds'])
+                            ? f['eventIds'].length
+                            : undefined,
+                        },
+                      }
+                    : {}),
+                };
+              })()
+            : undefined,
+          localRun: p.localRun,
+          manifestSha256: p.manifestSha256,
+        }))
+      : profiles,
     remoteCi,
     evidenceLocation: 'Local paths only; bundle is not published',
     incomplete: ['backfill', 'UI', 'full G1-G5'],
@@ -264,10 +308,12 @@ if (mode === 'capture') {
     ))
       if (dirname(file) === directory && /\.(log|json)$/.test(file))
         await cp(file, join(bundle, basename(file)));
-    const baselineDir = 'artifacts/m4/baseline-47e1492';
+    const baselineDir = m41
+      ? 'artifacts/m41/baseline-77a1320'
+      : 'artifacts/m4/baseline-47e1492';
     await cp(baselineDir, join(bundle, 'baseline'), { recursive: true });
     const baselineLog = await readFile(
-      join(baselineDir, 'verify-m3.log'),
+      join(baselineDir, m41 ? 'verify-m4.stdout.log' : 'verify-m3.log'),
       'utf8',
     );
     for (const match of baselineLog.matchAll(/^PASS: (.+\/run\.json)$/gm))
@@ -311,10 +357,27 @@ if (mode === 'capture') {
         }
       } else if (
         entry.isDirectory() &&
-        /^(m4-2026|m4-protocol-|hosted-)/.test(entry.name) &&
+        /^(m4-2026|m41-2026|m4-protocol-|hosted-|development$)/.test(
+          entry.name,
+        ) &&
         !runs.some((p) => dirname(String(p)) === resolve(path))
       )
         await cp(path, join(development, entry.name), { recursive: true });
+    }
+    if (m41) {
+      for (const entry of await readdir('artifacts/m41-repro', {
+        withFileTypes: true,
+      })) {
+        if (
+          entry.isDirectory() &&
+          !runs.some((p) => basename(dirname(String(p))) === entry.name)
+        )
+          await cp(
+            join('artifacts/m41-repro', entry.name),
+            join(development, entry.name),
+            { recursive: true },
+          );
+      }
     }
     for (const path of runs) {
       const dir = dirname(String(path));

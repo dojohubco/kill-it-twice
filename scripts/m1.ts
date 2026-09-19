@@ -1426,11 +1426,14 @@ try {
       JSON.stringify(
         {
           format: 1,
-          milestone: guarded
-            ? 'M2C.1'
-            : profile === 'm1'
-              ? 'M1.1'
-              : profile.toUpperCase(),
+          milestone:
+            batchProfile || batchReproduction
+              ? 'M4.1'
+              : guarded
+                ? 'M2C.1'
+                : profile === 'm1'
+                  ? 'M1.1'
+                  : profile.toUpperCase(),
           migrationMode: manifest['migrationMode'],
           runId,
           status: manifest['status'],
