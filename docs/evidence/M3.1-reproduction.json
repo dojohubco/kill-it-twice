@@ -1,0 +1,51 @@
+{
+  "format": 1,
+  "kind": "Historical oracle counterexample, not corrected acceptance",
+  "testedCode": "94c0d74e1a198c0aa448c66d7c4735316a783680",
+  "developmental": false,
+  "command": "npm run test:reproduction:m3-oracle",
+  "exitCode": 0,
+  "runId": "m3-repro-20260919120649054-a34d3231",
+  "eventIds": [
+    "24b52f96-d5e6-43ca-947c-3588e5de7c96:8:1",
+    "24b52f96-d5e6-43ca-947c-3588e5de7c96:8:2"
+  ],
+  "actualBeforeVersion": "1",
+  "actualAfterRejectedVersion": "1",
+  "rejectedSourceVersion": "2",
+  "receiverError": "document_parsing_exception",
+  "historicalOracleFailed": true,
+  "actualIdentitySet": [
+    "24b52f96-d5e6-43ca-947c-3588e5de7c96:3",
+    "24b52f96-d5e6-43ca-947c-3588e5de7c96:4",
+    "24b52f96-d5e6-43ca-947c-3588e5de7c96:5",
+    "24b52f96-d5e6-43ca-947c-3588e5de7c96:7",
+    "24b52f96-d5e6-43ca-947c-3588e5de7c96:8"
+  ],
+  "historicalExpectedIdentitySet": [
+    "24b52f96-d5e6-43ca-947c-3588e5de7c96:3",
+    "24b52f96-d5e6-43ca-947c-3588e5de7c96:4",
+    "24b52f96-d5e6-43ca-947c-3588e5de7c96:5",
+    "24b52f96-d5e6-43ca-947c-3588e5de7c96:7"
+  ],
+  "cleanup": {
+    "status": "PASS",
+    "resources": {
+      "container": "",
+      "volume": "",
+      "network": ""
+    }
+  },
+  "elasticsearchCleanup": {
+    "status": "PASS",
+    "resources": {
+      "container": "",
+      "volume": "",
+      "network": ""
+    }
+  },
+  "inputsSha256": "26f114bd27a5a06feb601e147e4777c7fcc78c025a2a8860f2ea7d315857be63",
+  "evidenceSha256": "0f52c346f024544dea5698d911d1d0d4301d39aaeba6fdb630c1e5384bf3ab06",
+  "localArtifact": "artifacts/m3-repro/m3-repro-20260919120649054-a34d3231",
+  "productionDataLossObserved": false
+}
