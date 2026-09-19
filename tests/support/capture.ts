@@ -53,7 +53,13 @@ export async function drain(
   label = 'drain',
   options?: Partial<CaptureOptions>,
 ) {
-  const w = worker(label, options);
+  // This is ordinary fixture preparation/recovery, not an expiry experiment.
+  // Keep production lease margins while private fault workers and explicit claim
+  // tests retain their short leases and database-clock expiry assertions.
+  const w = worker(
+    label,
+    options ?? { leaseMs: 30000, renewalMs: 5000, idleMs: 1000 },
+  );
   const results = [];
   for (let i = 0; i < 120; i++) {
     const result = await w.captureOnce();
