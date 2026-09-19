@@ -1,8 +1,11 @@
+import { EsAdapter } from '../../src/es/adapter.ts';
+import { validateTopology } from '../../src/rabbitmq/metadata.ts';
+import { docker } from '../support/rabbit-network.ts';
 import type { SourceRow } from '../../src/source.ts';
 import { AmqpSession } from '../../src/rabbitmq/session.ts';
 import { deadline } from '../support/fault-protocol.ts';
 import { control } from '../support/capture.ts';
-import { command } from '../../scripts/support.ts';
+import { command, waitFor } from '../../scripts/support.ts';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { randomUUID } from 'node:crypto';
@@ -11,7 +14,7 @@ import { Bootstrap } from '../../src/bootstrap.ts';
 import { bootstrapCases } from '../../scripts/required-bootstrap-cases.ts';
 import { LimitError } from '../../src/limits.ts';
 import { EsTransport, object } from '../../src/es/transport.ts';
-import { esConfig, remote } from '../support/es.ts';
+import { esConfig, remote, ledger } from '../support/es.ts';
 import { reader, pipeline } from '../support/staging.ts';
 import { connect, required, evidence, databaseWaitFor } from '../support/db.ts';
 import {
@@ -20,6 +23,8 @@ import {
   rawPublish,
   ledgerWire,
   amqpConfig,
+  metadata,
+  rabbitLedger,
   topology,
 } from '../support/rabbit.ts';
 import { execute, request } from '../support/commands.ts';
@@ -993,7 +998,63 @@ await test(name('BS12'), async (t) => {
 await test(name('BS14'), async (t) => {
   const { s, p, c } = await setup(t);
   await deliver(p, c);
-  await reconcile(s, p, c);
+  const receiverBefore = await reconcile(s, p, c);
+  const sourceBefore = await seedSnapshot(s);
+  const es = new EsTransport(esConfig()),
+    admin = new EsTransport(esConfig(true));
+  t.after(() => es.close());
+  t.after(() => admin.close());
+  const esTarget = await ledger().target(),
+    rabbitTarget = await rabbitLedger().target();
+  const esContainer = `${required('ES_PROJECT')}-elasticsearch-1`,
+    rabbitContainer = `${required('RABBIT_PROJECT')}-rabbitmq-1`;
+  await docker(['restart', '--time', '10', esContainer]);
+  await waitFor(
+    async () => {
+      try {
+        await new EsAdapter(es).validate(esTarget);
+        await admin.request('GET', '/_security/_authenticate');
+        const native = object(await admin.request('GET', '/.security/_count'));
+        assert.equal(String(object(native['_shards'])['failed']), '0');
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    Boolean,
+    'M5A retained Elasticsearch ready',
+    90000,
+    async () => {
+      await es.close();
+      await admin.close();
+    },
+  );
+  await docker(['restart', '--time', '10', rabbitContainer]);
+  await waitFor(
+    async (signal) => {
+      try {
+        await validateTopology(metadata(), topology(), signal);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    Boolean,
+    'M5A retained RabbitMQ ready',
+    30000,
+  );
+  assert.deepEqual(await ledger().target(), esTarget);
+  assert.deepEqual(await rabbitLedger().target(), rabbitTarget);
+  assert.deepEqual(await reconcile(s, p, c), receiverBefore);
+  assert.deepEqual(await seedSnapshot(s), sourceBefore);
+  const receiverRestart = {
+    esContainer,
+    rabbitContainer,
+    clusterUuid: esTarget.clusterUuid,
+    indexUuid: esTarget.indexUuid,
+    registrationId: rabbitTarget.registrationId,
+    unchanged: true,
+  };
   const map = await checkRecipe(s, 257),
     expectations = await recipeExpectations(s, 257);
   const check = (rows: typeof map) =>
@@ -1100,6 +1161,7 @@ await test(name('BS14'), async (t) => {
     progress,
     chunks,
     receipt,
+    receiverRestart,
     selected: [...selected],
     snapshot: await seedSnapshot(s),
     retainedRestart:

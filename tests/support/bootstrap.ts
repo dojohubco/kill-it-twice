@@ -243,6 +243,11 @@ export async function reconcile(s: pg.Client, p: pg.Client, c: pg.Client) {
   ).rows.map((r) => r.event_id);
   assert.deepEqual(inbox, expectedIds);
   const es = new EsTransport(esConfig());
+  const receiver: {
+    id: string;
+    version: string;
+    document: Record<string, unknown>;
+  }[] = [];
   const latest = new Map<
     string,
     {
@@ -326,6 +331,7 @@ export async function reconcile(s: pg.Client, p: pg.Client, c: pg.Client) {
       assert.equal(actual['content_sha256'], e.hash);
       assert.equal(actual['is_deleted'], e.source['is_deleted']);
       assert.equal(actual['entity_version'], e.version);
+      receiver.push({ id: e.id, version: e.version, document: actual });
       const projected = (
         await s.query<{ fields: string }>(
           `SELECT CASE WHEN $1::boolean THEN '{}'::jsonb ELSE (SELECT coalesce(jsonb_object_agg(key,value),'{}'::jsonb) FROM jsonb_each($2::jsonb) WHERE key IN ('name','country','loyalty_points')) END::text fields`,
@@ -377,7 +383,9 @@ export async function reconcile(s: pg.Client, p: pg.Client, c: pg.Client) {
       expectedIds,
       effectRows,
       latest: [...latest.values()],
+      receiver,
     });
+    return receiver;
   } finally {
     await es.close();
   }

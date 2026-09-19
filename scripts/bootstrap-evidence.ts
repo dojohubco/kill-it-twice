@@ -53,10 +53,12 @@ export async function checkBootstrapEvidence(path: string, upgrade: boolean) {
   const baseline = object(last['snapshot'])['baseline_revisions'];
   assert.ok(Array.isArray(baseline));
   assert.equal(baseline.length, 257);
+  assert.equal(object(last['receiverRestart'])['unchanged'], true);
   const manifest = object(last['snapshot'])['bootstrap_manifest'];
   assert.ok(Array.isArray(manifest) && typeof manifest[0] === 'string');
   return {
     seedManifest: object(JSON.parse(manifest[0])),
+    receiverRestart: last['receiverRestart'],
     upgrade: false,
     baselineCount: 257,
     selectedBaselineEvents: last['selected'],
