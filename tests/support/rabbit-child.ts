@@ -94,10 +94,15 @@ class FaultLedger extends RabbitLedger {
   override async renew(...args: Parameters<RabbitLedger['renew']>) {
     return disableRenewal ? false : super.renew(...args);
   }
-  override async settle(...args: Parameters<RabbitLedger['settle']>) {
-    if (args[3] === 'confirmed')
+}
+class FaultPublisher extends Publisher {
+  override async publish(...args: Parameters<Publisher['publish']>) {
+    const results = await super.publish(...args);
+    // A lost lease deliberately skips ledger.settle. The real-confirm boundary
+    // must still be observable before that production ownership decision.
+    if (results.some((r) => r.outcome === 'confirmed'))
       await barrier('rabbit.after_confirm.before_local_commit');
-    return super.settle(...args);
+    return results;
   }
 }
 class FaultDatabase extends ConsumerDatabase {
@@ -174,7 +179,7 @@ try {
     assert.ok(typeof lease === 'number');
     const worker = new RabbitDelivery(
       new FaultLedger(connection(input['sql'])),
-      new Publisher(amqp, metadata),
+      new FaultPublisher(amqp, metadata),
       { leaseMs: lease, renewalMs: Math.max(50, Math.floor(lease / 5)) },
       randomUUID(),
     );

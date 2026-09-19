@@ -105,10 +105,18 @@ export function launchRabbit(
       const raw = await waitFor(
         () => {
           if (spawnError) throw spawnError;
-          if (exit)
+          if (exit) {
+            evidence(`${label}-early-exit`, {
+              pid,
+              exit,
+              stdout,
+              stderr,
+              telemetry,
+            });
             throw new Error(
               `Early capture exit ${JSON.stringify(exit)} ${stderr}`,
             );
+          }
           return telemetry;
         },
         (v) => v !== undefined,
