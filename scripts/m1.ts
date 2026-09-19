@@ -1,4 +1,13 @@
 import {
+  observePrerequisite,
+  requirePrerequisite,
+  retainPrerequisite,
+} from './es-prerequisite.ts';
+import {
+  sanitizeStageEvidence,
+  MissingEvidenceError,
+} from './stage-evidence.ts';
+import {
   oracleReproductionCases,
   oracleCases,
   expectationInventoryCase,
@@ -133,18 +142,20 @@ const env = {
   M2B_PASSWORD_FILE: '',
   M2C_PIPELINE_PORT: '0',
 };
-if (captureProfile) {
-  const reservation = createServer();
-  await new Promise<void>((resolve, reject) => {
-    reservation.once('error', reject);
-    reservation.listen(0, '127.0.0.1', resolve);
-  });
-  const address = reservation.address();
-  assert.ok(address && typeof address !== 'string');
-  env.M2C_PIPELINE_PORT = String(address.port);
-  await new Promise<void>((resolve, reject) =>
-    reservation.close((error) => (error ? reject(error) : resolve())),
-  );
+async function reservePipelinePort() {
+  if (captureProfile) {
+    const reservation = createServer();
+    await new Promise<void>((resolve, reject) => {
+      reservation.once('error', reject);
+      reservation.listen(0, '127.0.0.1', resolve);
+    });
+    const address = reservation.address();
+    assert.ok(address && typeof address !== 'string');
+    env.M2C_PIPELINE_PORT = String(address.port);
+    await new Promise<void>((resolve, reject) =>
+      reservation.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
 }
 
 const compose = ['compose', '-p', runId, '-f', resolve('compose.m1.yaml')];
@@ -247,14 +258,10 @@ async function record(
   return result.stdout.trim();
 }
 let started = false;
+let testsAttempted = false;
+let sqlEvidenceAttempted = false;
+const evidenceErrors: string[] = [];
 try {
-  temporaryDir = await mkdtemp(join(tmpdir(), `${runId}-`));
-  env.M1_PASSWORD_FILE = join(temporaryDir, 'postgres-password');
-  await writeFile(env.M1_PASSWORD_FILE, adminPassword, { mode: 0o600 });
-  if (twoDatabases) {
-    env.M2B_PASSWORD_FILE = join(temporaryDir, 'pipeline-password');
-    await writeFile(env.M2B_PASSWORD_FILE, pipelinePassword, { mode: 0o600 });
-  }
   assert.equal(
     process.versions.node,
     (await readFile('.node-version', 'utf8')).trim(),
@@ -296,6 +303,22 @@ try {
     join(artifactDir, 'worktree.patch'),
     await record('worktree-diff', 'git', ['diff', 'HEAD', '--binary']),
   );
+  if (esProfile) {
+    const prerequisite = await observePrerequisite(
+      'standalone-m3-before-services',
+    );
+    manifest['prerequisite'] = prerequisite;
+    await retainPrerequisite(prerequisite, artifactDir);
+    requirePrerequisite(prerequisite);
+  }
+  await reservePipelinePort();
+  temporaryDir = await mkdtemp(join(tmpdir(), `${runId}-`));
+  env.M1_PASSWORD_FILE = join(temporaryDir, 'postgres-password');
+  await writeFile(env.M1_PASSWORD_FILE, adminPassword, { mode: 0o600 });
+  if (twoDatabases) {
+    env.M2B_PASSWORD_FILE = join(temporaryDir, 'pipeline-password');
+    await writeFile(env.M2B_PASSWORD_FILE, pipelinePassword, { mode: 0o600 });
+  }
   manifest['node'] = process.version;
   manifest['npm'] = await record('npm-version', 'npm', ['--version']);
   manifest['docker'] = await record('docker-version', 'docker', [
@@ -430,6 +453,7 @@ try {
     manifest['initialState'] = initial;
     assert.equal(typeof initial['source_epoch'], 'string');
     sourceEpoch = String(initial['source_epoch']);
+    sqlEvidenceAttempted = true;
     await writeFile(
       join(artifactDir, 'sql-evidence.jsonl'),
       JSON.stringify({
@@ -573,6 +597,7 @@ try {
   if (esProfile) {
     esService = await startEs(`${runId}-es`);
     const runningEs = esService;
+    manifest['elasticsearchPrerequisite'] = runningEs.prerequisite;
     secrets.push(runningEs.config.password);
     for (const service of ['elasticsearch', 'toxiproxy']) {
       const id = (await runningEs.compose(['ps', '-q', service])).trim();
@@ -694,6 +719,7 @@ try {
         ? manifest['pipelineContainer']
         : '',
   };
+  testsAttempted = true;
   const output = await record(
     'tests',
     process.execPath,
@@ -957,22 +983,39 @@ try {
   await diagnostics.finalize('temporary credentials', async () => {
     if (temporaryDir) await rm(temporaryDir, { recursive: true, force: true });
   });
+  const evidenceStatus: Record<string, string> = {};
   for (const file of ['tests.xml', 'tests.json', 'sql-evidence.jsonl']) {
     await diagnostics.finalize(`sanitize ${file}`, async () => {
-      const path = join(artifactDir, file);
       try {
-        await writeFile(path, clean(await readFile(path, 'utf8')));
+        evidenceStatus[file] = await sanitizeStageEvidence(
+          join(artifactDir, file),
+          file === 'sql-evidence.jsonl' ? sqlEvidenceAttempted : testsAttempted,
+          clean,
+        );
       } catch (error) {
-        // Missing required evidence is a failure too. Never upload an unsanitized file.
-        try {
-          await rm(path, { force: true });
-        } catch (cleanup) {
-          throw new CleanupFailure(error, [cleanup]);
-        }
-        throw error;
+        if (!(error instanceof MissingEvidenceError)) throw error;
+        evidenceStatus[file] = 'MISSING REQUIRED EVIDENCE';
+        evidenceErrors.push(clean(error.message));
+        diagnostics.fail(error);
       }
     });
   }
+  manifest['evidenceStatus'] = evidenceStatus;
+  manifest['evidenceErrors'] = evidenceErrors;
+  manifest['testExecution'] = {
+    status: !testsAttempted
+      ? 'NOT RUN'
+      : manifest['acceptance']
+        ? 'PASS'
+        : 'FAILED OR INCOMPLETE',
+    requiredCaseIds: inventory.map((c) => c.id),
+  };
+  if (!started)
+    manifest['cleanup'] = {
+      status: 'NOT NEEDED',
+      reason: 'No owned service launch attempted',
+      resources: {},
+    };
   if (interrupted) diagnostics.fail(new Error(`Interrupted by ${interrupted}`));
   if (
     !manifest['acceptance'] ||
@@ -1006,6 +1049,10 @@ try {
           head: manifest['head'],
           contentSha256: manifest['contentSha256'],
           developmental: manifest['developmental'],
+          prerequisite: manifest['prerequisite'],
+          testExecution: manifest['testExecution'],
+          evidenceStatus: manifest['evidenceStatus'],
+          evidenceErrors,
           acceptance: manifest['acceptance'],
           cleanup: manifest['cleanup'],
           elasticsearchCleanup: manifest['elasticsearchCleanup'],
@@ -1040,6 +1087,7 @@ try {
       'capture-upgrade.json',
       'es-upgrade.json',
       'es.log',
+      'prerequisite.json',
     ]);
     for (const file of await readdir(artifactDir)) {
       if (

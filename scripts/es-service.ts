@@ -1,3 +1,8 @@
+import {
+  observePrerequisite,
+  requirePrerequisite,
+  retainPrerequisite,
+} from './es-prerequisite.ts';
 import { createServer } from 'node:net';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
@@ -10,13 +15,14 @@ import { EsTransport, object, exactInteger } from '../src/es/transport.ts';
 
 export async function startEs(project: string) {
   assert.match(project, /^m3-[a-z0-9-]+$/);
-  const maxMap = Number(
-    (await readFile('/proc/sys/vm/max_map_count', 'utf8')).trim(),
+  const prerequisite = await observePrerequisite(
+    'elasticsearch-service-before-provisioning',
   );
-  assert.ok(
-    maxMap >= 1048576,
-    'Elasticsearch prerequisite: vm.max_map_count >= 1048576; no host setting is changed by this runner',
+  await retainPrerequisite(
+    prerequisite,
+    `artifacts/m3.1/prerequisite-service-${project}/public`,
   );
+  requirePrerequisite(prerequisite);
   assert.ok(process.getuid, 'M3 acceptance requires a Linux host identity');
   const privateDir = await mkdtemp(join(tmpdir(), 'm3-es-'));
   const password = randomBytes(24).toString('hex');
@@ -294,6 +300,7 @@ export async function startEs(project: string) {
       );
     }
     return {
+      prerequisite,
       client,
       config,
       proxyNode,
