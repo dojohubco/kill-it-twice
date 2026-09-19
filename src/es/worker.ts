@@ -158,10 +158,23 @@ export class Delivery {
       let size = 0;
       const send = async () => {
         if (!batch.length) return;
-        const raw = await this.#adapter.bulk(t, batch, randomUUID());
+        const anchor = claims.find((c) => c.eventId === batch[0]?.eventId);
+        if (!anchor)
+          throw new EsFailure('integrity', 'Missing request attempt');
+        // The request ID is a retained attempt UUID, so opaque receiver logs can
+        // be correlated without introducing a second durable request queue.
+        const raw = await this.#adapter.bulk(t, batch, anchor.attemptId);
         const resolved = [];
-        for (const item of raw)
-          resolved.push(await this.#adapter.resolve(t, item, this.#ledger));
+        const unresolved: unknown[] = [];
+        for (const item of raw) {
+          try {
+            resolved.push(await this.#adapter.resolve(t, item, this.#ledger));
+          } catch (error) {
+            unresolved.push(error);
+          }
+        }
+        // A completely validated response may contain an independently invalid conflict
+        // witness. Preserve other confirmed items after the common target postflight.
         await this.#adapter.validate(t);
         for (const item of resolved) {
           const c = claims.find((c) => c.eventId === item.projection.eventId);
@@ -172,8 +185,21 @@ export class Delivery {
             item.outcome,
             item.remote,
             item.witness,
-            item.context,
+            `request=${anchor.attemptId}; ${item.context}`,
           );
+        }
+        if (unresolved.length) {
+          const primary =
+            unresolved.find(
+              (e) => classify(e).classification !== 'transient',
+            ) ?? unresolved[0];
+          const failure = classify(primary);
+          throw new EsFailure(failure.classification, failure.message, {
+            cause: new AggregateError(
+              unresolved,
+              'Independent item resolution failures',
+            ),
+          });
         }
         if (resolved.some((r) => r.outcome === 'transient'))
           throw new EsFailure(

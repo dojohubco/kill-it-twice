@@ -96,6 +96,15 @@ export async function registerEs(
   );
   const settings = object(object(receiver['settings'])['index']);
   assert.equal(exactJson(receiver['mappings']), exactJson(config.mappings));
+  assert.equal(
+    exactJson({
+      number_of_shards: settings['number_of_shards'],
+      number_of_replicas: settings['number_of_replicas'],
+      translog: settings['translog'],
+      mapping: settings['mapping'],
+    }),
+    exactJson(config.settings),
+  );
   assert.equal(typeof settings['uuid'], 'string');
   if (prior[0]?.index_uuid) assert.equal(settings['uuid'], prior[0].index_uuid);
   else {
@@ -134,7 +143,12 @@ export async function registerEs(
       indices: [
         {
           names: [index],
-          privileges: ['index', 'read', 'view_index_metadata'],
+          privileges: [
+            'indices:data/write/index',
+            'indices:data/write/bulk',
+            'read',
+            'view_index_metadata',
+          ],
         },
       ],
     }),

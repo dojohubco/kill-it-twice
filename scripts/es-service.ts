@@ -10,6 +10,14 @@ import { EsTransport } from '../src/es/transport.ts';
 
 export async function startEs(project: string) {
   assert.match(project, /^m3-[a-z0-9-]+$/);
+  const maxMap = Number(
+    (await readFile('/proc/sys/vm/max_map_count', 'utf8')).trim(),
+  );
+  assert.ok(
+    maxMap >= 1048576,
+    'Elasticsearch prerequisite: vm.max_map_count >= 1048576; no host setting is changed by this runner',
+  );
+  assert.ok(process.getuid, 'M3 acceptance requires a Linux host identity');
   const privateDir = await mkdtemp(join(tmpdir(), 'm3-es-'));
   const password = randomBytes(24).toString('hex');
   const reservation = createServer();
@@ -27,6 +35,7 @@ export async function startEs(project: string) {
     ...process.env,
     M3_PRIVATE_DIR: privateDir,
     M3_ES_PORT: String(reservedPort),
+    M3_UID: String(process.getuid()),
   };
   const args = ['compose', '-p', project, '-f', resolve('compose.m3.yaml')];
   async function compose(tail: string[], timeout = 90_000) {
@@ -39,9 +48,16 @@ export async function startEs(project: string) {
     assert.deepEqual(r.cleanupErrors, []);
     return r.stdout;
   }
+  let client: EsTransport | undefined;
   const cleanup = async () => {
     await withCleanup(
-      () => compose(['down', '-v', '--remove-orphans']).then(() => {}),
+      () =>
+        withCleanup(
+          async () => {
+            await client?.close();
+          },
+          () => compose(['down', '-v', '--remove-orphans']).then(() => {}),
+        ),
       () => rm(privateDir, { recursive: true, force: true }),
     );
   };
@@ -83,7 +99,7 @@ export async function startEs(project: string) {
       password,
       ca: await readFile(join(privateDir, 'server.crt'), 'utf8'),
     };
-    const client = new EsTransport(config);
+    client = new EsTransport(config);
     const deadline = performance.now() + 90_000;
     let ready = false;
     while (performance.now() < deadline) {
@@ -118,7 +134,7 @@ export async function startEs(project: string) {
       proxyNode,
       proxyApi,
       compose,
-      cleanup: () => withCleanup(() => client.close(), cleanup),
+      cleanup,
     };
   } catch (primary) {
     return withCleanup(

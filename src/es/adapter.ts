@@ -6,7 +6,12 @@ import {
   bulkLine,
   type Projection,
 } from './projection.ts';
-import { EsLedger, type Target, type Outcome } from './ledger.ts';
+import {
+  EsLedger,
+  MissingLedgerWitness,
+  type Target,
+  type Outcome,
+} from './ledger.ts';
 export class EsFailure extends Error {
   readonly classification: 'transient' | 'auth' | 'configuration' | 'integrity';
   constructor(
@@ -116,15 +121,26 @@ export class EsAdapter {
       remote['_index'] !== t.index
     )
       throw new EsFailure('integrity', 'Missing conflict witness');
-    const rv = version(remote['_version']);
+    let rv: string;
+    try {
+      rv = version(remote['_version']);
+    } catch (cause) {
+      throw new EsFailure('integrity', 'Malformed remote version witness', {
+        cause,
+      });
+    }
     if (BigInt(rv) < BigInt(r.projection.version))
       throw new EsFailure('integrity', 'Lower remote conflict witness');
     const witness = `${r.projection.documentId}:${rv}`;
     let expected: Projection;
     try {
       expected = await ledger.read(witness);
-    } catch {
-      throw new EsFailure('integrity', 'Unknown higher ledger witness');
+    } catch (error) {
+      if (error instanceof MissingLedgerWitness)
+        throw new EsFailure('integrity', 'Unknown higher ledger witness', {
+          cause: error,
+        });
+      throw error;
     }
     if (
       expected.json === null ||

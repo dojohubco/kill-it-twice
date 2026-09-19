@@ -188,12 +188,15 @@ BEGIN
 END $$;
 CREATE FUNCTION pipeline.es_renew(target uuid, target_generation bigint, id text, incarnation uuid, gen bigint, lease_ms integer) RETURNS boolean
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE d pipeline.delivery_intents; now_at timestamptz;
+DECLARE d pipeline.delivery_intents; t pipeline.es_target; now_at timestamptz;
 BEGIN
  IF lease_ms IS NULL OR lease_ms NOT BETWEEN 300 AND 30000 THEN RAISE EXCEPTION 'Invalid lease' USING ERRCODE='P5001'; END IF;
+ -- Same target-before-intent lock order as claim, including cooldown probe renewal.
+ SELECT * INTO t FROM pipeline.es_target WHERE destination_id=target FOR UPDATE;
+ IF NOT FOUND OR t.generation IS DISTINCT FROM target_generation OR t.mode='blocked' THEN RETURN false; END IF;
  SELECT * INTO d FROM pipeline.delivery_intents WHERE event_id=id AND destination_id=target AND kind='elasticsearch' FOR UPDATE;
  now_at:=clock_timestamp();
- IF NOT FOUND OR d.state<>'leased' OR d.owner_id IS DISTINCT FROM incarnation OR d.claim_generation IS DISTINCT FROM gen OR d.lease_until<=now_at OR NOT EXISTS(SELECT 1 FROM pipeline.es_target WHERE destination_id=target AND generation=target_generation AND mode<>'blocked') THEN RETURN false; END IF;
+ IF NOT FOUND OR d.state<>'leased' OR d.owner_id IS DISTINCT FROM incarnation OR d.claim_generation IS DISTINCT FROM gen OR d.lease_until<=now_at THEN RETURN false; END IF;
  UPDATE pipeline.delivery_intents SET lease_until=now_at+lease_ms*interval '1 millisecond' WHERE event_id=id AND kind='elasticsearch';
  UPDATE pipeline.es_target SET probe_until=now_at+lease_ms*interval '1 millisecond' WHERE destination_id=target AND mode='cooldown' AND probe_owner=incarnation AND probe_until>now_at;
  RETURN true;

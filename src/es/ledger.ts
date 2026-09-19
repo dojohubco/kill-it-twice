@@ -41,6 +41,7 @@ export type Outcome =
   | 'auth'
   | 'configuration'
   | 'integrity';
+export class MissingLedgerWitness extends Error {}
 export class EsLedger {
   readonly #config: ConnectionConfig;
   constructor(config: ConnectionConfig) {
@@ -196,7 +197,8 @@ export class EsLedger {
   }
   async read(id: string): Promise<Projection> {
     const rows = await this.#owner().transaction((w) => w.read(id));
-    if (rows.length !== 1) throw new Error('Missing ledger witness');
+    if (rows.length !== 1)
+      throw new MissingLedgerWitness('Missing ledger witness');
     const r = object(rows[0]);
     return {
       eventId: text(r, 'event_id'),

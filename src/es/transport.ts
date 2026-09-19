@@ -43,6 +43,7 @@ export class EsTransport {
       tls: { ca: config.ca, rejectUnauthorized: true },
       Serializer: ExactSerializer,
       maxRetries: 0,
+      resurrectStrategy: 'optimistic',
       sniffOnStart: false,
       sniffOnConnectionFault: false,
       sniffInterval: false,
