@@ -1,5 +1,6 @@
 // Isolated acceptance setup only. Workers receive no Docker/admin capability.
 import assert from 'node:assert/strict';
+import { createServer } from 'node:net';
 import { randomBytes } from 'node:crypto';
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
@@ -13,10 +14,25 @@ export async function startRabbit(project: string) {
   const privateDir = await mkdtemp(join(tmpdir(), 'm4-rabbit-'));
   const password = randomBytes(24).toString('hex');
   const secrets = [password];
+  const reserve = async () => {
+    const server = createServer();
+    await new Promise<void>((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(0, '127.0.0.1', resolve);
+    });
+    const address = server.address();
+    assert.ok(address && typeof address === 'object');
+    await new Promise<void>((resolve, reject) =>
+      server.close((e) => (e ? reject(e) : resolve())),
+    );
+    return String(address.port);
+  };
   const env = {
     ...process.env,
     M4_PRIVATE_DIR: privateDir,
     M4_UID: String(process.getuid()),
+    M4_AMQP_PORT: await reserve(),
+    M4_API_PORT: await reserve(),
   };
   const args = ['compose', '-p', project, '-f', resolve('compose.m4.yaml')];
   const compose = async (tail: string[], timeout = 90000) => {

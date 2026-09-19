@@ -21,6 +21,8 @@ export class AmqpSession {
   readonly #abort = new AbortController();
   #model: ChannelModel | undefined;
   #closed = false;
+  #closing = false;
+  readonly #channels: Channel[] = [];
   #blocked = false;
   #failure: BrokerFailure | undefined;
   readonly #waiters = new Set<() => void>();
@@ -128,7 +130,10 @@ export class AmqpSession {
         ? await this.#model.createConfirmChannel({ highWaterMark })
         : await this.#model.createChannel({ highWaterMark });
       c.on('error', (error: Error) => this.retire(amqpFailure(error)));
-      c.on('close', () => this.retire());
+      c.on('close', () => {
+        if (!this.#closing) this.retire();
+      });
+      this.#channels.push(c);
       c.on('handler-error', () =>
         this.retire(new BrokerFailure('integrity', 'AMQP handler failure')),
       );
@@ -158,9 +163,16 @@ export class AmqpSession {
       this.retire();
       return;
     }
+    this.#closing = true;
     const timer = setTimeout(() => this.retire(), 1000);
     try {
-      await this.#model.close();
+      // Channel close is an ordered RPC: buffered individual ACKs must reach the
+      // broker before connection.close (a different channel's control frame).
+      for (const channel of this.#channels) {
+        if (!this.alive) break;
+        await channel.close();
+      }
+      if (this.alive) await this.#model.close();
     } catch {
       this.retire();
     } finally {

@@ -11,7 +11,8 @@ services:
     mem_limit: 1g
     ulimits:
       nofile: { soft: 65536, hard: 65536 }
-    ports: ['127.0.0.1::5671', '127.0.0.1::15671']
+    ports:
+      ['127.0.0.1:${M4_AMQP_PORT:-0}:5671', '127.0.0.1:${M4_API_PORT:-0}:15671']
     volumes:
       - rabbit-data:/var/lib/rabbitmq
       - ${M4_PRIVATE_DIR:?Use the isolated M4 runner}:/etc/rabbitmq/private:ro,Z
