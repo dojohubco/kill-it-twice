@@ -8,6 +8,7 @@ import { ConsumerDatabase } from '../../src/rabbitmq/consumer-db.ts';
 import { TransactionError } from '../../src/internal/transaction.ts';
 import { canonicalEvent, type CanonicalEvent } from '../../src/envelope.ts';
 import { Publisher } from '../../src/rabbitmq/publisher.ts';
+import { migrateConsumerBatch } from '../../scripts/rabbit-setup.ts';
 import { object } from '../../scripts/acceptance.ts';
 import { evidence, databaseWaitFor } from '../support/db.ts';
 import {
@@ -153,21 +154,7 @@ void test(name('B07'), async (t) => {
       "SELECT oid::text,proowner::regrole::text owner,prosecdef,proconfig,proacl::text FROM pg_proc WHERE oid='consumer.process_batch(uuid,uuid,uuid,uuid,jsonb)'::regprocedure",
     );
   const oldCatalog = (await catalog()).rows;
-  if (upgrade) {
-    await c.query('BEGIN');
-    try {
-      await c.query(
-        await readFile(
-          'migrations/consumer/002-batch-byte-accounting.sql',
-          'utf8',
-        ),
-      );
-      assert.equal((await c.query('COMMIT')).command, 'COMMIT');
-    } catch (e) {
-      await c.query('ROLLBACK');
-      throw e;
-    }
-  }
+  if (upgrade) await migrateConsumerBatch(c);
   assert.deepEqual(await consumerSnapshot(c), before);
   assert.deepEqual(await outsideSnapshot(s, p), outside);
   assert.deepEqual((await catalog()).rows, oldCatalog);
@@ -423,7 +410,10 @@ void test(name('B05'), async (t) => {
       );
       await assert.rejects(
         db.transaction(async (tx) => {
-          result = await tx.process(topology(), items);
+          const rows = await tx.process(topology(), items);
+          assert.equal(rows.length, 32);
+          assert.ok(rows.every((r) => r.status === 'processed'));
+          result = rows;
           throw marker;
         }),
         (e) =>

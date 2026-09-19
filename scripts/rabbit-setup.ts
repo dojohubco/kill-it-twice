@@ -357,3 +357,29 @@ export async function consumerSnapshot(c: pg.Client) {
     ).rows.map((r) => r.text);
   return result;
 }
+
+// Controlled forward correction. Historical M4 profiles deliberately retain migration 001.
+export async function migrateConsumerBatch(c: pg.Client) {
+  await c.query('BEGIN');
+  try {
+    await c.query(
+      await readFile(
+        'migrations/consumer/002-batch-byte-accounting.sql',
+        'utf8',
+      ),
+    );
+    assert.equal((await c.query('COMMIT')).command, 'COMMIT');
+  } catch (error) {
+    return withCleanup(
+      () =>
+        Promise.reject(
+          error instanceof Error
+            ? error
+            : new Error('Consumer byte migration failed', { cause: error }),
+        ),
+      async () => {
+        await c.query('ROLLBACK');
+      },
+    );
+  }
+}

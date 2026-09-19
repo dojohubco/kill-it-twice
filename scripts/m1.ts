@@ -5,11 +5,12 @@ import {
   prepareRabbit,
   setupTopology,
   initializeConsumer,
+  migrateConsumerBatch,
   bindRabbit,
   rabbitSnapshot,
   consumerSnapshot,
 } from './rabbit-setup.ts';
-import { batchReproductionCases } from './required-batch-cases.ts';
+import { batchReproductionCases, batchCases } from './required-batch-cases.ts';
 import { checkBatchEvidence } from './batch-evidence.ts';
 import { rabbitCases } from './required-rabbit-cases.ts';
 import { EsTransport } from '../src/es/transport.ts';
@@ -96,13 +97,15 @@ assert.ok(
     'm3-oracle',
     'm4',
     'm41-repro',
+    'm41',
   ].includes(profile),
   'Expected an explicitly supported acceptance or reproduction profile',
 );
 const oracleReproduction = profile === 'm3-repro';
 const oracleAcceptance = profile === 'm3-oracle';
 const batchReproduction = profile === 'm41-repro';
-const rabbitProfile = profile === 'm4' || batchReproduction;
+const batchProfile = profile === 'm41';
+const rabbitProfile = profile === 'm4' || batchReproduction || batchProfile;
 const esProfile =
   profile === 'm3' || oracleReproduction || oracleAcceptance || rabbitProfile;
 let rabbitService: Awaited<ReturnType<typeof startRabbit>> | undefined;
@@ -131,29 +134,35 @@ assert.ok(
 );
 const inventory = batchReproduction
   ? batchReproductionCases
-  : rabbitProfile
-    ? rabbitCases
-    : oracleAcceptance
-      ? oracleCases
-      : oracleReproduction
-        ? oracleReproductionCases
-        : esProfile
-          ? [...esCases, expectationInventoryCase]
-          : reproduction
-            ? reproductionCases
-            : guarded
-              ? [
-                  ...captureCases,
-                  ...isolationCases,
-                  ...(upgrade ? [] : registrationCases),
-                ]
-              : profile === 'm2c'
-                ? captureCases
-                : profile === 'm2b'
-                  ? stagingCases
-                  : profile === 'm2a'
-                    ? [...requiredCases, ...commandCases, ...commandFaultCases]
-                    : requiredCases;
+  : batchProfile
+    ? batchCases
+    : rabbitProfile
+      ? rabbitCases
+      : oracleAcceptance
+        ? oracleCases
+        : oracleReproduction
+          ? oracleReproductionCases
+          : esProfile
+            ? [...esCases, expectationInventoryCase]
+            : reproduction
+              ? reproductionCases
+              : guarded
+                ? [
+                    ...captureCases,
+                    ...isolationCases,
+                    ...(upgrade ? [] : registrationCases),
+                  ]
+                : profile === 'm2c'
+                  ? captureCases
+                  : profile === 'm2b'
+                    ? stagingCases
+                    : profile === 'm2a'
+                      ? [
+                          ...requiredCases,
+                          ...commandCases,
+                          ...commandFaultCases,
+                        ]
+                      : requiredCases;
 const runId = `${profile}-${new Date().toISOString().replace(/[^0-9]/g, '')}-${randomBytes(4).toString('hex')}`;
 const artifactDir = resolve(`artifacts/${profile}`, runId);
 await mkdir(artifactDir, { recursive: true });
@@ -221,15 +230,17 @@ const manifest: Record<string, unknown> = {
   runId,
   profile,
   migrationMode: upgrade
-    ? rabbitProfile
-      ? 'populated M3.1 upgrade'
-      : esProfile
-        ? 'populated guarded M2C.1 upgrade'
-        : guarded
-          ? 'populated registered M2C upgrade'
-          : profile === 'm2c'
-            ? 'populated M2B upgrade'
-            : 'populated M2A upgrade'
+    ? batchProfile
+      ? 'populated M4 consumer upgrade'
+      : rabbitProfile
+        ? 'populated M3.1 upgrade'
+        : esProfile
+          ? 'populated guarded M2C.1 upgrade'
+          : guarded
+            ? 'populated registered M2C upgrade'
+            : profile === 'm2c'
+              ? 'populated M2B upgrade'
+              : 'populated M2A upgrade'
     : 'fresh',
   artifactDir,
   startedAt: new Date().toISOString(),
@@ -915,6 +926,21 @@ try {
           consumerSqlPassword,
           consumerReaderPassword,
         );
+        if (batchProfile && !upgrade) {
+          const c = new pg.Client({
+            ...pConfig,
+            database: 'consumer_m4',
+            connectionTimeoutMillis: 5000,
+            query_timeout: 15000,
+          });
+          await withCleanup(
+            async () => {
+              await c.connect();
+              await migrateConsumerBatch(c);
+            },
+            () => c.end(),
+          );
+        }
         rabbitCredentials = await setupTopology(
           rabbitService.api,
           rabbitTarget,
@@ -958,6 +984,7 @@ try {
     ...env,
     M1_RUN_ID: runId,
     M4_UPGRADE: String(upgrade),
+    M41_UPGRADE: String(batchProfile && upgrade),
     PIPELINE_RABBIT_PASSWORD: publisherSqlPassword,
     PIPELINE_RECEIPTS_PASSWORD: receiptSqlPassword,
     CONSUMER_PASSWORD: consumerSqlPassword,
@@ -1023,10 +1050,10 @@ try {
     { code: 0, signal: null, timedOut: false, outputOverflow: false },
     inventory,
   );
-  if (batchReproduction)
+  if (batchReproduction || batchProfile)
     manifest['batchEvidence'] = await checkBatchEvidence(
       join(artifactDir, 'sql-evidence.jsonl'),
-      true,
+      batchReproduction,
     );
   if (profile === 'm4')
     manifest['rabbitEvidence'] = await checkRabbitEvidence(
