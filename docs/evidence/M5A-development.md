@@ -1,0 +1,10 @@
+# M5A development observations
+
+Chronological observations, separate from final acceptance. The external review supplied the planned baseline/no-op integration requirement; it did not execute these services.
+
+- Baseline: unchanged executable `make verify-m4-1` reached fifteen finalized passing profiles before outer execution ended 143 during final-profile finalization. The remaining test report had 8 passes, but no final restart/cleanup result; only identified resources were manually removed. Fresh standalone M4.1 upgrade repeated successfully (exit 0). See milestone and ignored baseline logs for exact identities.
+- Hosted M4.1 run 35467226835 was actually FAILURE: the command wrapper selected its 600000 ms fallback for verify-m4-1. The M5A extension adds that gate and verify-m5a to an explicit longer-deadline selection, with a unit regression. No host setting or remote workflow was changed.
+- Draft static checks found unused test exports/imports and boundary typing errors. These were corrected without suppressions or new dependencies. Initial applied `make quality` passed 54 unit checks.
+- First real fresh profile at c408069, run m5a-20260919212024696-2dd5ef2a, exited 1: 5 passed, 13 failed, zero skip/todo/cancel. Migration and seed contention/pre/post-COMMIT fault controls ran. The independent member query accidentally ordered the text-cast ordinal alias (1,10,11...) instead of the underlying BIGINT, failing the recipe assertion before sealing; later activation-dependent tests consequently failed closed. The actual reader login also rejected UPDATE with read-only SQLSTATE 25006 before the test's expected ACL error. Corrections qualify the native ordinal ordering and separately test both the reader default and its underlying ACL using only a session-local read-write probe. Assertions still require exact recipe membership and denied writes. Cleanup passed with no secondary errors. This was a test-harness correction, not a demonstrated baseline data-loss failure.
+
+All full run logs, input hashes, SQL/process evidence and failed reports remain in ignored artifacts and the local review bundle. Final results will be recorded separately.

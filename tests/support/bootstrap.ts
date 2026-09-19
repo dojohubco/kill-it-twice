@@ -61,7 +61,7 @@ export async function members(s: pg.Client) {
       recorded_at: string;
       payload: string;
     }>(
-      'SELECT ordinal::text,entity_id::text,to_char(recorded_at AT TIME ZONE \'UTC\',\'YYYY-MM-DD"T"HH24:MI:SS.US"Z"\') recorded_at,payload::text payload FROM source.baseline_revisions ORDER BY ordinal',
+      'SELECT ordinal::text,entity_id::text,to_char(recorded_at AT TIME ZONE \'UTC\',\'YYYY-MM-DD"T"HH24:MI:SS.US"Z"\') recorded_at,payload::text payload FROM source.baseline_revisions b ORDER BY b.ordinal',
     )
   ).rows;
 }
@@ -335,13 +335,15 @@ export async function reconcile(s: pg.Client, p: pg.Client, c: pg.Client) {
       assert.ok(projected);
       assert.deepEqual(actual['search_fields'], parse(projected.fields));
       const state = (
-        await c.query<{ v: string; units: string }>(
-          'SELECT p.entity_version::text v,t.units::text FROM consumer.entity_projection p JOIN consumer.entity_totals t USING(source_epoch,entity_id) WHERE p.entity_id=$1',
+        await c.query<{ v: string; units: string; body: string; hash: string }>(
+          "SELECT p.entity_version::text v,t.units::text,convert_from(i.body_bytes,'UTF8') body,i.content_sha256 hash FROM consumer.entity_projection p JOIN consumer.entity_totals t USING(source_epoch,entity_id) JOIN consumer.processed_events i ON i.event_id=p.event_id WHERE p.entity_id=$1",
           [e.id],
         )
       ).rows[0];
       assert.deepEqual(state, {
         v: e.version,
+        body: e.body,
+        hash: e.hash,
         units: String(
           effectRows.filter((id) => id.startsWith(`${recipe.epoch}:${e.id}:`))
             .length,

@@ -762,6 +762,23 @@ await test(name('BS12'), async (t) => {
     });
     await client.connect();
     try {
+      if (role === 'source_reader') {
+        assert.equal(
+          (
+            await client.query<{ default_transaction_read_only: string }>(
+              'SHOW default_transaction_read_only',
+            )
+          ).rows[0]?.default_transaction_read_only,
+          'on',
+        );
+        await assert.rejects(
+          client.query(
+            'UPDATE source.bootstrap_manifest SET completed_count=0',
+          ),
+          code('25006'),
+        );
+        await client.query('SET default_transaction_read_only=off'); // Session-only ACL probe; no role/default configuration changes.
+      }
       for (const sql of [
         'SET ROLE source_seed_owner',
         'SET ROLE source_owner',

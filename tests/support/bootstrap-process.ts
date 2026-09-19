@@ -1,10 +1,11 @@
+import pg from 'pg';
 import assert from 'node:assert/strict';
 import { fork } from 'node:child_process';
 import type { TestContext } from 'node:test';
 import { object } from '../../scripts/acceptance.ts';
 import { waitFor } from '../../scripts/support.ts';
 import { bootstrapConfig, pipelineConfig } from './bootstrap.ts';
-import { required, evidence } from './db.ts';
+import { required, evidence, databaseWaitFor } from './db.ts';
 export function launchBootstrap(
   t: TestContext,
   label: string,
@@ -102,14 +103,14 @@ export function launchBootstrap(
     release(phase: 'before_commit' | 'after_commit') {
       child.send({ type: 'release', phase });
     },
-    async finish(mode: 'run' | 'failure' | 'kill') {
+    async finish(mode: 'run' | 'kill') {
       if (mode === 'kill') assert.equal(child.kill('SIGKILL'), true);
       await waitFor(() => closed, Boolean, 'Bootstrap child exit', 15000);
       assert.deepEqual(
         exit,
         mode === 'kill'
           ? { code: null, signal: 'SIGKILL' }
-          : { code: mode === 'failure' ? 1 : 0, signal: null },
+          : { code: 0, signal: null },
       );
       assert.equal(spawnError, undefined);
       assert.equal(overflow, false);
@@ -120,10 +121,32 @@ export function launchBootstrap(
         assert.equal(object(JSON.parse(stdout))['type'], 'bootstrap-success');
       } else {
         assert.equal(stdout, '');
-        if (mode === 'failure') assert.match(stderr, /rolled_back P6002/);
-        else assert.equal(stderr, '');
+        assert.equal(stderr, '');
+      }
+      const observer = new pg.Client({
+        ...sql,
+        application_name: sql.application_name + '-exit-observer',
+        connectionTimeoutMillis: 5000,
+        query_timeout: 2000,
+      });
+      await observer.connect();
+      try {
+        await databaseWaitFor(
+          observer,
+          () =>
+            observer.query(
+              'SELECT pid FROM pg_stat_activity WHERE application_name=$1',
+              [sql.application_name],
+            ),
+          (r) => r.rowCount === 0,
+          'Bootstrap session closed',
+          5000,
+        );
+      } finally {
+        await observer.end();
       }
       return {
+        sessionGone: true,
         pid,
         exit,
         ordinarySuccessBytes: Buffer.byteLength(stdout),
