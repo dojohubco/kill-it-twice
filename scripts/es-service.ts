@@ -14,7 +14,7 @@ import { command, withCleanup } from './support.ts';
 import { EsTransport, object, exactInteger } from '../src/es/transport.ts';
 
 export async function startEs(project: string) {
-  assert.match(project, /^m[34]-[a-z0-9-]+$/);
+  assert.match(project, /^m(?:3|4|41)-[a-z0-9-]+$/);
   const prerequisite = await observePrerequisite(
     'elasticsearch-service-before-provisioning',
   );

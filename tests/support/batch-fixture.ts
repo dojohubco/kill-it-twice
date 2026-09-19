@@ -159,7 +159,7 @@ export async function assertCohort(
         units: string;
         projected: string;
       }>(
-        `SELECT p.event_id,p.entity_version::text version,convert_from(p.body_bytes,'UTF8') body,p.content_sha256 hash,m.source_change_id::text change_id,t.units::text,x.entity_version::text projected FROM consumer.processed_events p JOIN consumer.mutation_effects m USING(event_id) JOIN consumer.entity_totals t USING(source_epoch,entity_id) JOIN consumer.entity_projection x USING(source_epoch,entity_id) WHERE p.entity_id=$1 ORDER BY p.entity_version`,
+        `SELECT p.event_id,p.entity_version::text version,convert_from(p.body_bytes,'UTF8') body,p.content_sha256 hash,m.source_change_id::text change_id,t.units::text,x.entity_version::text projected FROM consumer.processed_events p JOIN consumer.mutation_effects m USING(event_id) JOIN consumer.entity_totals t ON t.source_epoch=p.source_epoch AND t.entity_id=p.entity_id JOIN consumer.entity_projection x ON x.source_epoch=p.source_epoch AND x.entity_id=p.entity_id WHERE p.entity_id=$1 ORDER BY p.entity_version`,
         [id],
       )
     ).rows;
