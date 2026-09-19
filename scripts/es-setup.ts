@@ -40,9 +40,19 @@ export async function registerEs(
   setup: EsTransport,
   pipelineId: string,
   epoch: string,
+  provisionRuntime: (
+    username: string,
+    password: string,
+    index: string,
+  ) => Promise<void>,
 ) {
   const info = object(await setup.request('GET', '/'));
   assert.equal(typeof info['cluster_uuid'], 'string');
+  assert.notEqual(
+    info['cluster_uuid'],
+    '_na_',
+    'Cannot register unavailable cluster identity',
+  );
   const prior = (
     await p.query<{
       index_name: string;
@@ -135,29 +145,7 @@ export async function registerEs(
   }
   const username = `worker-${registration}`,
     password = randomBytes(24).toString('hex');
-  await setup.request(
-    'PUT',
-    `/_security/role/${username}`,
-    JSON.stringify({
-      cluster: ['cluster:monitor/main'],
-      indices: [
-        {
-          names: [index],
-          privileges: [
-            'indices:data/write/index',
-            'indices:data/write/bulk',
-            'read',
-            'view_index_metadata',
-          ],
-        },
-      ],
-    }),
-  );
-  await setup.request(
-    'PUT',
-    `/_security/user/${username}`,
-    JSON.stringify({ password, roles: [username] }),
-  );
+  await provisionRuntime(username, password, index);
   const destination = first(
     (
       await p.query<{ destination_id: string }>(

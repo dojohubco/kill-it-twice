@@ -1,6 +1,11 @@
 import { launchCapture } from '../support/capture-process.ts';
 import { launchEs } from '../support/es-process.ts';
-import { command, waitFor, withCleanup } from '../../scripts/support.ts';
+import {
+  command,
+  waitFor,
+  withCleanup,
+  errorText,
+} from '../../scripts/support.ts';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -42,6 +47,10 @@ function name(id: string) {
 
 await test(name('ES01'), async (t) => {
   const { p, es, admin, target } = await setup(t);
+  const authentication = object(
+    await es.request('GET', '/_security/_authenticate'),
+  );
+  assert.equal(object(authentication['authentication_realm'])['type'], 'file');
   await new EsAdapter(es).validate(target);
   assert.equal(target.mode, 'ready');
   const index = `kit-protocol-${randomUUID()}`;
@@ -88,9 +97,7 @@ await test(name('ES01'), async (t) => {
   } finally {
     await admin.request('DELETE', `/${index}`);
   }
-  const role = object(
-    await admin.request('GET', `/_security/role/${required('ES_USERNAME')}`),
-  );
+  const role = object(await es.request('GET', '/_security/user/_privileges'));
   const d = await p.query(
     'SELECT kind,state,receiver_identity FROM pipeline.destinations ORDER BY kind',
   );
@@ -103,6 +110,7 @@ await test(name('ES01'), async (t) => {
     configuration: target.configuration,
     server: await es.request('GET', '/'),
     role,
+    authentication,
     destinations: d.rows,
     syntheticProtocolVersions: observations,
   });
@@ -883,10 +891,8 @@ await test(name('ES10'), async (t) => {
     });
     return Promise.resolve();
   };
-  const following = Promise.all([
-    a.follow(stop.signal, report),
-    b.follow(stop.signal, report),
-  ]);
+  const loops = [a.follow(stop.signal, report), b.follow(stop.signal, report)];
+  const following = Promise.all(loops);
   let failed: unknown;
   void following.catch((e: unknown) => {
     failed = e;
@@ -941,7 +947,35 @@ await test(name('ES10'), async (t) => {
     },
     async () => {
       stop.abort();
-      await following;
+      try {
+        // Promise.all rejects on the first worker; cleanup must also await the
+        // other bounded in-flight operation before closing its shared transport.
+        const failures: unknown[] = [];
+        for (const result of await Promise.allSettled(loops))
+          if (result.status === 'rejected') failures.push(result.reason);
+        if (failures.length)
+          throw new AggregateError(failures, 'Follow workers failed');
+      } catch (error) {
+        await withCleanup(
+          () =>
+            Promise.reject(
+              error instanceof Error
+                ? error
+                : new Error('Follow failure', { cause: error }),
+            ),
+          async () => {
+            evidence('ES10-failure', {
+              at: new Date().toISOString(),
+              container,
+              downAt,
+              attempts,
+              primary: errorText(error),
+              target: await ledger().target(),
+              deliveries: await deliveries(p, [base.eventId, ...source]),
+            });
+          },
+        );
+      }
     },
   );
 });

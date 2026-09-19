@@ -1,12 +1,12 @@
 import { createServer } from 'node:net';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { command, withCleanup } from './support.ts';
-import { EsTransport } from '../src/es/transport.ts';
+import { EsTransport, object } from '../src/es/transport.ts';
 
 export async function startEs(project: string) {
   assert.match(project, /^m3-[a-z0-9-]+$/);
@@ -20,6 +20,7 @@ export async function startEs(project: string) {
   assert.ok(process.getuid, 'M3 acceptance requires a Linux host identity');
   const privateDir = await mkdtemp(join(tmpdir(), 'm3-es-'));
   const password = randomBytes(24).toString('hex');
+  const secrets = [password];
   const reservation = createServer();
   await new Promise<void>((resolve, reject) => {
     reservation.once('error', reject);
@@ -40,7 +41,7 @@ export async function startEs(project: string) {
   const args = ['compose', '-p', project, '-f', resolve('compose.m3.yaml')];
   async function compose(tail: string[], timeout = 90_000) {
     const r = await command('docker', [...args, ...tail], env, timeout, true, {
-      secrets: [password],
+      secrets,
     });
     assert.equal(r.code, 0, r.stderr);
     assert.equal(r.outputOverflow, false);
@@ -63,6 +64,8 @@ export async function startEs(project: string) {
   };
   try {
     await writeFile(join(privateDir, 'password'), password, { mode: 0o600 });
+    for (const file of ['users', 'users_roles', 'roles.yml'])
+      await writeFile(join(privateDir, file), '', { mode: 0o600 });
     const cert = await command(
       'openssl',
       [
@@ -104,7 +107,14 @@ export async function startEs(project: string) {
     let ready = false;
     while (performance.now() < deadline) {
       try {
-        await client.request('GET', '/');
+        const identity = object(await client.request('GET', '/'))[
+          'cluster_uuid'
+        ];
+        assert.ok(
+          typeof identity === 'string' &&
+            identity !== '_na_' &&
+            identity.length > 0,
+        );
         ready = true;
         break;
       } catch {
@@ -128,12 +138,156 @@ export async function startEs(project: string) {
       signal: AbortSignal.timeout(5000),
     });
     assert.equal(response.status, 201);
+    async function provisionRuntime(
+      username: string,
+      runtimePassword: string,
+      index: string,
+    ) {
+      assert.match(username, /^worker-[a-f0-9-]{36}$/);
+      assert.match(runtimePassword, /^[a-f0-9]{48}$/);
+      assert.match(index, /^kit-[a-f0-9-]+$/);
+      secrets.push(runtimePassword);
+      // The supported ES tool produces the password hash. Only controlled setup
+      // sees these private files; the worker receives an ordinary restricted login.
+      const build = join(privateDir, 'realm-build');
+      await rm(build, { recursive: true, force: true });
+      await mkdir(build, { mode: 0o700 });
+      for (const file of ['users', 'users_roles'])
+        await writeFile(join(build, file), '', { mode: 0o600 });
+      const roles = `${username}:\n  cluster: ['cluster:monitor/main']\n  indices:\n    - names: ['${index}']\n      privileges: ['indices:data/write/index', 'indices:data/write/bulk', 'read', 'view_index_metadata']\n`;
+      await writeFile(join(build, 'roles.yml'), roles, { mode: 0o600 });
+      await writeFile(
+        join(build, 'elasticsearch.yml'),
+        'xpack.security.enabled: true\n',
+        { mode: 0o600 },
+      );
+      const images = (await compose(['config', '--images'])).trim().split('\n');
+      const toolImage = images.find((image) =>
+        image.startsWith('docker.elastic.co/elasticsearch/elasticsearch:'),
+      );
+      assert.ok(toolImage, 'Receiver image is configured');
+      assert.ok(
+        toolImage.includes('@sha256:'),
+        'Password tool uses the pinned receiver image',
+      );
+      const toolName = `${project}-realm-tool`;
+      await withCleanup(
+        async () => {
+          // A separate one-shot tool mounts only its own build directory. Reusing
+          // the service mounts would relabel the live TLS files on SELinux hosts.
+          const result = await command(
+            'docker',
+            [
+              'run',
+              '--rm',
+              '--name',
+              toolName,
+              '--label',
+              `kill-it-twice.run=${project}`,
+              '--network',
+              'none',
+              '--user',
+              `${String(process.getuid?.())}:0`,
+              '--memory',
+              '256m',
+              '-e',
+              'ES_PATH_CONF=/tmp/realm',
+              '-e',
+              'CLI_JAVA_OPTS=-Xms16m -Xmx64m',
+              '--volume',
+              `${build}:/tmp/realm:rw,Z`,
+              '--entrypoint',
+              '/usr/share/elasticsearch/bin/elasticsearch-users',
+              toolImage,
+              'useradd',
+              username,
+              '-p',
+              runtimePassword,
+              '-r',
+              username,
+            ],
+            env,
+            30000,
+            true,
+            { secrets },
+          );
+          assert.equal(result.code, 0, result.stderr);
+          assert.equal(result.timedOut, false);
+          assert.equal(result.outputOverflow, false);
+          assert.deepEqual(result.cleanupErrors, []);
+        },
+        async () => {
+          const removed = await command(
+            'docker',
+            ['rm', '-f', toolName],
+            env,
+            30000,
+            true,
+            { secrets },
+          );
+          assert.ok(
+            removed.code === 0 ||
+              (removed.code === 1 &&
+                removed.stderr.includes('No such container:')),
+            removed.stderr,
+          );
+          assert.equal(removed.timedOut, false);
+          assert.deepEqual(removed.cleanupErrors, []);
+        },
+      );
+      // Keep mounted inodes, then use a controlled initialization restart: host
+      // bind-file updates do not reliably notify the receiver's directory watcher.
+      for (const file of ['roles.yml', 'users_roles', 'users'])
+        await writeFile(
+          join(privateDir, file),
+          await readFile(join(build, file)),
+          { mode: 0o600 },
+        );
+      await compose(['restart', 'elasticsearch']);
+      const runtime = new EsTransport({
+        ...config,
+        username,
+        password: runtimePassword,
+      });
+      await withCleanup(
+        async () => {
+          const deadline = performance.now() + 90000;
+          let last: unknown;
+          while (performance.now() < deadline) {
+            try {
+              const result = await runtime.request(
+                'GET',
+                '/_security/_authenticate',
+              );
+              assert.ok(
+                result &&
+                  typeof result === 'object' &&
+                  'authentication_realm' in result,
+              );
+              const realm: unknown = result.authentication_realm;
+              assert.ok(realm && typeof realm === 'object' && 'type' in realm);
+              assert.equal(realm.type, 'file');
+              await runtime.request('GET', `/${index}`);
+              return;
+            } catch (error) {
+              last = error;
+              await delay(100);
+            }
+          }
+          throw new Error('Restricted file-realm setup deadline', {
+            cause: last,
+          });
+        },
+        () => runtime.close(),
+      );
+    }
     return {
       client,
       config,
       proxyNode,
       proxyApi,
       compose,
+      provisionRuntime,
       cleanup,
     };
   } catch (primary) {

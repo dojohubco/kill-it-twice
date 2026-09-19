@@ -1,0 +1,53 @@
+{
+  "format": 1,
+  "scope": "Supplemental real Elasticsearch authentication/startup experiments; not a full M3 gate",
+  "runs": [
+    {
+      "kind": "native rejection reproduction",
+      "run": "m3-auth-restart-1789812413735",
+      "localArtifact": "artifacts/m3/m3-auth-restart-1789812413735",
+      "developmental": true,
+      "command": "npm run test:protocol:es-auth-restart",
+      "exitCode": 0,
+      "observationsSha256": "253dde60afb327ca5d36408f05052f147cc344d98a26bb01fe145255c410338e",
+      "inputsSha256": "11920bb123981c625ba66c6368e9f6600f2dad240100423482af486590127669",
+      "httpStatusCounts": {
+        "None": 1595,
+        "401": 47,
+        "200": 5
+      },
+      "cycles": [1],
+      "unknownClusterResponses": 0,
+      "retainedClusterIds": ["VlenWdNSS3Og7jRBOSm-yQ"],
+      "firstObservation": "2026-09-19T10:08:04.209Z",
+      "lastObservation": "2026-09-19T10:09:06.695Z",
+      "cleanup": {
+        "status": "PASS",
+        "ownedResourcesRemoved": true
+      }
+    },
+    {
+      "kind": "file realm retained restart control",
+      "run": "m3-auth-restart-1789812087473",
+      "localArtifact": "artifacts/m3/m3-auth-restart-1789812087473",
+      "developmental": true,
+      "command": "npm run test:protocol:es-auth-restart -- --file",
+      "exitCode": 0,
+      "observationsSha256": "1c18e9be894c772970e5786a39e12b166de51b4a5584828a159fe69a6f8292d7",
+      "inputsSha256": "11920bb123981c625ba66c6368e9f6600f2dad240100423482af486590127669",
+      "httpStatusCounts": {
+        "None": 4674,
+        "200": 22
+      },
+      "cycles": [1, 2, 3],
+      "unknownClusterResponses": 7,
+      "retainedClusterIds": ["qDafxX_7QkyONiOJ5KxZMw"],
+      "firstObservation": "2026-09-19T10:03:26.341Z",
+      "lastObservation": "2026-09-19T10:06:26.241Z",
+      "cleanup": {
+        "status": "PASS",
+        "ownedResourcesRemoved": true
+      }
+    }
+  ]
+}

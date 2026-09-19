@@ -3,7 +3,11 @@ import { test } from 'node:test';
 import { parse } from 'lossless-json';
 import { bulkLine, sameProjection } from '../../src/es/projection.ts';
 import { version } from '../../src/es/transport.ts';
-import { validateBulkResponse } from '../../src/es/adapter.ts';
+import {
+  checkClusterIdentity,
+  EsFailure,
+  validateBulkResponse,
+} from '../../src/es/adapter.ts';
 const projection = {
   eventId: '00000000-0000-4000-8000-000000000001:7:9007199254740993',
   documentId: '00000000-0000-4000-8000-000000000001:7',
@@ -11,6 +15,17 @@ const projection = {
   json: '{"projection_schema":"search-v1","entity_id":"7","search_fields":{"loyalty_points":9007199254740993,"name":"Ω"}}',
   bytes: '142',
 };
+await test('ES unit unavailable startup identity admits no write and only that marker is transient', () => {
+  checkClusterIdentity('retained-cluster', 'retained-cluster');
+  for (const actual of ['_na_', 'different-cluster', '', null, undefined])
+    assert.throws(
+      () => checkClusterIdentity(actual, 'retained-cluster'),
+      (error: unknown) =>
+        error instanceof EsFailure &&
+        error.classification ===
+          (actual === '_na_' ? 'transient' : 'configuration'),
+    );
+});
 await test('ES unit golden raw NDJSON preserves exact integer tokens and final newline', () => {
   const expected =
     '{"index":{"_id":"00000000-0000-4000-8000-000000000001:7","version":9007199254740993,"version_type":"external"}}\n{"projection_schema":"search-v1","entity_id":"7","search_fields":{"loyalty_points":9007199254740993,"name":"Ω"}}\n';

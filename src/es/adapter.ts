@@ -36,6 +36,14 @@ export function classify(error: unknown): EsFailure {
     'Receiver request incomplete or unavailable',
   );
 }
+export function checkClusterIdentity(actual: unknown, expected: string): void {
+  // Observed from the pinned server before retained cluster state recovery.
+  // No request is admitted while identity is unavailable; any other mismatch blocks.
+  if (actual === '_na_')
+    throw new EsFailure('transient', 'Receiver cluster identity not recovered');
+  if (actual !== expected)
+    throw new EsFailure('configuration', 'Receiver cluster UUID mismatch');
+}
 export interface ItemOutcome {
   projection: Projection;
   outcome: Outcome;
@@ -50,14 +58,12 @@ export class EsAdapter {
   }
   async validate(t: Target) {
     const info = object(await this.#transport.request('GET', '/'));
+    checkClusterIdentity(info['cluster_uuid'], t.clusterUuid);
     const index = object(
       object(await this.#transport.request('GET', `/${t.index}`))[t.index],
     );
     const settings = object(object(index['settings'])['index']);
-    if (
-      info['cluster_uuid'] !== t.clusterUuid ||
-      settings['uuid'] !== t.indexUuid
-    )
+    if (settings['uuid'] !== t.indexUuid)
       throw new EsFailure('configuration', 'Receiver UUID mismatch');
     const selected = {
       settings: {

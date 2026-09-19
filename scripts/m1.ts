@@ -612,6 +612,7 @@ try {
           runningEs.client,
           pipelineId,
           sourceEpoch,
+          runningEs.provisionRuntime,
         );
         secrets.push(receiver.password);
         await writeFile(

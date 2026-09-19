@@ -254,7 +254,9 @@ if (mode === 'capture') {
     })) {
       if (
         entry.isDirectory() &&
-        /^m3-(2026|protocol-|permission-probe-)/.test(entry.name) &&
+        /^m3-(2026|protocol-|permission-probe-|auth-restart-)/.test(
+          entry.name,
+        ) &&
         !runs.some(
           (p) => dirname(String(p)) === resolve('artifacts/m3', entry.name),
         )
@@ -282,6 +284,10 @@ if (mode === 'capture') {
         '--format=%H %aI %an <%ae>%n%B',
         `${baseline}..${finalHead}`,
       ]),
+    );
+    await writeFile(
+      join(bundle, 'changed-files.txt'),
+      await git(['diff', '--name-status', baseline, finalHead]),
     );
     const diff = await command(
       'git',

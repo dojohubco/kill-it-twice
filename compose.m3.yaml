@@ -19,6 +19,9 @@ services:
     volumes:
       - es-data:/usr/share/elasticsearch/data
       - ${M3_PRIVATE_DIR:?Use the isolated M3 runner}:/usr/share/elasticsearch/config/private:ro,Z
+      - ${M3_PRIVATE_DIR:?Use the isolated M3 runner}/users:/usr/share/elasticsearch/config/users:ro,Z
+      - ${M3_PRIVATE_DIR:?Use the isolated M3 runner}/users_roles:/usr/share/elasticsearch/config/users_roles:ro,Z
+      - ${M3_PRIVATE_DIR:?Use the isolated M3 runner}/roles.yml:/usr/share/elasticsearch/config/roles.yml:ro,Z
     stop_grace_period: 20s
   toxiproxy:
     image: ghcr.io/shopify/toxiproxy:2.12.0@sha256:9378ed52a28bc50edc1350f936f518f31fa95f0d15917d6eb40b8e376d1a214e
