@@ -1,0 +1,110 @@
+{
+  "format": 1,
+  "milestone": "M4.1",
+  "intent": "historical expected diagnostic failure, no successful v2 processing",
+  "command": "npm run test:reproduction:m41",
+  "exitCode": 0,
+  "testedCode": "8b231a20631559dacf61dbe4c1bd29679280821f",
+  "developmental": false,
+  "inputSha256": "511b8724eb6980250744ecdaeec91a096eaba4a60602cb1eaa7ada26153c95d7",
+  "runId": "m41-repro-20260919181825645-16045bf1",
+  "sourceDerived": true,
+  "distinctEvents": 32,
+  "eachWireBytes": 32768,
+  "eachBodyBytes": 32675,
+  "wireBytes": 1048576,
+  "oldSqlCharge": 1049056,
+  "directSession": [
+    {
+      "current_user": "consumer_runtime",
+      "isolation": "read committed",
+      "pid": 871,
+      "xid": "858",
+      "snapshot": "858:858:"
+    }
+  ],
+  "directError": {
+    "sqlState": "P6002",
+    "message": "Consumer batch exceeds 1 MiB",
+    "where": "PL/pgSQL function consumer.process_batch(uuid,uuid,uuid,uuid,jsonb) line 7 at RAISE"
+  },
+  "rollback": "ROLLBACK",
+  "attempts": [
+    {
+      "pid": 2268797,
+      "exit": {
+        "code": 1,
+        "signal": null
+      },
+      "ordinarySuccessBytes": 0,
+      "received": 32,
+      "channelId": "f7288f18-2eea-4b3b-ac24-ab1fc624d7d6",
+      "allRedelivered": false,
+      "batch": {
+        "count": 32,
+        "bodyBytes": 1045600,
+        "wireBytes": 1048576,
+        "oldSqlCharge": 1049056,
+        "completion": "rolled_back",
+        "sqlState": "P6002"
+      },
+      "acknowledgements": 0,
+      "ready": 32,
+      "unacknowledged": 0
+    },
+    {
+      "pid": 2268872,
+      "exit": {
+        "code": 1,
+        "signal": null
+      },
+      "ordinarySuccessBytes": 0,
+      "received": 32,
+      "channelId": "4d1a805b-6b97-4001-b982-6026715b33c1",
+      "allRedelivered": true,
+      "batch": {
+        "count": 32,
+        "bodyBytes": 1045600,
+        "wireBytes": 1048576,
+        "oldSqlCharge": 1049056,
+        "completion": "rolled_back",
+        "sqlState": "P6002"
+      },
+      "acknowledgements": 0,
+      "ready": 32,
+      "unacknowledged": 0
+    }
+  ],
+  "consumerUnchanged": true,
+  "quarantineUnchanged": true,
+  "cleanup": {
+    "status": "PASS",
+    "resources": {
+      "container": "",
+      "volume": "",
+      "network": ""
+    }
+  },
+  "rabbitCleanup": {
+    "status": "PASS",
+    "resources": {
+      "container": "",
+      "volume": "",
+      "network": ""
+    }
+  },
+  "elasticsearchCleanup": {
+    "status": "PASS",
+    "resources": {
+      "container": "",
+      "volume": "",
+      "network": ""
+    }
+  },
+  "localArtifactDirectory": "/home/tornike/Documents/Projects/kill-it-twice/artifacts/m41-repro/m41-repro-20260919181825645-16045bf1",
+  "artifacts": {
+    "run.json": "74e20a95ab08a3d4eab6527efe295c14883cec8a6e7a04c6acc85029ae13c55a",
+    "tests.json": "a1a5ea6e77f4f78ece691cdc49219fad6ebf70ee5261d1326221c020b9285766",
+    "sql-evidence.jsonl": "c790c59db3984b869204f19b17386c125db3e36c4b7fc4241faeb02146476f39"
+  }
+}
