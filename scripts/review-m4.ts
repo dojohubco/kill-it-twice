@@ -285,6 +285,32 @@ if (mode === 'capture') {
         await cp(path, join(development, entry.name));
       else if (
         entry.isDirectory() &&
+        entry.name.startsWith('review-') &&
+        resolve(path) !== directory
+      ) {
+        const earlier = object(
+          JSON.parse(await readFile(join(path, 'capture.json'), 'utf8')),
+        );
+        if (earlier['status'] !== 'FAIL') continue;
+        const saved = join(development, entry.name);
+        await mkdir(saved, { recursive: true });
+        for (const file of await readdir(path)) {
+          if (!/\.(log|json)$/.test(file)) continue;
+          await cp(join(path, file), join(saved, file));
+          if (!file.endsWith('.log')) continue;
+          const log = await readFile(join(path, file), 'utf8');
+          for (const match of log.matchAll(
+            /^(?:PASS|FAIL): (.+\/run\.json)$/gm,
+          ))
+            if (match[1])
+              await cp(
+                dirname(match[1]),
+                join(saved, 'runs', basename(dirname(match[1]))),
+                { recursive: true },
+              );
+        }
+      } else if (
+        entry.isDirectory() &&
         /^(m4-2026|m4-protocol-|hosted-)/.test(entry.name) &&
         !runs.some((p) => dirname(String(p)) === resolve(path))
       )

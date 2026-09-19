@@ -9,7 +9,10 @@ import {
   type ConsumerSnapshot,
 } from '../support/rabbit-oracle.ts';
 import { waitFor } from '../../scripts/support.ts';
+import { deadline } from '../support/fault-protocol.ts';
 import pg from 'pg';
+import type { Channel, ConfirmChannel, Options, Replies } from 'amqplib';
+import type { RabbitClaim } from '../../src/rabbitmq/ledger.ts';
 import { rabbitConfig } from '../support/rabbit.ts';
 import { queueArguments } from '../../src/rabbitmq/metadata.ts';
 import { randomUUID } from 'node:crypto';
@@ -702,6 +705,205 @@ await test(name('MQ05'), async (context) => {
 });
 await test(name('MQ09'), async (t) => {
   const { s, p, c } = await setup(t);
+  const inflight = await mutation(
+    s,
+    '{"name":"delayed actual confirm","loyalty_points":9}',
+  );
+  await captureDrain();
+  const route = await proxy(t, 'amqp');
+  const oldLedger = rabbitLedger();
+  const originalClaim = oldLedger.claim.bind(oldLedger);
+  let oldClaims: RabbitClaim[] = [];
+  mock.method(
+    oldLedger,
+    'claim',
+    async (...args: Parameters<typeof originalClaim>) => {
+      oldClaims = await originalClaim(...args);
+      return oldClaims;
+    },
+  );
+  // Private loss-of-renewal schedule; actual database clock and reclaim enforce expiry.
+  mock.method(oldLedger, 'renew', () => Promise.resolve(false));
+  let injected = false;
+  const callbacks: { at: number; channelId: string; failed: boolean }[] = [];
+  function isConfirm(ch: Channel): ch is ConfirmChannel {
+    return 'waitForConfirms' in ch && typeof ch.waitForConfirms === 'function';
+  }
+  // eslint-disable-next-line @typescript-eslint/unbound-method -- private observation preserves the original session receiver
+  const originalChannel = AmqpSession.prototype.channel;
+  const hook = mock.method(
+    AmqpSession.prototype,
+    'channel',
+    async function (this: AmqpSession, confirm: false, highWaterMark?: number) {
+      const ch = await Reflect.apply(originalChannel, this, [
+        confirm,
+        highWaterMark,
+      ]);
+      assert.ok(isConfirm(ch));
+      const check = ch.checkExchange.bind(ch),
+        publish = ch.publish.bind(ch);
+      mock.method(ch, 'checkExchange', async (exchange: string) => {
+        const reply = await check(exchange);
+        await route.toxic('latency', 'downstream', {
+          latency: 6000,
+          jitter: 0,
+        });
+        injected = true;
+        return reply;
+      });
+      mock.method(
+        ch,
+        'publish',
+        (
+          exchange: string,
+          key: string,
+          wire: Buffer,
+          options?: Options.Publish,
+          callback?: (error: unknown, ok: Replies.Empty) => void,
+        ) =>
+          publish(
+            exchange,
+            key,
+            wire,
+            options,
+            (error: unknown, ok: Replies.Empty) => {
+              callbacks.push({
+                at: performance.now(),
+                channelId: this.id,
+                failed: Boolean(error),
+              });
+              callback?.(error, ok);
+            },
+          ),
+      );
+      return ch;
+    },
+  );
+  t.after(() => hook.mock.restore());
+  const oldWorker = new RabbitDelivery(
+    oldLedger,
+    new Publisher(
+      { ...amqpConfig(), host: route.host, port: route.port },
+      metadata(),
+    ),
+    { count: 1, leaseMs: 900, renewalMs: 100 },
+  );
+  const oldActive = oldWorker.once();
+  void oldActive.catch(() => undefined);
+  await waitFor(
+    () => injected,
+    Boolean,
+    'Proxy installed before actual publish',
+    5000,
+  );
+  hook.mock.restore();
+  const receiver = new AmqpSession();
+  let independentlyReceived;
+  try {
+    await receiver.open(amqpConfig('consumer'));
+    const ch = await receiver.channel(false);
+    independentlyReceived = await waitFor(
+      () => ch.get(topology().queue, { noAck: false }),
+      Boolean,
+      'Independent broker acceptance before delayed confirm',
+      3000,
+      () => receiver.close(),
+    );
+    assert.ok(independentlyReceived);
+    assert.deepEqual(
+      independentlyReceived.content,
+      await ledgerWire(p, inflight.eventId),
+    );
+    assert.equal(
+      callbacks.length,
+      0,
+      'Actual confirm callback remains behind downstream latency',
+    );
+  } finally {
+    await receiver.close();
+  }
+  const expired = await databaseWaitFor(
+    p,
+    () => intent(p, inflight.eventId),
+    (r) => r['expired'] === true,
+    'Database clock expires the in-flight publisher claim',
+    5000,
+  );
+  assert.equal(callbacks.length, 0);
+  const newerPublisher = await publisher().once();
+  const terminalInFlight = await intent(p, inflight.eventId);
+  const newerSettledAt = performance.now();
+  assert.equal(terminalInFlight['state'], 'satisfied');
+  assert.equal(terminalInFlight['claim_generation'], '2');
+  assert.equal(
+    callbacks.length,
+    0,
+    'Reclaimed publisher settles before old broker callback',
+  );
+  const lateResult = await deadline(
+    oldActive,
+    'Delayed publisher retires after real late confirm',
+    15000,
+  );
+  await route.clear();
+  assert.equal(callbacks.length, 1);
+  assert.ok(
+    callbacks[0] && !callbacks[0].failed && callbacks[0].at > newerSettledAt,
+  );
+  assert.deepEqual(
+    lateResult.outcomes.map((o) => [o.outcome, o.status]),
+    [['confirmed', 'stale']],
+  );
+  assert.ok(oldClaims[0]);
+  assert.equal(
+    await oldLedger.settle(
+      await oldLedger.target(),
+      oldClaims[0],
+      oldWorker.workerId,
+      'confirmed',
+      callbacks[0].channelId,
+      'Late callback independently checks SQL fencing',
+      1000,
+    ),
+    'stale',
+  );
+  const afterInFlight = await intent(p, inflight.eventId);
+  delete terminalInFlight['observed_at'];
+  delete afterInFlight['observed_at'];
+  assert.deepEqual(afterInFlight, terminalInFlight);
+  await waitFor(
+    async (signal) => {
+      const connections = await metadata(true).request(
+        'GET',
+        '/api/connections',
+        undefined,
+        signal,
+      );
+      assert.ok(Array.isArray(connections));
+      return connections.every(
+        (entry) =>
+          record(record(entry)['client_properties'])['connection_name'] !==
+          callbacks[0]?.channelId,
+      );
+    },
+    Boolean,
+    'Retired delayed publisher has no broker connection',
+    10000,
+  );
+  await drain(p, c);
+  evidence('MQ09-in-flight-confirm', {
+    eventId: inflight.eventId,
+    oldClaims,
+    independentlyReceived,
+    expired,
+    newerPublisher,
+    terminalInFlight,
+    newerSettledAt,
+    callbacks,
+    lateResult,
+    afterInFlight,
+    effects: await effects(c, inflight.eventId),
+  });
   const f = await mutation(s, '{"name":"stale publisher","loyalty_points":9}');
   await captureDrain();
   const a = launchRabbit(

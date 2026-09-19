@@ -164,17 +164,29 @@ export class AmqpSession {
       return;
     }
     this.#closing = true;
-    const timer = setTimeout(() => this.retire(), 1000);
-    try {
-      // Channel close is an ordered RPC: buffered individual ACKs must reach the
-      // broker before connection.close (a different channel's control frame).
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const orderedClose = async () => {
+      // Preserve ACK ordering through channel.close before connection.close.
       for (const channel of this.#channels) {
         if (!this.alive) break;
         await channel.close();
       }
-      if (this.alive) await this.#model.close();
-    } catch {
-      this.retire();
+      if (this.alive) await this.#model?.close();
+    };
+    try {
+      await new Promise<void>((resolve) => {
+        // amqplib 2.0.1 can leave channel.close pending when the socket ends before
+        // CloseOk. Abort the owned socket AND bound the waiting continuation.
+        // Both late resolution and rejection are consumed; no new channel is reused.
+        timer = setTimeout(() => {
+          this.retire();
+          resolve();
+        }, 1000);
+        void orderedClose().then(resolve, () => {
+          this.retire();
+          resolve();
+        });
+      });
     } finally {
       clearTimeout(timer);
       this.retire();

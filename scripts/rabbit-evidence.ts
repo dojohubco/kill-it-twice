@@ -97,6 +97,13 @@ export async function checkRabbitEvidence(path: string) {
   one('MQ15');
   one('MQ16');
   one('MQ08');
+  const delayed = one('MQ09-in-flight-confirm');
+  const callbacks = delayed['callbacks'];
+  assert.ok(Array.isArray(callbacks) && callbacks.length === 1);
+  assert.equal(object(callbacks[0])['failed'], false);
+  assert.equal(object(delayed['expired'])['expired'], true);
+  assert.equal(object(delayed['terminalInFlight'])['claim_generation'], '2');
+  assert.deepEqual(delayed['afterInFlight'], delayed['terminalInFlight']);
   one('MQ09-publisher');
   one('MQ09-consumer');
   const returned = one('MQ05-production-return')['returned'];
