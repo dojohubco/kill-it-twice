@@ -5,8 +5,22 @@ import { mkdir, readFile, writeFile, cp, readdir, rm } from 'node:fs/promises';
 import { join, resolve, basename, dirname } from 'node:path';
 import { command, errorText } from './support.ts';
 import { object } from './acceptance.ts';
-const baseline = 'c05f3dcf9d21ac7e3523038c902d1e2de3412cfb';
 const mode = process.argv[2];
+// Preserve old M3 bundle inputs; new captures target the authorized M3.1 boundary.
+const historical =
+  ['summary', 'bundle'].includes(mode ?? '') &&
+  process.argv[3] !== undefined &&
+  object(
+    JSON.parse(await readFile(join(process.argv[3], 'capture.json'), 'utf8')),
+  )['baseline'] === 'c05f3dcf9d21ac7e3523038c902d1e2de3412cfb';
+const milestone = historical ? 'M3' : 'M3.1';
+const baseline = historical
+  ? 'c05f3dcf9d21ac7e3523038c902d1e2de3412cfb'
+  : 'c3cb8f7c8398d8db4d158f2307f790244f4199e6';
+const artifactRoot = historical ? 'artifacts/m3' : 'artifacts/m3.1';
+const remoteCi = historical
+  ? 'NOT RUN for original M3 report'
+  : 'NOT RUN after M3.1 correction; prior M3 hosted run 35440622786 failed before receiver tests';
 async function git(args: string[]) {
   const r = await command('git', args, process.env, 30000, true);
   assert.equal(r.code, 0, r.stderr);
@@ -34,7 +48,7 @@ if (mode === 'capture') {
   );
   const head = await git(['rev-parse', 'HEAD']);
   const directory = resolve(
-    `artifacts/m3/review-${new Date().toISOString().replace(/[^0-9]/g, '')}`,
+    `${artifactRoot}/review-${new Date().toISOString().replace(/[^0-9]/g, '')}`,
   );
   await mkdir(directory, { recursive: true });
   const manifest: Record<string, unknown> = {
@@ -45,7 +59,7 @@ if (mode === 'capture') {
     status: 'RUNNING',
     commands: [],
     runs: [],
-    remoteCi: 'NOT RUN for M3',
+    remoteCi,
   };
   const commands: unknown[] = [];
   const runs: string[] = [];
@@ -54,7 +68,7 @@ if (mode === 'capture') {
       join(directory, 'capture.json'),
       JSON.stringify({ ...manifest, commands, runs }, null, 2) + '\n',
     );
-  console.log(`M3 capture: ${directory}`);
+  console.log(`${milestone} capture: ${directory}`);
   await save();
   try {
     const paths = (await git(['ls-files', '-z'])).split('\0').filter(Boolean);
@@ -111,12 +125,12 @@ if (mode === 'capture') {
     }
     assert.equal(
       runs.length,
-      20,
-      'Ten explicit profiles per gate, two complete gates',
+      22,
+      'Eleven explicit profiles per gate, two complete gates',
     );
     assert.equal(
       new Set(runs).size,
-      20,
+      22,
       'Each profile uses fresh owned resources',
     );
     const executedProfiles: string[] = [];
@@ -141,6 +155,7 @@ if (mode === 'capture') {
       'm2c1:populated registered M2C upgrade',
       'm3:fresh',
       'm3:populated guarded M2C.1 upgrade',
+      'm3-oracle:fresh',
     ];
     assert.deepEqual(executedProfiles, [
       ...expectedProfiles,
@@ -164,6 +179,7 @@ if (mode === 'capture') {
     JSON.parse(await readFile(join(directory, 'capture.json'), 'utf8')),
   );
   assert.equal(captured['status'], 'PASS');
+  assert.equal(captured['baseline'], baseline);
   const runs = captured['runs'];
   assert.ok(Array.isArray(runs));
   const profiles = [];
@@ -186,20 +202,24 @@ if (mode === 'capture') {
       cleanup: r['cleanup'],
       elasticsearchCleanup: r['elasticsearchCleanup'],
       esEvidence: r['esEvidence'],
+      oracleEvidence: r['oracleEvidence'],
+      prerequisite: r['prerequisite'],
+      testExecution: r['testExecution'],
+      evidenceErrors: r['evidenceErrors'],
       localRun: String(path),
       manifestSha256: hash(await readFile(String(path))),
     });
   }
   const summary = {
     format: 1,
-    milestone: 'M3',
+    milestone,
     baseline,
     testedCode: captured['testedCode'],
     inputSha256: captured['inputSha256'],
     status: captured['status'],
     commands: captured['commands'],
     profiles,
-    remoteCi: 'NOT RUN for M3',
+    remoteCi,
     evidenceLocation: 'Local paths only; bundle is not published',
     incomplete: [
       'RabbitMQ delivery',
@@ -215,10 +235,10 @@ if (mode === 'capture') {
   );
   if (mode === 'summary') {
     await writeFile(
-      'docs/evidence/M3-summary.json',
+      `docs/evidence/${milestone}-summary.json`,
       JSON.stringify(summary, null, 2) + '\n',
     );
-    console.log('Wrote compact tracked M3 summary');
+    console.log(`Wrote compact tracked ${milestone} summary`);
   } else {
     assert.equal(
       await git(['status', '--porcelain']),
@@ -234,10 +254,12 @@ if (mode === 'capture') {
     ))
       if (dirname(file) === directory && /\.(log|json)$/.test(file))
         await cp(file, join(bundle, basename(file)));
-    const baselineDir = 'artifacts/m3/baseline-c05f3dc';
+    const baselineDir = historical
+      ? 'artifacts/m3/baseline-c05f3dc'
+      : 'artifacts/m3.1/baseline-c3cb8f7';
     await cp(baselineDir, join(bundle, 'baseline'), { recursive: true });
     const baselineLog = await readFile(
-      join(baselineDir, 'verify-m2c1.log'),
+      join(baselineDir, historical ? 'verify-m2c1.log' : 'm3-targeted.log'),
       'utf8',
     );
     for (const match of baselineLog.matchAll(/^PASS: (.+\/run\.json)$/gm))
@@ -249,28 +271,73 @@ if (mode === 'capture') {
         );
     const development = join(bundle, 'development');
     await mkdir(development, { recursive: true });
-    for (const entry of await readdir('artifacts/m3', {
-      withFileTypes: true,
-    })) {
-      if (
-        entry.isDirectory() &&
-        /^m3-(2026|protocol-|permission-probe-|auth-restart-)/.test(
-          entry.name,
-        ) &&
-        !runs.some(
-          (p) => dirname(String(p)) === resolve('artifacts/m3', entry.name),
+    if (historical) {
+      for (const entry of await readdir('artifacts/m3', {
+        withFileTypes: true,
+      })) {
+        if (
+          entry.isDirectory() &&
+          /^m3-(2026|protocol-|permission-probe-|auth-restart-)/.test(
+            entry.name,
+          ) &&
+          !runs.some(
+            (p) => dirname(String(p)) === resolve('artifacts/m3', entry.name),
+          )
         )
-      )
-        await cp(
-          join('artifacts/m3', entry.name),
-          join(development, entry.name),
-          { recursive: true },
-        );
-      else if (entry.isFile() && /\.(log|json|mjs)$/.test(entry.name))
-        await cp(
-          join('artifacts/m3', entry.name),
-          join(development, entry.name),
-        );
+          await cp(
+            join('artifacts/m3', entry.name),
+            join(development, entry.name),
+            { recursive: true },
+          );
+        else if (entry.isFile() && /\.(log|json|mjs)$/.test(entry.name))
+          await cp(
+            join('artifacts/m3', entry.name),
+            join(development, entry.name),
+          );
+      }
+    } else {
+      const allowedHeads = new Set([
+        baseline,
+        ...(
+          await git(['log', '--format=%H', `${baseline}..${finalHead}`])
+        ).split('\n'),
+      ]);
+      for (const root of [
+        'artifacts/m3',
+        'artifacts/m3-oracle',
+        'artifacts/m3-repro',
+      ]) {
+        for (const entry of await readdir(root, { withFileTypes: true })) {
+          const dir = join(root, entry.name);
+          if (
+            !entry.isDirectory() ||
+            runs.some((p) => dirname(String(p)) === resolve(dir))
+          )
+            continue;
+          let run: Record<string, unknown>;
+          try {
+            run = object(
+              JSON.parse(await readFile(join(dir, 'run.json'), 'utf8')),
+            );
+          } catch {
+            continue;
+          }
+          if (allowedHeads.has(String(run['head'])))
+            await cp(dir, join(development, entry.name), { recursive: true });
+        }
+      }
+      for (const entry of await readdir(artifactRoot, {
+        withFileTypes: true,
+      })) {
+        const path = join(artifactRoot, entry.name);
+        if (entry.isFile() && /\.(log|json|mjs)$/.test(entry.name))
+          await cp(path, join(development, entry.name));
+        else if (
+          entry.isDirectory() &&
+          /^(hosted-|prerequisite-)/.test(entry.name)
+        )
+          await cp(path, join(development, entry.name), { recursive: true });
+      }
     }
     for (const path of runs) {
       const dir = dirname(String(path));
@@ -327,7 +394,7 @@ if (mode === 'capture') {
           testedCode: captured['testedCode'],
           finalDocumentationHead: finalHead,
           clean: true,
-          remoteCi: 'NOT RUN for M3',
+          remoteCi,
         },
         null,
         2,
@@ -341,7 +408,7 @@ if (mode === 'capture') {
     await writeFile(join(bundle, 'SHA256SUMS'), sums.join('\n') + '\n');
     const archive = join(
       directory,
-      `m3-review-${finalHead.slice(0, 12)}.tar.gz`,
+      `${milestone.toLowerCase()}-review-${finalHead.slice(0, 12)}.tar.gz`,
     );
     const packed = await command(
       'tar',

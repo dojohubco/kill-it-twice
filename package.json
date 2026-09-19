@@ -35,7 +35,8 @@
     "test:protocol:es-auth-restart": "node scripts/es-auth-restart.ts",
     "test:reproduction:m3-oracle": "node scripts/m1.ts m3-repro",
     "test:integration:m31": "node scripts/m1.ts m3-oracle",
-    "verify:m3": "node scripts/verify-m3.ts"
+    "verify:m3": "node scripts/verify-m3.ts",
+    "review:m31": "node scripts/review-m3.ts"
   },
   "dependencies": {
     "@elastic/elasticsearch": "9.5.1",
