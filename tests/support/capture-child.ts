@@ -95,8 +95,10 @@ const renewMock = mock.method(
     this: SourceCapture,
     ...args: Parameters<SourceCapture['renew']>
   ) {
-    if (renewalGate) await renewalGate.promise;
-    stop.signal.throwIfAborted();
+    if (renewalGate) {
+      await renewalGate.promise;
+      stop.signal.throwIfAborted();
+    }
     const pending = Reflect.apply(originalRenew, this, args);
     activeRenewals.add(pending);
     try {
