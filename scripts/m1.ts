@@ -1453,12 +1453,33 @@ try {
   }
   if (esService) {
     const runningEs = esService;
-    await diagnostics.finalize('Elasticsearch logs', async () =>
-      writeFile(
-        join(artifactDir, 'es.log'),
-        clean(await runningEs.compose(['logs', '--tail', '200', '--no-color'])),
-      ),
-    );
+    await diagnostics.finalize('Elasticsearch logs', async () => {
+      const logs = await runningEs.logs();
+      await writeFile(join(artifactDir, 'es.log'), clean(logs.stdout));
+      await writeFile(
+        join(artifactDir, 'es-log-stderr.log'),
+        clean(logs.stderr),
+      );
+      const result = {
+        code: logs.code,
+        signal: logs.signal,
+        timedOut: logs.timedOut,
+        outputOverflow: logs.outputOverflow,
+        cleanupErrors: logs.cleanupErrors,
+        maxOutputBytes: 4 * 1024 * 1024,
+        stdoutBytes: Buffer.byteLength(logs.stdout),
+        stderrBytes: Buffer.byteLength(logs.stderr),
+      };
+      await writeFile(
+        join(artifactDir, 'es-log-command.json'),
+        clean(JSON.stringify(result, null, 2)) + '\n',
+      );
+      assert.equal(logs.code, 0, JSON.stringify(result));
+      assert.equal(logs.signal, null);
+      assert.equal(logs.outputOverflow, false);
+      assert.equal(logs.timedOut, false);
+      assert.deepEqual(logs.cleanupErrors, []);
+    });
     await diagnostics.finalize('Elasticsearch cleanup', runningEs.cleanup);
     const esResources: Record<string, string> = {};
     for (const kind of ['container', 'volume', 'network'])
@@ -1631,6 +1652,8 @@ try {
       'capture-upgrade.json',
       'es-upgrade.json',
       'es.log',
+      'es-log-command.json',
+      'es-log-stderr.log',
       'prerequisite.json',
       'openapi.json',
     ]);

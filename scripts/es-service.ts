@@ -306,6 +306,15 @@ export async function startEs(project: string) {
       proxyNode,
       proxyApi,
       compose,
+      logs: () =>
+        command(
+          'docker',
+          [...args, 'logs', '--tail', '200', '--no-color'],
+          env,
+          90000,
+          true,
+          { secrets, maxOutputBytes: 4 * 1024 * 1024 },
+        ),
       provisionRuntime,
       cleanup,
     };

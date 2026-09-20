@@ -112,12 +112,12 @@ if (mode === 'capture') {
       JSON.stringify(inputs, null, 2) + '\n',
     );
     manifest['inputSha256'] = hash(JSON.stringify(inputs));
-    for (const [name, executable, args, expected] of [
-      ['npm-ci', 'npm', ['ci', '--no-audit', '--no-fund'], 0],
-      [`${gate}-first`, 'make', [gate], 0],
-      [`${gate}-repeat`, 'make', [gate], 0],
-      ['full-verify', 'make', ['verify'], 2],
-    ] as const) {
+    const execute = async (
+      name: string,
+      executable: string,
+      args: readonly string[],
+      expected: number,
+    ) => {
       const startedAt = new Date().toISOString();
       const r = await command(
         executable,
@@ -154,6 +154,53 @@ if (mode === 'capture') {
       assert.equal(await git(['status', '--porcelain']), '');
       assert.equal(await git(['rev-parse', 'HEAD']), head);
       console.log(`${name}: exit ${r.code}`);
+    };
+    if (m6) {
+      await execute('npm-ci', 'npm', ['ci', '--no-audit', '--no-fund'], 0);
+      const checkout = join(directory, 'repeat-checkout');
+      await git([
+        'clone',
+        '--shared',
+        '--no-checkout',
+        '--quiet',
+        '.',
+        checkout,
+      ]);
+      await git(['-C', checkout, 'checkout', '--detach', head]);
+      await cp('.tools', join(checkout, '.tools'), { recursive: true });
+      await execute(
+        'npm-ci-repeat',
+        'npm',
+        ['--prefix', checkout, 'ci', '--no-audit', '--no-fund'],
+        0,
+      );
+      manifest['repeatCheckout'] = checkout;
+      manifest['gateExecution'] =
+        'Concurrent complete gates in independent clean local checkouts; each owns fresh service projects and build outputs. Not a capacity benchmark.';
+      await save();
+      const outcomes = await Promise.allSettled([
+        execute(`${gate}-first`, 'make', [gate], 0),
+        execute(`${gate}-repeat`, 'make', ['-C', checkout, gate], 0),
+      ]);
+      // Both children finish their own cleanup before a failed gate is reported.
+      await rm(join(checkout, 'node_modules'), {
+        recursive: true,
+        force: true,
+      });
+      await rm(join(checkout, '.tools'), { recursive: true, force: true });
+      assert.equal(await git(['-C', checkout, 'status', '--porcelain']), '');
+      assert.equal(await git(['-C', checkout, 'rev-parse', 'HEAD']), head);
+      for (const outcome of outcomes)
+        if (outcome.status === 'rejected') throw outcome.reason;
+      await execute('full-verify', 'make', ['verify'], 2);
+    } else {
+      for (const [name, executable, commandArgs, expected] of [
+        ['npm-ci', 'npm', ['ci', '--no-audit', '--no-fund'], 0],
+        [`${gate}-first`, 'make', [gate], 0],
+        [`${gate}-repeat`, 'make', [gate], 0],
+        ['full-verify', 'make', ['verify'], 2],
+      ] as const)
+        await execute(name, executable, commandArgs, expected);
     }
     assert.equal(
       runs.length,
