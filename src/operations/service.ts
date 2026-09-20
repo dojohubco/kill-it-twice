@@ -270,18 +270,18 @@ export class OperationsService {
       run = id(r['run_id']),
       ranges = integer(r['ranges'], 1, 16);
     if (key !== run) throw new ControlError(400, 'invalid_request');
-    const input = {
-      run_id: run,
-      epoch: this.#config.sourceEpoch,
-      instance: this.#config.pipelineId,
-      ranges,
-    };
-    const existing = await this.db.read('pipeline', 'receipt', [
-      key,
-      'backfill_start',
-      JSON.stringify(input),
-    ]);
-    if (existing[0]) return existing[0];
+    const existing = await this.db.read('pipeline', 'receipt', [key]);
+    if (existing[0])
+      return this.db.backfill(
+        key,
+        correlation,
+        'backfill_start',
+        run,
+        this.#config.sourceEpoch,
+        this.#config.pipelineId,
+        ranges,
+        null,
+      );
     const observation = await new BackfillSource(this.#config.source, {
       sourceEpoch: this.#config.sourceEpoch,
       pipelineId: this.#config.pipelineId,

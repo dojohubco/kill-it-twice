@@ -67,3 +67,8 @@ verify-m5b: verify-m5a
 	npm run test:integration:m5b
 	npm run test:integration:m5b -- --upgrade
 	npm run test:integration:m5b-empty
+
+.PHONY: verify-m6
+verify-m6: verify-m5b
+	npm run test:integration:m6
+	npm run test:integration:m6 -- --upgrade

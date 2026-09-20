@@ -1,4 +1,9 @@
 import {
+  operationalCases,
+  operationalUpgradeCases,
+} from './required-operational-cases.ts';
+import { checkOperationalEvidence } from './operational-evidence.ts';
+import {
   backfillCases,
   backfillUpgradeCases,
   backfillEmptyCases,
@@ -120,6 +125,7 @@ assert.ok(
     'm5a',
     'm5b',
     'm5b-empty',
+    'm6',
   ].includes(profile),
   'Expected an explicitly supported acceptance or reproduction profile',
 );
@@ -129,7 +135,9 @@ const batchReproduction = profile === 'm41-repro';
 const batchProfile = profile === 'm41';
 const bootstrapProfile = profile === 'm5a';
 const emptyBackfill = profile === 'm5b-empty';
-const backfillProfile = profile === 'm5b' || emptyBackfill;
+const operationalProfile = profile === 'm6';
+const backfillProfile =
+  profile === 'm5b' || emptyBackfill || operationalProfile;
 const rabbitProfile =
   profile === 'm4' ||
   batchReproduction ||
@@ -162,47 +170,51 @@ const upgrade = process.argv[3] === '--upgrade';
 assert.ok(
   process.argv[3] === undefined || (twoDatabases && !reproduction && upgrade),
 );
-const inventory = backfillProfile
-  ? emptyBackfill
-    ? backfillEmptyCases
-    : upgrade
-      ? backfillUpgradeCases
-      : backfillCases
-  : bootstrapProfile
-    ? upgrade
-      ? bootstrapUpgradeCases
-      : bootstrapCases
-    : batchReproduction
-      ? batchReproductionCases
-      : batchProfile
-        ? batchCases
-        : rabbitProfile
-          ? rabbitCases
-          : oracleAcceptance
-            ? oracleCases
-            : oracleReproduction
-              ? oracleReproductionCases
-              : esProfile
-                ? [...esCases, expectationInventoryCase]
-                : reproduction
-                  ? reproductionCases
-                  : guarded
-                    ? [
-                        ...captureCases,
-                        ...isolationCases,
-                        ...(upgrade ? [] : registrationCases),
-                      ]
-                    : profile === 'm2c'
-                      ? captureCases
-                      : profile === 'm2b'
-                        ? stagingCases
-                        : profile === 'm2a'
-                          ? [
-                              ...requiredCases,
-                              ...commandCases,
-                              ...commandFaultCases,
-                            ]
-                          : requiredCases;
+const inventory = operationalProfile
+  ? upgrade
+    ? operationalUpgradeCases
+    : operationalCases
+  : backfillProfile
+    ? emptyBackfill
+      ? backfillEmptyCases
+      : upgrade
+        ? backfillUpgradeCases
+        : backfillCases
+    : bootstrapProfile
+      ? upgrade
+        ? bootstrapUpgradeCases
+        : bootstrapCases
+      : batchReproduction
+        ? batchReproductionCases
+        : batchProfile
+          ? batchCases
+          : rabbitProfile
+            ? rabbitCases
+            : oracleAcceptance
+              ? oracleCases
+              : oracleReproduction
+                ? oracleReproductionCases
+                : esProfile
+                  ? [...esCases, expectationInventoryCase]
+                  : reproduction
+                    ? reproductionCases
+                    : guarded
+                      ? [
+                          ...captureCases,
+                          ...isolationCases,
+                          ...(upgrade ? [] : registrationCases),
+                        ]
+                      : profile === 'm2c'
+                        ? captureCases
+                        : profile === 'm2b'
+                          ? stagingCases
+                          : profile === 'm2a'
+                            ? [
+                                ...requiredCases,
+                                ...commandCases,
+                                ...commandFaultCases,
+                              ]
+                            : requiredCases;
 const runId = `${profile}-${new Date().toISOString().replace(/[^0-9]/g, '')}-${randomBytes(4).toString('hex')}`;
 const artifactDir = resolve(`artifacts/${profile}`, runId);
 await mkdir(artifactDir, { recursive: true });
@@ -275,29 +287,33 @@ function pipelineAdmin(label: string) {
 const manifest: Record<string, unknown> = {
   runId,
   profile,
-  migrationMode: backfillProfile
-    ? emptyBackfill
-      ? 'empty legacy-active source'
-      : upgrade
-        ? 'populated M5A backfill upgrade'
-        : 'fresh baseline backfill'
-    : bootstrapProfile
-      ? upgrade
-        ? 'populated M4.1 active source upgrade'
-        : 'fresh closed bootstrap'
-      : upgrade
-        ? batchProfile
-          ? 'populated M4 consumer upgrade'
-          : rabbitProfile
-            ? 'populated M3.1 upgrade'
-            : esProfile
-              ? 'populated guarded M2C.1 upgrade'
-              : guarded
-                ? 'populated registered M2C upgrade'
-                : profile === 'm2c'
-                  ? 'populated M2B upgrade'
-                  : 'populated M2A upgrade'
-        : 'fresh',
+  migrationMode: operationalProfile
+    ? upgrade
+      ? 'populated M5B operational upgrade'
+      : 'fresh operations'
+    : backfillProfile
+      ? emptyBackfill
+        ? 'empty legacy-active source'
+        : upgrade
+          ? 'populated M5A backfill upgrade'
+          : 'fresh baseline backfill'
+      : bootstrapProfile
+        ? upgrade
+          ? 'populated M4.1 active source upgrade'
+          : 'fresh closed bootstrap'
+        : upgrade
+          ? batchProfile
+            ? 'populated M4 consumer upgrade'
+            : rabbitProfile
+              ? 'populated M3.1 upgrade'
+              : esProfile
+                ? 'populated guarded M2C.1 upgrade'
+                : guarded
+                  ? 'populated registered M2C upgrade'
+                  : profile === 'm2c'
+                    ? 'populated M2B upgrade'
+                    : 'populated M2A upgrade'
+          : 'fresh',
   artifactDir,
   startedAt: new Date().toISOString(),
   status: 'RUNNING',
@@ -1045,7 +1061,7 @@ try {
       () => p.end(),
     );
   }
-  if (backfillProfile && !upgrade) {
+  if (backfillProfile && (!upgrade || operationalProfile)) {
     const s = new pg.Client({
       host: '127.0.0.1',
       port,
@@ -1145,7 +1161,12 @@ try {
     { code: 0, signal: null, timedOut: false, outputOverflow: false },
     inventory,
   );
-  if (backfillProfile)
+  if (operationalProfile)
+    manifest['operationalEvidence'] = await checkOperationalEvidence(
+      join(artifactDir, 'sql-evidence.jsonl'),
+      upgrade,
+    );
+  if (backfillProfile && !operationalProfile)
     manifest['backfillEvidence'] = await checkBackfillEvidence(
       join(artifactDir, 'sql-evidence.jsonl'),
       upgrade,

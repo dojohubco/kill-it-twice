@@ -20,7 +20,7 @@ export const queries = {
    'es',(SELECT jsonb_build_object('destination_id',destination_id,'generation',generation::text,'mode',mode,'reason',reason,'index_name',index_name,'index_uuid',index_uuid,'cluster_uuid',cluster_uuid) FROM pipeline.es_target),
    'rabbit',(SELECT jsonb_build_object('destination_id',destination_id,'generation',generation::text,'mode',mode,'reason',reason,'registration_id',registration_id,'consumer_id',consumer_id) FROM pipeline.rabbit_target)) value`,
     backfill: `SELECT pipeline.backfill_status($1) value`,
-    receipt: `SELECT result||jsonb_build_object('replayed',true) value FROM pipeline.operator_receipts WHERE request_id=$1 AND operation=$2 AND input=$3::jsonb`,
+    receipt: `SELECT jsonb_build_object('request_id',request_id) value FROM pipeline.operator_receipts WHERE request_id=$1`,
     entity: `SELECT jsonb_build_object('event_id',e.event_id,'entity_version',e.entity_version::text,'is_deleted',e.is_deleted,'state',d.state,'error_class',d.error_class) value FROM pipeline.events e JOIN pipeline.delivery_intents d ON d.event_id=e.event_id AND d.kind='elasticsearch' WHERE e.source_epoch=$1 AND e.entity_id=$2 ORDER BY e.entity_version DESC LIMIT 8`,
     event: `SELECT jsonb_build_object('event_id',e.event_id,'source_epoch',e.source_epoch,'entity_id',e.entity_id::text,'entity_version',e.entity_version::text,'source_change_id',e.source_change_id,'source_recorded_at',e.source_recorded_at,'kind',e.kind,'is_deleted',e.is_deleted,'content_sha256',e.content_sha256,'staged_at',e.staged_at,
    'deliveries',(SELECT jsonb_agg(to_jsonb(d)||jsonb_build_object('claim_generation',claim_generation::text,'remote_version',remote_version::text)) FROM pipeline.delivery_intents d WHERE d.event_id=e.event_id),
