@@ -1290,7 +1290,7 @@ try {
         assert.deepEqual(
           (
             await c.query(
-              "SELECT pid FROM pg_stat_activity WHERE usename IN ('pipeline_rabbit','pipeline_receipts','consumer_runtime','consumer_receipt_reader')",
+              "SELECT pid FROM pg_stat_activity WHERE usename IN ('pipeline_rabbit','pipeline_receipts','pipeline_backfill','consumer_runtime','consumer_receipt_reader')",
             )
           ).rows,
           [],

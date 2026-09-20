@@ -25,7 +25,7 @@ if (
   !mode ||
   !run ||
   !['start', 'status', 'pause', 'resume', 'once', 'follow'].includes(mode) ||
-  process.argv.length > 6 ||
+  process.argv.length > 5 ||
   (partitions !== undefined && mode !== 'start')
 )
   throw new Error(

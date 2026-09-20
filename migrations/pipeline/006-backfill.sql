@@ -55,7 +55,7 @@ BEGIN
  INTO value FROM pipeline.source_binding s CROSS JOIN pipeline.destinations e CROSS JOIN pipeline.destinations r JOIN pipeline.rabbit_target t ON t.destination_id=r.destination_id
  JOIN pipeline.es_target x ON x.destination_id=e.destination_id
  WHERE s.pipeline_id=instance AND s.source_epoch=epoch AND e.kind='elasticsearch' AND r.kind='rabbitmq' AND e.state='bound' AND r.state='bound' AND x.registered_at IS NOT NULL AND t.registered_at IS NOT NULL
- AND e.receiver_identity=x.index_uuid AND r.receiver_identity=t.registration_id::text AND t.pipeline_id=instance AND t.source_epoch=epoch;
+ AND e.receiver_identity=x.index_uuid AND r.receiver_identity=t.registration_id::text AND x.pipeline_id=instance AND x.source_epoch=epoch AND x.generation=e.generation AND t.generation=r.generation AND t.pipeline_id=instance AND t.source_epoch=epoch;
  IF value IS NULL THEN RAISE EXCEPTION 'Backfill target binding incomplete or inconsistent' USING ERRCODE='P8001'; END IF; RETURN value;
 END $$;
 CREATE FUNCTION pipeline.guard_backfill_run() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$

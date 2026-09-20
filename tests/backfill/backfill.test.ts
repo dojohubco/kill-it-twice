@@ -3,6 +3,7 @@ import test, { after } from 'node:test';
 import { randomUUID } from 'node:crypto';
 import type pg from 'pg';
 import { TransactionError } from '../../src/internal/transaction.ts';
+import { canonicalEvent } from '../../src/envelope.ts';
 import { BackfillSource } from '../../src/backfill/source.ts';
 import { object, text } from '../../src/backfill/types.ts';
 import { backfillCases } from '../../scripts/required-backfill-cases.ts';
@@ -54,10 +55,6 @@ let held: pg.Client | undefined,
   postFenceId = '';
 let fenceHeld: pg.Client | undefined,
   fenceLateId = '';
-after(async () => {
-  await held?.end();
-  await fenceHeld?.end();
-});
 async function expire(p: pg.Client) {
   await databaseWaitFor(
     p,
@@ -188,6 +185,23 @@ await test(name('BF02'), async (t) => {
   };
   await assert.rejects(backfillLedger().page(invalid));
   assert.deepEqual(await snapshot(p), before);
+  const conflict = {
+    ...r,
+    page: {
+      ...r.page,
+      events: r.page.events.map((event, i) =>
+        i === 0
+          ? canonicalEvent({
+              ...event.body,
+              payload_json: '{"name": "conflicting retained identity"}',
+            })
+          : event,
+      ),
+    },
+  };
+  await assert.rejects(backfillLedger().page(conflict), code('P3001'));
+  assert.deepEqual(await snapshot(p), before);
+  assert.equal((await p.query('SELECT * FROM pipeline.events')).rowCount, 1);
   const role = backfillConfig().pipeline;
   const runtime = new (await import('pg')).default.Client(role);
   await runtime.connect();
@@ -584,6 +598,8 @@ for (const [id, boundary, kill, direct] of [
       }),
       barrier = await child.barrier();
     let tx: unknown = null;
+    let contender: Promise<Record<string, unknown>> | undefined;
+    let contention: unknown = null;
     if (boundary === 'fence.before_source_commit') {
       tx = await session(s, child.sourceApplicationName);
       assert.equal(object(tx)['state'], 'idle in transaction');
@@ -596,6 +612,32 @@ for (const [id, boundary, kill, direct] of [
         ).rowCount,
         0,
       );
+      if (id === 'BF11H') {
+        const cfg = backfillConfig('fence-contender');
+        contender = new BackfillSource(cfg.source, cfg.binding).fence(key);
+        void contender.catch(() => undefined);
+        const observed = await databaseWaitFor(
+          s,
+          () =>
+            s.query<Record<string, unknown>>(
+              'SELECT pid,backend_xid::text,state,wait_event_type,pg_blocking_pids(pid) blockers FROM pg_stat_activity WHERE application_name=$1',
+              [cfg.source.application_name],
+            ),
+          (r) =>
+            r.rows.some(
+              (row) =>
+                row['wait_event_type'] === 'Lock' &&
+                Array.isArray(row['blockers']) &&
+                row['blockers'].includes(object(tx)['pid']),
+            ),
+          'Concurrent fence key arbitration',
+          5000,
+        );
+        contention = observed.rows;
+        t.after(async () => {
+          await contender?.catch(() => undefined);
+        });
+      }
     } else {
       assert.equal(
         (
@@ -618,6 +660,8 @@ for (const [id, boundary, kill, direct] of [
     }
     if (!kill) child.release();
     const exit = await child.finish(kill ? 'kill' : 'run');
+    const recovered = contender ? await contender : null;
+    if (recovered) assert.deepEqual(recovered, barrier['data']);
     const sessionGone = await gone(s, child.sourceApplicationName);
     const rows = (
       await s.query<{ id: string }>(
@@ -634,6 +678,8 @@ for (const [id, boundary, kill, direct] of [
       exit: { ...exit, sessionGone },
       key,
       members: rows,
+      contention,
+      recovered,
     });
   });
 }
@@ -650,6 +696,14 @@ await test(name('BF12'), async (t) => {
       await tx.page(r);
       throw new Error('Deliberate import rollback');
     }),
+    (error: unknown) => {
+      assert.ok(error instanceof TransactionError);
+      assert.equal(error.outcome, 'rolled_back');
+      assert.equal(error.sqlState, undefined);
+      assert.ok(error.cause instanceof Error);
+      assert.equal(error.cause.message, 'Deliberate import rollback');
+      return true;
+    },
   );
   assert.deepEqual(await snapshot(p), before);
   await backfillLedger().change(r.claim, 'defer', 1);
@@ -1083,4 +1137,10 @@ await test(name('BF17'), async (t) => {
     small: small.eventId,
     blocked: blocked.evidence,
   });
+});
+// Register file teardown after the sequential top-level awaited tests. Registering
+// it before them allowed Node's root hook to close the cross-case held session early.
+after(async () => {
+  await held?.end();
+  await fenceHeld?.end();
 });
