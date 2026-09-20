@@ -1,6 +1,6 @@
 # ADR 012: retained baseline bootstrap and atomic activation
 
-Date: 2026-09-20. Status: authorized design before implementation; acceptance pending. This implements planned baseline state and the known baseline/no-op receipt integration obligation. ADRs 005–011 and canonical bytes remain unchanged.
+Date: 2026-09-20. Status: implemented; repeated local acceptance is recorded in [M5A evidence](../evidence/M5A.md); independent review pending. The design was committed before implementation. This implements planned baseline state and the known baseline/no-op receipt integration obligation. ADRs 005–011 and canonical bytes remain unchanged.
 
 ## Source model and compatibility
 
