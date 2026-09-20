@@ -173,7 +173,7 @@ BEGIN
   FOR x IN SELECT value FROM jsonb_array_elements(items) LOOP PERFORM pipeline.assert_obligations(x->>'event_id'); END LOOP;
   RETURN jsonb_build_object('batch_id',batch,'replayed',true,'next_key',old.next_key::text,'eof',old.eof,'items',old.items,'created_at',old.created_at);
  END IF;
- IF r.phase IS DISTINCT FROM CASE WHEN num=0 THEN 'importing' ELSE 'scanning' END OR q.state<>'leased' OR q.owner_id IS DISTINCT FROM incarnation OR q.generation IS DISTINCT FROM gen OR q.checkpoint IS DISTINCT FROM previous_key OR q.lease_until<=clock_timestamp() THEN RAISE EXCEPTION 'Stale page ownership or cursor' USING ERRCODE='P8002'; END IF;
+ IF r.phase IS DISTINCT FROM (CASE WHEN num=0 THEN 'importing' ELSE 'scanning' END) OR q.state<>'leased' OR q.owner_id IS DISTINCT FROM incarnation OR q.generation IS DISTINCT FROM gen OR q.checkpoint IS DISTINCT FROM previous_key OR q.lease_until<=clock_timestamp() THEN RAISE EXCEPTION 'Stale page ownership or cursor' USING ERRCODE='P8002'; END IF;
  FOR x IN SELECT value FROM jsonb_array_elements(inputs) ORDER BY (convert_from(decode(value->>'body','hex'),'UTF8')::jsonb->>'event_id') COLLATE "C" LOOP
   status:=pipeline.stage_bound_event(r.pipeline_id,decode(x->>'body','hex'),x->>'hash');
   result:=result||jsonb_build_array(jsonb_build_object('event_id',convert_from(decode(x->>'body','hex'),'UTF8')::jsonb->>'event_id','status',status));
