@@ -969,6 +969,7 @@ await test(name('BF13'), async (t) => {
   );
   assert.deepEqual(after, before);
   const retained = await snapshot(p, second),
+    originalRun = await snapshot(p),
     negative: unknown[] = [];
   for (const mode of [
     'missing_observation',
@@ -976,6 +977,7 @@ await test(name('BF13'), async (t) => {
     'corrupt_checkpoint',
     'quarantined_classification',
   ] as const) {
+    const targetRun = mode === 'quarantined_classification' ? runId : second;
     await p.query('BEGIN');
     try {
       if (mode === 'missing_observation') {
@@ -1006,31 +1008,58 @@ await test(name('BF13'), async (t) => {
         );
       }
       if (mode === 'quarantined_classification') {
+        // Isolate quarantine from the separate real ES rejection. This labelled,
+        // rolled-back SQL fixture is classification evidence, not a remote quarantine.
+        await p.query('SELECT pipeline.backfill_advance($1)', [second]);
+        await p.query(
+          'ALTER TABLE pipeline.backfill_runs DISABLE TRIGGER backfill_run_guard',
+        );
+        await p.query(
+          "UPDATE pipeline.backfill_runs SET phase='draining',completed_at=NULL WHERE run_id=$1",
+          [runId],
+        );
+        const member = (
+          await p.query<{ event_id: string }>(
+            'SELECT event_id FROM pipeline.backfill_members WHERE run_id=$1 ORDER BY event_id LIMIT 1',
+            [runId],
+          )
+        ).rows[0];
+        assert.ok(member);
         await p.query(
           'ALTER TABLE pipeline.consumer_observations DISABLE TRIGGER immutable_rows',
         );
         await p.query(
           "UPDATE pipeline.consumer_observations SET state='quarantined' WHERE event_id=$1",
-          [bad.eventId],
+          [member.event_id],
         );
       }
       const result = object(
         (
           await p.query<{ value: unknown }>(
             'SELECT pipeline.backfill_advance($1) value',
-            [second],
+            [targetRun],
           )
         ).rows[0]?.value,
       );
-      if (mode === 'quarantined_classification')
+      let counts: unknown = null;
+      if (mode === 'quarantined_classification') {
+        counts = (
+          await p.query<{ value: unknown }>(
+            'SELECT pipeline.backfill_counts($1) value',
+            [runId],
+          )
+        ).rows[0]?.value;
+        assert.equal(object(counts)['es_errors'], '0');
+        assert.equal(object(counts)['consumer_errors'], '1');
         assert.equal(result['phase'], 'complete_with_errors');
-      else {
+      } else {
         assert.equal(result['phase'], 'draining');
         assert.ok(result['blocked_reason']);
       }
       negative.push({
         mode,
         result,
+        counts,
         privilegedRolledBackFixture: true,
         notAnActualQuarantine: true,
       });
@@ -1038,6 +1067,7 @@ await test(name('BF13'), async (t) => {
       await p.query('ROLLBACK');
     }
     assert.deepEqual(await snapshot(p, second), retained);
+    assert.deepEqual(await snapshot(p), originalRun);
   }
   await backfillLedger().advance(second);
   const completed = await scan().status(second);

@@ -85,6 +85,14 @@ export async function checkBackfillEvidence(
     object(one('BF13')['completed'])['phase'],
     'complete_with_errors',
   );
+  const negative = one('BF13')['negative'];
+  assert.ok(Array.isArray(negative));
+  const quarantine = negative
+    .map(object)
+    .find((n) => n['mode'] === 'quarantined_classification');
+  assert.ok(quarantine);
+  assert.equal(object(quarantine['counts'])['es_errors'], '0');
+  assert.equal(object(quarantine['counts'])['consumer_errors'], '1');
   assert.equal(object(one('BF17')['blocked'])['sealed_at'], null);
   const ids = one('BF15')['requiredIds'];
   assert.ok(Array.isArray(ids) && ids.length >= 257);

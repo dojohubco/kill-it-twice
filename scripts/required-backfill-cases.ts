@@ -1,4 +1,6 @@
-// Independent requirements committed before production implementation or execution.
+// BF01-BF17 and healthy controls were committed before production implementation.
+// BF01E splits BF01's empty/legacy requirement into a separate executable profile;
+// that split and its assertions were recorded before the profile's first execution.
 const cases = [
   ['BF01', 'run identity and exact fixed range coverage'],
   ['BF02', 'page staging membership and checkpoint roll back atomically'],
