@@ -48,7 +48,11 @@
     "review:m41": "node scripts/review-m4.ts --m41",
     "bootstrap": "node scripts/bootstrap.ts",
     "test:integration:m5a": "node scripts/m1.ts m5a",
-    "review:m5a": "node scripts/review-m4.ts --m5a"
+    "review:m5a": "node scripts/review-m4.ts --m5a",
+    "backfill": "node scripts/backfill.ts",
+    "test:integration:m5b": "node scripts/m1.ts m5b",
+    "test:integration:m5b-empty": "node scripts/m1.ts m5b-empty",
+    "review:m5b": "node scripts/review-m4.ts --m5b"
   },
   "dependencies": {
     "@elastic/elasticsearch": "9.5.1",

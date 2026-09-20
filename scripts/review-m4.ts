@@ -7,27 +7,40 @@ import { command, errorText } from './support.ts';
 import { object } from './acceptance.ts';
 const args = process.argv
   .slice(2)
-  .filter((arg) => arg !== '--m41' && arg !== '--m5a');
+  .filter((arg) => arg !== '--m41' && arg !== '--m5a' && arg !== '--m5b');
 const mode = args[0];
-const m5a = process.argv.includes('--m5a');
+const m5b = process.argv.includes('--m5b');
+const m5a = process.argv.includes('--m5a') || m5b;
 const m41 = process.argv.includes('--m41') || m5a;
-const milestone = m5a ? 'M5A' : m41 ? 'M4.1' : 'M4';
-const gate = m5a ? 'verify-m5a' : m41 ? 'verify-m4-1' : 'verify-m4';
-const baseline = m5a
-  ? '685b37158fae5dd19e44425a00a553bce979e158'
-  : m41
-    ? '77a13205a99f23cd73e353b87bed007f0a36cc75'
-    : '47e14920d8fa1b1bab154efe253ba85736b28c6f';
-const artifactRoot = m5a
-  ? 'artifacts/m5a'
-  : m41
-    ? 'artifacts/m41'
-    : 'artifacts/m4';
-const remoteCi = m5a
-  ? 'M5A NOT RUN remotely. Prior M4.1 run 35467226835 failed at 685b371 due to the ci-step 600000 ms fallback deadline; artifact 10592025694 SHA-256 328c3f89eab1d0bffe45faad374a82bafd53f6b9918517e588cc3fb56ee6376b inspected read-only. No push or dispatch.'
-  : m41
-    ? 'M4.1 NOT RUN remotely. Prior M4 run 35458462908 completed successfully at 77a1320; artifact 10589247521 SHA-256 8e2f5081d1c3b8fa4afe6e37215df88160dff5ccb279550c5f7376e27a3e4d57 inspected read-only. No M4.1 push or dispatch authorized.'
-    : 'M4 NOT RUN remotely. Prior M3.1 run 35445223962 observed successful; no M4 push or dispatch authorized.';
+const milestone = m5b ? 'M5B' : m5a ? 'M5A' : m41 ? 'M4.1' : 'M4';
+const gate = m5b
+  ? 'verify-m5b'
+  : m5a
+    ? 'verify-m5a'
+    : m41
+      ? 'verify-m4-1'
+      : 'verify-m4';
+const baseline = m5b
+  ? 'ab097aa95b961d0b02eee29eda706ba910bd5493'
+  : m5a
+    ? '685b37158fae5dd19e44425a00a553bce979e158'
+    : m41
+      ? '77a13205a99f23cd73e353b87bed007f0a36cc75'
+      : '47e14920d8fa1b1bab154efe253ba85736b28c6f';
+const artifactRoot = m5b
+  ? 'artifacts/m5b'
+  : m5a
+    ? 'artifacts/m5a'
+    : m41
+      ? 'artifacts/m41'
+      : 'artifacts/m4';
+const remoteCi = m5b
+  ? 'M5B NOT RUN remotely. Prior M5A run 35498634663 completed successfully at ab097aa; downloaded artifact 10600659769 SHA-256 9790b3a522952de8d7f129d182ca99b89fe1f4022f399ab89e775396d2986401 inspected read-only. No push or dispatch.'
+  : m5a
+    ? 'M5A NOT RUN remotely. Prior M4.1 run 35467226835 failed at 685b371 due to the ci-step 600000 ms fallback deadline; artifact 10592025694 SHA-256 328c3f89eab1d0bffe45faad374a82bafd53f6b9918517e588cc3fb56ee6376b inspected read-only. No push or dispatch.'
+    : m41
+      ? 'M4.1 NOT RUN remotely. Prior M4 run 35458462908 completed successfully at 77a1320; artifact 10589247521 SHA-256 8e2f5081d1c3b8fa4afe6e37215df88160dff5ccb279550c5f7376e27a3e4d57 inspected read-only. No M4.1 push or dispatch authorized.'
+      : 'M4 NOT RUN remotely. Prior M3.1 run 35445223962 observed successful; no M4 push or dispatch authorized.';
 async function git(args: string[]) {
   const r = await command('git', args, process.env, 30000, true);
   assert.equal(r.code, 0, r.stderr);
@@ -98,7 +111,7 @@ if (mode === 'capture') {
         executable,
         [...args],
         process.env,
-        m5a ? 3600000 : 3000000,
+        m5b ? 4500000 : m5a ? 3600000 : 3000000,
         true,
       );
       await writeFile(join(directory, `${name}.stdout.log`), r.stdout);
@@ -132,12 +145,12 @@ if (mode === 'capture') {
     }
     assert.equal(
       runs.length,
-      m5a ? 36 : m41 ? 32 : 26,
+      m5b ? 42 : m5a ? 36 : m41 ? 32 : 26,
       'Explicit profiles per gate, two complete gates',
     );
     assert.equal(
       new Set(runs).size,
-      m5a ? 36 : m41 ? 32 : 26,
+      m5b ? 42 : m5a ? 36 : m41 ? 32 : 26,
       'Each profile uses fresh owned resources',
     );
     const executedProfiles: string[] = [];
@@ -172,6 +185,13 @@ if (mode === 'capture') {
         ? [
             'm5a:fresh closed bootstrap',
             'm5a:populated M4.1 active source upgrade',
+          ]
+        : []),
+      ...(m5b
+        ? [
+            'm5b:fresh baseline backfill',
+            'm5b:populated M5A backfill upgrade',
+            'm5b-empty:empty legacy-active source',
           ]
         : []),
     ];
@@ -246,6 +266,7 @@ if (mode === 'capture') {
         : undefined,
       batchEvidence: r['batchEvidence'],
       bootstrapEvidence: r['bootstrapEvidence'],
+      backfillEvidence: r['backfillEvidence'],
       rabbitCleanup: r['rabbitCleanup'],
       prerequisite: r['prerequisite'],
       testExecution: r['testExecution'],
@@ -270,6 +291,7 @@ if (mode === 'capture') {
           status: p.status,
           counts: p.counts,
           bootstrapEvidence: p.bootstrapEvidence,
+          backfillEvidence: p.backfillEvidence,
           caseIds: p.caseIds,
           cleanup: object(p.cleanup)['status'],
           esCleanup: p.elasticsearchCleanup,
@@ -300,7 +322,9 @@ if (mode === 'capture') {
       : profiles,
     remoteCi,
     evidenceLocation: 'Local paths only; bundle is not published',
-    incomplete: ['backfill', 'UI', 'full G1-G5'],
+    incomplete: m5b
+      ? ['UI', 'scale acceptance', 'full G1-G5']
+      : ['backfill', 'UI', 'full G1-G5'],
   };
   await writeFile(
     join(directory, 'summary.json'),
@@ -327,20 +351,24 @@ if (mode === 'capture') {
     ))
       if (dirname(file) === directory && /\.(log|json)$/.test(file))
         await cp(file, join(bundle, basename(file)));
-    const baselineDir = m5a
-      ? 'artifacts/m5a/baseline-685b371'
-      : m41
-        ? 'artifacts/m41/baseline-77a1320'
-        : 'artifacts/m4/baseline-47e1492';
+    const baselineDir = m5b
+      ? 'artifacts/m5b/baseline-ab097aa'
+      : m5a
+        ? 'artifacts/m5a/baseline-685b371'
+        : m41
+          ? 'artifacts/m41/baseline-77a1320'
+          : 'artifacts/m4/baseline-47e1492';
     await cp(baselineDir, join(bundle, 'baseline'), { recursive: true });
     const baselineLog = await readFile(
       join(
         baselineDir,
-        m5a
-          ? 'verify-m4-1.stdout.log'
-          : m41
-            ? 'verify-m4.stdout.log'
-            : 'verify-m3.log',
+        m5b
+          ? 'verify-m5a.stdout.log'
+          : m5a
+            ? 'verify-m4-1.stdout.log'
+            : m41
+              ? 'verify-m4.stdout.log'
+              : 'verify-m3.log',
       ),
       'utf8',
     );
@@ -351,7 +379,7 @@ if (mode === 'capture') {
           join(bundle, 'baseline-runs', basename(dirname(match[1]))),
           { recursive: true },
         );
-    if (m5a) {
+    if (m5a && !m5b) {
       const repeatLog = await readFile(
         join(baselineDir, 'upgrade-repeat.stdout.log'),
         'utf8',
@@ -403,7 +431,7 @@ if (mode === 'capture') {
         }
       } else if (
         entry.isDirectory() &&
-        /^(m5a-2026|m4-2026|m41-2026|m4-protocol-|hosted-|development$)/.test(
+        /^(m5b-2026|m5a-2026|m4-2026|m41-2026|m4-protocol-|hosted-|development$)/.test(
           entry.name,
         ) &&
         !runs.some((p) => dirname(String(p)) === resolve(path))
