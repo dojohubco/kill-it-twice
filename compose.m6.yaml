@@ -1,0 +1,18 @@
+services:
+  control-api:
+    build:
+      context: .
+      dockerfile: apps/control-api/Dockerfile
+    environment:
+      CONTROL_CONTAINER: '1'
+      CONTROL_CONFIG_FILE: /run/secrets/control.json
+      CONTROL_PORT: '3000'
+    ports: ['127.0.0.1:${CONTROL_HOST_PORT:-0}:3000']
+    volumes:
+      - ${CONTROL_CONFIG_FILE:?Provide a private run-owned control configuration}:/run/secrets/control.json:ro,Z
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    pids_limit: 64
+    stop_grace_period: 15s

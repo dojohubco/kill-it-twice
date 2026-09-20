@@ -9,7 +9,7 @@
   },
   "packageManager": "npm@12.0.2",
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p apps/control-api/tsconfig.json --noEmit",
     "lint": "eslint . --max-warnings=0",
     "test:unit": "node --test --test-reporter=spec tests/unit/*.test.ts",
     "test:integration:m1": "node scripts/m1.ts",
@@ -52,16 +52,26 @@
     "backfill": "node scripts/backfill.ts",
     "test:integration:m5b": "node scripts/m1.ts m5b",
     "test:integration:m5b-empty": "node scripts/m1.ts m5b-empty",
-    "review:m5b": "node scripts/review-m4.ts --m5b"
+    "review:m5b": "node scripts/review-m4.ts --m5b",
+    "build:api": "tsc -p apps/control-api/tsconfig.json",
+    "control:api": "node artifacts/control-api-build/apps/control-api/main.js",
+    "test:integration:m6": "npm run build:api && node scripts/m1.ts m6"
   },
   "dependencies": {
     "@elastic/elasticsearch": "9.5.1",
+    "@nestjs/common": "12.0.3",
+    "@nestjs/core": "12.0.3",
+    "@nestjs/platform-express": "12.0.3",
+    "@nestjs/swagger": "12.0.1",
     "amqplib": "2.0.1",
     "lossless-json": "4.3.1",
-    "pg": "8.23.0"
+    "pg": "8.23.0",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@types/express": "5.0.6",
     "@types/node": "24.13.5",
     "@types/pg": "8.23.1",
     "apache-arrow": "21.1.0",

@@ -1,0 +1,42 @@
+// Fixed, parameterized read surface. No request supplies SQL or a table name.
+export const queries = {
+  source: {
+    snapshot: `SELECT jsonb_build_object('observed_at',clock_timestamp()::text,'counts',to_jsonb(s),
+   'oldest_pending_at',(SELECT min(o.recorded_at)::text FROM source.outbox o LEFT JOIN source.capture_work w USING(source_epoch,entity_id,entity_version) WHERE w.state IS DISTINCT FROM 'acknowledged')) value FROM source.capture_summary($1,$2) s`,
+    entity: `SELECT jsonb_build_object('source_epoch',source_epoch,'entity_id',entity_id::text,'entity_version',entity_version::text,'is_deleted',is_deleted,'recorded_at',recorded_at) value FROM source.entities WHERE source_epoch=$1 AND entity_id=$2`,
+    event: `SELECT to_jsonb(w)||jsonb_build_object('work_id',work_id::text,'entity_id',entity_id::text,'entity_version',entity_version::text,'generation',generation::text,'acknowledged_generation',acknowledged_generation::text) value FROM source.capture_work w WHERE source_epoch=$1 AND entity_id=$2 AND entity_version=$3`,
+    fixtures: `SELECT jsonb_build_object('name',f.name,'entity_id',e.entity_id::text,'entity_version',e.entity_version::text,'is_deleted',e.is_deleted) value FROM source.operator_fixtures f JOIN source.entities e USING(entity_id) ORDER BY name LIMIT 16`,
+    failures: `SELECT jsonb_build_object('key','source:'||o.source_epoch||':'||o.entity_id||':'||o.entity_version,'type','capture_block','event_id',o.source_epoch||':'||o.entity_id||':'||o.entity_version,'recorded_at',o.recorded_at,'classification',coalesce(w.reason,'missing_work'),'context','Capture requires operator investigation','state',coalesce(w.state,'missing'),'replayable',false,'replay_reason','source_capture_block') value FROM source.outbox o LEFT JOIN source.capture_work w USING(source_epoch,entity_id,entity_version) WHERE (w.state='blocked' OR w.work_id IS NULL) AND ('source:'||o.source_epoch||':'||o.entity_id||':'||o.entity_version) COLLATE "C">$1 COLLATE "C" ORDER BY ('source:'||o.source_epoch||':'||o.entity_id||':'||o.entity_version) COLLATE "C" LIMIT $2`,
+  },
+  pipeline: {
+    snapshot: `SELECT jsonb_build_object('observed_at',clock_timestamp()::text,
+   'staged',(SELECT count(*)::text FROM pipeline.events),
+   'deliveries',(SELECT coalesce(jsonb_agg(to_jsonb(x)),'[]') FROM (SELECT kind sink,state,count(*)::text count,min(created_at)::text oldest_at FROM pipeline.delivery_intents GROUP BY kind,state) x),
+   'observations',(SELECT coalesce(jsonb_agg(to_jsonb(x)),'[]') FROM (SELECT state,count(*)::text count FROM pipeline.consumer_observations GROUP BY state) x),
+   'attempts',(SELECT coalesce(jsonb_agg(to_jsonb(x)||jsonb_build_object('total',total::text)),'[]') FROM pipeline.attempt_totals x),
+   'settled',(SELECT coalesce(jsonb_agg(to_jsonb(x)),'[]') FROM (SELECT kind sink,disposition,count(*)::text count FROM pipeline.delivery_intents WHERE state='satisfied' GROUP BY kind,disposition UNION ALL SELECT 'elasticsearch','dead_letter',count(*)::text FROM pipeline.es_dead_letters) x),
+   'replays',(SELECT count(*)::text FROM pipeline.replay_requests),
+   'backfill_id',(SELECT run_id FROM pipeline.backfill_runs ORDER BY (completed_at IS NULL) DESC,created_at DESC,run_id LIMIT 1),
+   'es',(SELECT jsonb_build_object('destination_id',destination_id,'generation',generation::text,'mode',mode,'reason',reason,'index_name',index_name,'index_uuid',index_uuid,'cluster_uuid',cluster_uuid) FROM pipeline.es_target),
+   'rabbit',(SELECT jsonb_build_object('destination_id',destination_id,'generation',generation::text,'mode',mode,'reason',reason,'registration_id',registration_id,'consumer_id',consumer_id) FROM pipeline.rabbit_target)) value`,
+    backfill: `SELECT pipeline.backfill_status($1) value`,
+    receipt: `SELECT result||jsonb_build_object('replayed',true) value FROM pipeline.operator_receipts WHERE request_id=$1 AND operation=$2 AND input=$3::jsonb`,
+    entity: `SELECT jsonb_build_object('event_id',e.event_id,'entity_version',e.entity_version::text,'is_deleted',e.is_deleted,'state',d.state,'error_class',d.error_class) value FROM pipeline.events e JOIN pipeline.delivery_intents d ON d.event_id=e.event_id AND d.kind='elasticsearch' WHERE e.source_epoch=$1 AND e.entity_id=$2 ORDER BY e.entity_version DESC LIMIT 8`,
+    event: `SELECT jsonb_build_object('event_id',e.event_id,'source_epoch',e.source_epoch,'entity_id',e.entity_id::text,'entity_version',e.entity_version::text,'source_change_id',e.source_change_id,'source_recorded_at',e.source_recorded_at,'kind',e.kind,'is_deleted',e.is_deleted,'content_sha256',e.content_sha256,'staged_at',e.staged_at,
+   'deliveries',(SELECT jsonb_agg(to_jsonb(d)||jsonb_build_object('claim_generation',claim_generation::text,'remote_version',remote_version::text)) FROM pipeline.delivery_intents d WHERE d.event_id=e.event_id),
+   'es_attempts',(SELECT coalesce(jsonb_agg(to_jsonb(a)),'[]') FROM (SELECT attempt_id,claim_generation::text,started_at,finished_at,outcome,remote_version::text FROM pipeline.es_attempts WHERE event_id=e.event_id ORDER BY claim_generation DESC LIMIT 8) a),
+   'rabbit_attempts',(SELECT coalesce(jsonb_agg(to_jsonb(a)),'[]') FROM (SELECT attempt_id,claim_generation::text,started_at,finished_at,outcome FROM pipeline.rabbit_attempts WHERE event_id=e.event_id ORDER BY claim_generation DESC LIMIT 8) a),
+   'consumer',(SELECT jsonb_build_object('state',state,'consumer_id',consumer_id,'receipt_id',receipt_id,'observed_at',observed_at) FROM pipeline.consumer_observations WHERE event_id=e.event_id)) value FROM pipeline.events e WHERE event_id=$1`,
+    failures: `SELECT value FROM (
+   SELECT 'es-history:'||l.event_id||':'||l.attempt_id key,jsonb_build_object('key','es-history:'||l.event_id||':'||l.attempt_id,'type','elasticsearch_history','event_id',l.event_id,'attempt_id',l.attempt_id,'destination_id',l.destination_id,'generation',t.generation::text,'recorded_at',l.recorded_at,'classification',l.error_class,'context',left(l.context,256),'state',d.state,'replayable',d.state='dead_letter' AND d.attempt_id=l.attempt_id,'replay_reason',CASE WHEN d.state='dead_letter' AND d.attempt_id=l.attempt_id THEN 'current_terminal' ELSE 'historical_only' END) value FROM pipeline.es_dead_letters l JOIN pipeline.delivery_intents d ON d.event_id=l.event_id AND d.destination_id=l.destination_id JOIN pipeline.es_target t ON t.destination_id=l.destination_id
+   UNION ALL
+   SELECT 'es-active:'||d.event_id,jsonb_build_object('key','es-active:'||d.event_id,'type','elasticsearch_active','event_id',d.event_id,'attempt_id',d.attempt_id,'destination_id',d.destination_id,'generation',t.generation::text,'recorded_at',coalesce(d.settled_at,d.created_at),'classification',d.error_class,'context','Current delivery failure','state',d.state,'replayable',d.state='dead_letter','replay_reason',CASE WHEN d.state='dead_letter' THEN 'current_terminal' ELSE 'worker_retry_or_block' END) FROM pipeline.delivery_intents d JOIN pipeline.es_target t ON t.destination_id=d.destination_id WHERE d.kind='elasticsearch' AND d.error_class IS NOT NULL AND d.state<>'satisfied'
+   UNION ALL
+   SELECT 'backfill:'||r.run_id||':'||q.range_no,jsonb_build_object('key','backfill:'||r.run_id||':'||q.range_no,'type','backfill_block','run_id',r.run_id,'recorded_at',r.created_at,'classification',coalesce(r.blocked_reason,q.reason),'context','Backfill requires operator investigation','state',r.phase,'replayable',false,'replay_reason','backfill_block') FROM pipeline.backfill_runs r JOIN pipeline.backfill_ranges q USING(run_id) WHERE r.blocked_reason IS NOT NULL OR q.state='blocked'
+  ) f WHERE key COLLATE "C">$1 COLLATE "C" ORDER BY key COLLATE "C" LIMIT $2`,
+  },
+  consumer: {
+    snapshot: `SELECT jsonb_build_object('observed_at',clock_timestamp()::text,'processed',(SELECT count(*)::text FROM consumer.processed_events),'effects',(SELECT count(*)::text FROM consumer.mutation_effects),'quarantine',(SELECT count(*)::text FROM consumer.quarantine)) value`,
+    failures: `SELECT jsonb_build_object('key','quarantine:'||quarantine_id,'type','consumer_quarantine','quarantine_id',quarantine_id,'claimed_event_id',claimed_id,'recorded_at',recorded_at,'classification',classification,'context','Retained invalid or conflicting delivery; raw bytes withheld','state','quarantined','replayable',false,'replay_reason','quarantine_requires_separate_contract') value FROM consumer.quarantine WHERE ('quarantine:'||quarantine_id) COLLATE "C">$1 COLLATE "C" ORDER BY ('quarantine:'||quarantine_id) COLLATE "C" LIMIT $2`,
+  },
+} as const;

@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "erasableSyntaxOnly": false,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "rewriteRelativeImportExtensions": true,
+    "outDir": "../../artifacts/control-api-build",
+    "rootDir": "../.."
+  },
+  "include": ["./**/*.ts", "../../src/**/*.ts"]
+}
