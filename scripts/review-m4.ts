@@ -176,22 +176,20 @@ if (mode === 'capture') {
       );
       manifest['repeatCheckout'] = checkout;
       manifest['gateExecution'] =
-        'Concurrent complete gates in independent clean local checkouts; each owns fresh service projects and build outputs. Not a capacity benchmark.';
+        'Sequential complete gates in independent clean local checkouts; each owns fresh service projects and build outputs. Not a capacity benchmark.';
       await save();
-      const outcomes = await Promise.allSettled([
-        execute(`${gate}-first`, 'make', [gate], 0),
-        execute(`${gate}-repeat`, 'make', ['-C', checkout, gate], 0),
-      ]);
-      // Both children finish their own cleanup before a failed gate is reported.
-      await rm(join(checkout, 'node_modules'), {
-        recursive: true,
-        force: true,
-      });
-      await rm(join(checkout, '.tools'), { recursive: true, force: true });
-      assert.equal(await git(['-C', checkout, 'status', '--porcelain']), '');
-      assert.equal(await git(['-C', checkout, 'rev-parse', 'HEAD']), head);
-      for (const outcome of outcomes)
-        if (outcome.status === 'rejected') throw outcome.reason;
+      try {
+        await execute(`${gate}-first`, 'make', [gate], 0);
+        await execute(`${gate}-repeat`, 'make', ['-C', checkout, gate], 0);
+        assert.equal(await git(['-C', checkout, 'status', '--porcelain']), '');
+        assert.equal(await git(['-C', checkout, 'rev-parse', 'HEAD']), head);
+      } finally {
+        await rm(join(checkout, 'node_modules'), {
+          recursive: true,
+          force: true,
+        });
+        await rm(join(checkout, '.tools'), { recursive: true, force: true });
+      }
       await execute('full-verify', 'make', ['verify'], 2);
     } else {
       for (const [name, executable, commandArgs, expected] of [

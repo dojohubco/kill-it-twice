@@ -87,4 +87,4 @@ npm run review:m6 -- summary <capture-directory>
 npm run review:m6 -- bundle <capture-directory>
 ```
 
-verify-m6 runs all 21 accepted prior profiles once plus fresh operations and populated upgrade. Review capture requires clean committed code and runs two complete gates concurrently in independent local checkouts with separate builds and fresh isolated resources; it also records the intentionally nonzero full make verify. Evidence, OpenAPI and metric samples are under ignored artifacts/m6. M6 prepares backend G5 evidence; final UI/scale/full G1-G5 acceptance remains outside scope.
+verify-m6 runs all 21 accepted prior profiles once plus fresh operations and populated upgrade. Review capture requires clean committed code and runs two complete gates sequentially in independent local checkouts with separate builds and fresh isolated resources; it also records the intentionally nonzero full make verify. Evidence, OpenAPI and metric samples are under ignored artifacts/m6. M6 prepares backend G5 evidence; final UI/scale/full G1-G5 acceptance remains outside scope.
