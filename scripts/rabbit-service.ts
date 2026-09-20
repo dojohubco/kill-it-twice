@@ -9,7 +9,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { command, withCleanup } from './support.ts';
 import { BrokerMetadata, record } from '../src/rabbitmq/metadata.ts';
 export async function startRabbit(project: string) {
-  assert.match(project, /^m(?:4|41|5a)-[a-z0-9-]+$/);
+  assert.match(project, /^m(?:4|41|5a|5b)-[a-z0-9-]+$/);
   assert.ok(process.getuid, 'Rabbit acceptance requires local Linux');
   const privateDir = await mkdtemp(join(tmpdir(), 'm4-rabbit-'));
   const password = randomBytes(24).toString('hex');
