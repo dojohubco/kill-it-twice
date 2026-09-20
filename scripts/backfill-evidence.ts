@@ -81,6 +81,17 @@ export async function checkBackfillEvidence(
     assert.equal(e['sessionGone'], true);
   }
   assert.equal(object(one('BF14')['completed'])['phase'], 'complete');
+  const pause = one('BF09');
+  assert.equal(object(pause['paused'])['effectivePaused'], true);
+  assert.equal(pause['sessionsGone'], true);
+  const pauseExits = ['exit', 'pausedExit', 'resumedExit'].map((key) =>
+    object(pause[key]),
+  );
+  assert.equal(new Set(pauseExits.map((e) => e['pid'])).size, 3);
+  for (const e of pauseExits) {
+    assert.deepEqual(e['exit'], { code: 0, signal: null });
+    assert.ok(Number(e['ordinarySuccessBytes']) > 0);
+  }
   assert.equal(
     object(one('BF13')['completed'])['phase'],
     'complete_with_errors',
@@ -103,5 +114,7 @@ export async function checkBackfillEvidence(
     negativeControls: one('BF15')['negativeControls'],
     terminalErrors: 'explicit complete_with_errors',
     oversized: 'blocked and unsealed',
+    pauseResume:
+      'three distinct processes preserve and resume durable progress',
   };
 }

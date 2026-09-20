@@ -517,7 +517,7 @@ await test(name('BF06'), async (t) => {
   });
 });
 await test(name('BF09'), async (t) => {
-  const { p } = await setup(t);
+  const { s, p } = await setup(t);
   const child = launchBackfill(
     t,
     'BF09-in-flight',
@@ -534,10 +534,72 @@ await test(name('BF09'), async (t) => {
   const paused = await worker.status(runId);
   assert.equal(paused.effectivePaused, true);
   const before = await snapshot(p);
-  await scan().once(runId);
+  const replacement = launchBackfill(t, 'BF09-paused-restart', runId, '');
+  const pausedExit = await replacement.finish();
+  const pausedResult = object(object(JSON.parse(pausedExit.stdout))['result']);
+  assert.equal(pausedResult['page'], undefined);
+  assert.equal(object(pausedResult['status'])['effectivePaused'], true);
   assert.deepEqual(await snapshot(p), before);
+  const retainedRanges = (
+    await p.query<{ range_no: number; checkpoint: string; upper_key: string }>(
+      'SELECT range_no,checkpoint::text,upper_key::text FROM pipeline.backfill_ranges WHERE run_id=$1 ORDER BY range_no',
+      [runId],
+    )
+  ).rows;
   await scan().pause(runId, false);
-  evidence('BF09', { requested, paused, exit, preserved: before });
+  const resumed = launchBackfill(
+    t,
+    'BF09-resumed-process',
+    runId,
+    'backfill.after_page_commit.before_success',
+  );
+  const barrier = await resumed.barrier();
+  const request = requestFromBarrier(barrier['data']);
+  const retained = retainedRanges.find(
+    (r) => r.range_no === request.claim.range,
+  );
+  assert.ok(retained);
+  assert.equal(request.claim.runId, runId);
+  assert.equal(request.claim.checkpoint, retained.checkpoint);
+  assert.equal(request.claim.upper, retained.upper_key);
+  assert.ok(BigInt(request.page.next) > BigInt(retained.checkpoint));
+  assert.equal(
+    (
+      await p.query<{ checkpoint: string }>(
+        'SELECT checkpoint::text FROM pipeline.backfill_ranges WHERE run_id=$1 AND range_no=$2',
+        [runId, request.claim.range],
+      )
+    ).rows[0]?.checkpoint,
+    request.page.next,
+  );
+  resumed.release();
+  const resumedExit = await resumed.finish();
+  const exits = [exit, pausedExit, resumedExit];
+  assert.equal(new Set(exits.map((e) => e.pid)).size, 3);
+  assert.equal(
+    new Set(
+      exits.map(
+        (e) => object(object(JSON.parse(e.stdout))['result'])['workerId'],
+      ),
+    ).size,
+    3,
+  );
+  for (const process of [child, replacement, resumed]) {
+    await gone(p, process.applicationName);
+    await gone(s, process.sourceApplicationName);
+  }
+  evidence('BF09', {
+    requested,
+    paused,
+    exit,
+    pausedExit,
+    resumedExit,
+    retainedRanges,
+    resumedClaim: request.claim,
+    next: request.page.next,
+    preserved: before,
+    sessionsGone: true,
+  });
 });
 await test(name('BF07'), async (t) => {
   const { s, p, c } = await setup(t);
