@@ -166,10 +166,11 @@ BEGIN
   total:=total+octet_length(bytes)+93; IF octet_length(bytes)+93>65536 OR total>262144 THEN RAISE EXCEPTION 'Page exceeds transfer bound' USING ERRCODE='P8003'; END IF;
   items:=items||jsonb_build_array(jsonb_build_object('key',key::text,'event_id',b->>'event_id','hash',x->>'hash')); last_key:=key;
  END LOOP;
+ IF (SELECT count(DISTINCT value->>'event_id') FROM jsonb_array_elements(items))<>jsonb_array_length(items) THEN RAISE EXCEPTION 'Duplicate page revision identity' USING ERRCODE='P8003'; END IF;
  IF next_key IS DISTINCT FROM last_key OR next_key>q.upper_key OR (next_key=previous_key AND NOT eof) THEN RAISE EXCEPTION 'Invalid page checkpoint' USING ERRCODE='P8003'; END IF;
  SELECT * INTO old FROM pipeline.backfill_batches WHERE batch_id=batch;
  IF FOUND THEN
-  IF ROW(old.run_id,old.range_no,old.owner_id,old.generation,old.previous_key,old.next_key,old.eof,old.items,old.observation) IS DISTINCT FROM ROW(id,num,incarnation,gen,previous_key,next_key,eof,items,observation) OR EXISTS(SELECT FROM jsonb_array_elements(inputs) x WHERE NOT EXISTS(SELECT FROM pipeline.events e WHERE e.event_id=convert_from(decode(x->>'body','hex'),'UTF8')::jsonb->>'event_id' AND e.body_bytes=decode(x->>'body','hex') AND e.content_sha256=x->>'hash')) THEN RAISE EXCEPTION 'Batch request key conflict' USING ERRCODE='P8003'; END IF;
+  IF ROW(old.run_id,old.range_no,old.owner_id,old.generation,old.previous_key,old.next_key,old.eof,old.items,old.observation) IS DISTINCT FROM ROW(id,num,incarnation,gen,previous_key,next_key,eof,items,observation) OR EXISTS(SELECT FROM jsonb_array_elements(inputs) supplied WHERE NOT EXISTS(SELECT FROM pipeline.events e WHERE e.event_id=convert_from(decode(supplied->>'body','hex'),'UTF8')::jsonb->>'event_id' AND e.body_bytes=decode(supplied->>'body','hex') AND e.content_sha256=supplied->>'hash')) THEN RAISE EXCEPTION 'Batch request key conflict' USING ERRCODE='P8003'; END IF;
   FOR x IN SELECT value FROM jsonb_array_elements(items) LOOP PERFORM pipeline.assert_obligations(x->>'event_id'); END LOOP;
   RETURN jsonb_build_object('batch_id',batch,'replayed',true,'next_key',old.next_key::text,'eof',old.eof,'items',old.items,'created_at',old.created_at);
  END IF;
@@ -179,7 +180,7 @@ BEGIN
   result:=result||jsonb_build_array(jsonb_build_object('event_id',convert_from(decode(x->>'body','hex'),'UTF8')::jsonb->>'event_id','status',status));
  END LOOP;
  INSERT INTO pipeline.backfill_batches(batch_id,run_id,range_no,owner_id,generation,lease_until,previous_key,next_key,eof,items,observation) VALUES(batch,id,num,incarnation,gen,q.lease_until,previous_key,next_key,eof,items,observation) RETURNING * INTO old;
- INSERT INTO pipeline.backfill_members(run_id,event_id,first_batch) SELECT id,x->>'event_id',batch FROM jsonb_array_elements(items) x ON CONFLICT(run_id,event_id) DO NOTHING;
+ INSERT INTO pipeline.backfill_members(run_id,event_id,first_batch) SELECT id,member->>'event_id',batch FROM jsonb_array_elements(items) member ON CONFLICT(run_id,event_id) DO NOTHING;
  UPDATE pipeline.backfill_ranges SET checkpoint=next_key,last_batch=batch,state=CASE WHEN eof THEN 'closed' ELSE 'pending' END,owner_id=NULL,lease_until=NULL WHERE run_id=id AND range_no=num;
  IF q.lease_until<=clock_timestamp() THEN RAISE EXCEPTION 'Page ownership expired during staging' USING ERRCODE='P8002'; END IF;
  RETURN jsonb_build_object('batch_id',batch,'replayed',false,'next_key',next_key::text,'eof',eof,'items',items,'staged',result,'created_at',old.created_at);

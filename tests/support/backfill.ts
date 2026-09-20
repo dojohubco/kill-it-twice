@@ -70,8 +70,8 @@ export async function rememberLegacy(
 export async function session(c: pg.Client, prefix: string) {
   const rows = (
     await c.query<Record<string, unknown>>(
-      'SELECT pid,backend_xid::text,state,wait_event_type,wait_event,pg_blocking_pids(pid) blockers FROM pg_stat_activity WHERE application_name LIKE $1',
-      [prefix + '%'],
+      "SELECT pid,backend_xid::text,state,wait_event_type,wait_event,pg_blocking_pids(pid) blockers FROM pg_stat_activity WHERE (application_name=$1 OR application_name LIKE $1||':%')",
+      [prefix],
     )
   ).rows;
   assert.equal(rows.length, 1);
@@ -82,8 +82,8 @@ export async function gone(c: pg.Client, prefix: string) {
     c,
     () =>
       c.query(
-        'SELECT pid FROM pg_stat_activity WHERE application_name LIKE $1',
-        [prefix + '%'],
+        "SELECT pid FROM pg_stat_activity WHERE (application_name=$1 OR application_name LIKE $1||':%')",
+        [prefix],
       ),
     (r) => r.rowCount === 0,
     'Backfill owned session ended',

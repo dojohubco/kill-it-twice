@@ -6,7 +6,13 @@ import {
   migrateBackfillSource,
   migrateBackfillPipeline,
 } from '../../scripts/migrate-backfill.ts';
-import { setup } from '../support/rabbit.ts';
+import { setup, rabbitLedger, metadata, topology } from '../support/rabbit.ts';
+import { docker } from '../support/rabbit-network.ts';
+import { esConfig, ledger, remote } from '../support/es.ts';
+import { EsTransport, object } from '../../src/es/transport.ts';
+import { EsAdapter } from '../../src/es/adapter.ts';
+import { validateTopology } from '../../src/rabbitmq/metadata.ts';
+import { waitFor } from '../../scripts/support.ts';
 import {
   bootstrap,
   recipe,
@@ -74,7 +80,8 @@ await test(entry.name, async (t) => {
   const before = await all();
   await migrateBackfillSource(s, required('SOURCE_BACKFILL_PASSWORD'));
   await migrateBackfillPipeline(p, required('PIPELINE_BACKFILL_PASSWORD'));
-  assert.deepEqual(await all(), before);
+  const after = await all();
+  assert.deepEqual(after, before);
   const cfg = backfillConfig('permissions'),
     runtime = new pg.Client(cfg.source),
     pruntime = new pg.Client(cfg.pipeline);
@@ -104,6 +111,76 @@ await test(entry.name, async (t) => {
   await deliver(p, c);
   await backfillLedger().advance(id);
   assert.equal((await scan().status(id)).phase, 'complete');
+  const es = new EsTransport(esConfig()),
+    admin = new EsTransport(esConfig(true));
+  t.after(() => es.close());
+  t.after(() => admin.close());
+  const esTarget = await ledger().target(),
+    rabbitTarget = await rabbitLedger().target(),
+    progressBefore = await snapshot(p, id),
+    stateBefore = await all();
+  const documents = async () => {
+    const rows = (
+      await s.query<{ id: string }>(
+        'SELECT entity_id::text id FROM source.entities ORDER BY entity_id',
+      )
+    ).rows;
+    const result = [];
+    for (const row of rows)
+      result.push(await remote(es, `${r.epoch}:${row.id}`));
+    return result;
+  };
+  const documentsBefore = await documents();
+  const esContainer = `${required('ES_PROJECT')}-elasticsearch-1`,
+    rabbitContainer = `${required('RABBIT_PROJECT')}-rabbitmq-1`;
+  await docker(['restart', '--time', '10', esContainer]);
+  await waitFor(
+    async () => {
+      try {
+        await new EsAdapter(es).validate(esTarget);
+        await admin.request('GET', '/_security/_authenticate');
+        assert.equal(
+          String(
+            object(
+              object(await admin.request('GET', '/.security/_count'))[
+                '_shards'
+              ],
+            )['failed'],
+          ),
+          '0',
+        );
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    Boolean,
+    'Retained backfill Elasticsearch ready',
+    90000,
+    async () => {
+      await es.close();
+      await admin.close();
+    },
+  );
+  await docker(['restart', '--time', '10', rabbitContainer]);
+  await waitFor(
+    async (signal) => {
+      try {
+        await validateTopology(metadata(), topology(), signal);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    Boolean,
+    'Retained backfill RabbitMQ ready',
+    30000,
+  );
+  assert.deepEqual(await ledger().target(), esTarget);
+  assert.deepEqual(await rabbitLedger().target(), rabbitTarget);
+  assert.deepEqual(await documents(), documentsBefore);
+  assert.deepEqual(await snapshot(p, id), progressBefore);
+  assert.deepEqual(await all(), stateBefore);
   const defs = (
     await s.query<{
       name: string;
@@ -125,11 +202,20 @@ await test(entry.name, async (t) => {
   const identity = await new BackfillSource(cfg.source, cfg.binding).identity();
   evidence('BF16', {
     before,
-    after: before,
+    after,
     preserved: true,
     identity,
     definitions: defs,
     run: await snapshot(p, id),
-    receiverAndDatabaseRestart: 'required by enclosing retained-volume harness',
+    receiverRestart: {
+      esContainer,
+      rabbitContainer,
+      esTarget,
+      rabbitTarget,
+      documentsBefore,
+      unchanged: true,
+    },
+    databaseRestart:
+      'independently required by enclosing retained-volume harness',
   });
 });

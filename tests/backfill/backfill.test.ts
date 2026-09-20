@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test, { after } from 'node:test';
 import { randomUUID } from 'node:crypto';
 import type pg from 'pg';
+import { TransactionError } from '../../src/internal/transaction.ts';
 import { BackfillSource } from '../../src/backfill/source.ts';
 import { object, text } from '../../src/backfill/types.ts';
 import { backfillCases } from '../../scripts/required-backfill-cases.ts';
@@ -165,7 +166,14 @@ await test(name('BF02'), async (t) => {
       assert.deepEqual(await snapshot(p), before);
       throw new Error('Deliberate page callback rollback');
     }),
-    /rolled back/i,
+    (error: unknown) => {
+      assert.ok(error instanceof TransactionError);
+      assert.equal(error.outcome, 'rolled_back');
+      assert.equal(error.sqlState, undefined);
+      assert.ok(error.cause instanceof Error);
+      assert.equal(error.cause.message, 'Deliberate page callback rollback');
+      return true;
+    },
   );
   assert.deepEqual(await snapshot(p), before);
   assert.equal((await p.query('SELECT * FROM pipeline.events')).rowCount, 1);
