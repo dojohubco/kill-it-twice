@@ -247,10 +247,29 @@ export class OperationsService {
       : Object.values(dependencies).some((d) => d.health === 'degraded')
         ? 'degraded'
         : 'healthy';
+    const dimensions = Object.fromEntries(
+      Object.entries(dependencies).map(([component, o]) => [
+        component,
+        {
+          ...o,
+          dependency_health:
+            o.freshness === 'unavailable' ||
+            (component === 'rabbitmq' && o.data?.['state'] === 'disconnected')
+              ? 'unavailable'
+              : 'healthy',
+          data_health:
+            o.data === null
+              ? 'unknown'
+              : o.health === 'degraded'
+                ? 'degraded'
+                : 'healthy',
+        },
+      ]),
+    );
     return {
       observed_at: new Date().toISOString(),
       health,
-      dependencies,
+      dependencies: dimensions,
       backfill,
     };
   }

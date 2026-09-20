@@ -1,3 +1,4 @@
+import { validateResponse } from './api-schema.ts';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { fork, type ChildProcess } from 'node:child_process';
 import { once } from 'node:events';
@@ -143,8 +144,21 @@ export async function startApi(config: OperationsConfig, barrier?: string) {
     stderr += b.toString();
     if (stderr.length > 65536) child.kill('SIGKILL');
   });
+  child.once('exit', (code, signal) => {
+    const safe = stderr
+      .replaceAll(config.token, '[redacted]')
+      .replaceAll(config.source.password, '[redacted]')
+      .replaceAll(config.pipeline.password, '[redacted]')
+      .replaceAll(config.consumer.password, '[redacted]')
+      .replaceAll(config.es.password, '[redacted]')
+      .replaceAll(config.rabbit.password, '[redacted]');
+    evidence('OP-api-exit', { pid: child.pid, code, signal, stderr: safe });
+  });
   const ready = await message(child, 'ready');
   const url = string(ready['url'], 256);
+  const document: unknown = await (
+    await fetch(url + '/api/v1/openapi.json')
+  ).json();
   let closed = false;
   return {
     child,
@@ -188,6 +202,7 @@ export async function startApi(config: OperationsConfig, barrier?: string) {
       });
       const text = await response.text();
       const value: unknown = path === '/metrics' ? text : JSON.parse(text);
+      validateResponse(record(document), path, method, response.status, value);
       return {
         status: response.status,
         value,

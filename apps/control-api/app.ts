@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { exactJsonReplacer } from '../../src/operations/serialization.ts';
 import { Module, Controller, Get, Inject, Req } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import {
@@ -50,6 +51,7 @@ export async function createControlApi(
     new ExpressAdapter(),
     { logger: false, bodyParser: false },
   );
+  app.set('json replacer', exactJsonReplacer);
   app.use(beginRequest);
   app.useBodyParser('json', { limit: 8192, strict: true });
   app.useGlobalFilters(new Errors());

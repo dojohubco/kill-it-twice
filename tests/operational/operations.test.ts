@@ -1,3 +1,4 @@
+import pg from 'pg';
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -7,8 +8,6 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { operationalCases } from '../../scripts/required-operational-cases.ts';
 import { metricDefinitions } from '../../src/operations/metrics.ts';
 import { record, string } from '../../src/operations/validation.ts';
-import { docker } from '../support/rabbit-network.ts';
-import { waitFor } from '../../scripts/support.ts';
 import { SourceCapture } from '../../src/source-capture.ts';
 import { EsTransport } from '../../src/es/transport.ts';
 import { RabbitDelivery } from '../../src/rabbitmq/worker.ts';
@@ -148,7 +147,7 @@ async function replayBody(id: string) {
     reason: 'controlled acceptance replay',
   };
 }
-await test(name('OP01'), async () => {
+void test(name('OP01'), async () => {
   const reply = await api.request('/api/v1/openapi.json');
   assert.equal(reply.status, 200);
   const schema = record(reply.value),
@@ -252,7 +251,7 @@ await test(name('OP01'), async () => {
   );
   evidence('OP01', { paths: expected, config: configReply });
 });
-await test(name('OP02'), async () => {
+void test(name('OP02'), async () => {
   const idle = await get('/status'),
     dependencies = record(idle['dependencies']),
     source = record(dependencies['source']),
@@ -299,9 +298,17 @@ await test(name('OP02'), async () => {
   await db.s.query<Record<string, unknown>>(
     "UPDATE source.capture_work SET state='pending',owner_id=NULL,lease_until=NULL,reason=NULL,next_eligible_at=clock_timestamp() WHERE state IN ('leased','pending')",
   );
-  const container = `${required('M1_RUN_ID')}-source-1`;
-  db.s.on('error', () => {});
-  await docker(['stop', '--time', '1', container]);
+  // Reject actual new source connections while retaining this fixture-control session.
+  // Container stop/start can allocate a different ephemeral host port in Docker 29.
+  const outageControl = new pg.Client({
+    host: '127.0.0.1',
+    port: Number(required('M1_PORT')),
+    database: 'postgres',
+    user: 'm1_admin',
+    password: required('M1_ADMIN_PASSWORD'),
+  });
+  await outageControl.connect();
+  await outageControl.query('ALTER DATABASE source_m1 ALLOW_CONNECTIONS false');
   try {
     const r = await get('/status');
     const o = record(record(r['dependencies'])['source']);
@@ -311,30 +318,13 @@ await test(name('OP02'), async () => {
     assert.match(m.text, /pipeline_source_reachable 0/);
     assert.doesNotMatch(m.text, /^pipeline_source_pending [0-9]/m);
   } finally {
-    await docker(['start', container]);
-    await waitFor(
-      async () => {
-        try {
-          return await new SourceCapture(
-            {
-              ...config('reader', 'restart-observer'),
-              user: 'source_capture',
-              password: required('SOURCE_CAPTURE_PASSWORD'),
-            },
-            { sourceEpoch: epoch, pipelineId: required('PIPELINE_ID') },
-          ).summary();
-        } catch {
-          return null;
-        }
-      },
-      (v) => v !== null,
-      'owned source restart',
-      15000,
-    );
-    await db.s.end();
-    db.s = await (
-      await import('../support/db.ts')
-    ).connect('admin', 'source-restarted');
+    try {
+      await outageControl.query(
+        'ALTER DATABASE source_m1 ALLOW_CONNECTIONS true',
+      );
+    } finally {
+      await outageControl.end();
+    }
   }
   // Fixture block is explicit and retained; use the unaffected command identity for diagnostics.
   faultEvent = event(first);
@@ -342,10 +332,10 @@ await test(name('OP02'), async () => {
     idle,
     states: state,
     created: [first, second, third],
-    unknown: 'connection refused',
+    unknown: 'source database rejects actual new connections',
   });
 });
-await test(name('OP03'), async () => {
+void test(name('OP03'), async () => {
   const body = { run_id: run, ranges: 4 };
   await crashAfterCommit(cfg, 'backfill_start', '/api/v1/backfills', body, run);
   await post('/backfills', body, run, 200);
@@ -389,7 +379,7 @@ await test(name('OP03'), async () => {
   );
   evidence('OP03', { run, status: await get(`/backfills/${run}`) });
 });
-await test(name('OP04'), async () => {
+void test(name('OP04'), async () => {
   await change('fixture-04');
   await change('fixture-05');
   await change('fixture-05', 'delete', 0);
@@ -400,6 +390,10 @@ await test(name('OP04'), async () => {
   assert.equal(items.length, 1);
   assert.equal(typeof items[0]?.['entity_id'], 'string');
   assert.equal(typeof items[0]?.['receiver_version'], 'string');
+  assert.equal(
+    typeof record(items[0]?.['search_fields'])['loyalty_points'],
+    'number',
+  );
   const found: string[] = [];
   let next: string | null = null;
   do {
@@ -410,7 +404,7 @@ await test(name('OP04'), async () => {
       assert.equal(row['is_deleted'], false);
       found.push(string(row['entity_id']));
     }
-    next = r['next_cursor'] === null ? null : string(r['next_cursor']);
+    next = r['next_cursor'] === null ? null : string(r['next_cursor'], 2048);
   } while (next);
   assert.equal(found.length, new Set(found).size);
   const inclusive = await get('/entities?limit=100&include_deleted=true');
@@ -419,9 +413,13 @@ await test(name('OP04'), async () => {
   assert.equal(doc['freshness'], 'realtime');
   assert.equal(typeof doc['receiver_version'], 'string');
   assert.equal(record(doc['projection'])['canonical_body_json'], undefined);
-  evidence('OP04', { first, inclusive, detail: doc });
+  const newer = await change('fixture-04', 'update', 71);
+  const stale = await get(`/entities/${epoch}/${string(newer['entity_id'])}`);
+  assert.equal(stale['convergence'], 'degraded');
+  assert.notEqual(stale['receiver_version'], newer['entity_version']);
+  evidence('OP04', { first, inclusive, detail: doc, expectedDegraded: stale });
 });
-await test(name('OP05'), async () => {
+void test(name('OP05'), async () => {
   const result = await get(`/events/${faultEvent}`);
   const direct = (
     await db.p.query<{ hash: string }>(
@@ -458,7 +456,7 @@ function metricMap(text: string) {
   }
   return m;
 }
-await test(name('OP06'), async () => {
+void test(name('OP06'), async () => {
   const before = (await api.request('/metrics')).text;
   for (const [name, type, help] of metricDefinitions) {
     assert.ok(before.includes(`# TYPE ${name} ${type}\n`));
@@ -501,7 +499,7 @@ await test(name('OP06'), async () => {
   await writeFile(join(required('M1_ARTIFACT_DIR'), 'metrics.prom'), after);
   evidence('OP06', { before, after, postDelivery: [...settled] });
 });
-await test(name('OP07'), async () => {
+void test(name('OP07'), async () => {
   const fresh = await change('fixture-07'),
     id = event(fresh);
   await captureDrain();
@@ -575,7 +573,7 @@ await test(name('OP07'), async () => {
     await es.close();
   }
 });
-await test(name('OP08'), async () => {
+void test(name('OP08'), async () => {
   const created = await change('fixture-08');
   badEntity = string(created['entity_id']);
   const corrupted = await post('/simulations/corrupt-record', {
@@ -623,7 +621,7 @@ await test(name('OP08'), async () => {
   );
   evidence('OP08', { badEvent, failures, current: d });
 });
-await test(name('OP09'), async () => {
+void test(name('OP09'), async () => {
   const key = randomUUID(),
     body = await replayBody(badEvent);
   await crashAfterCommit(
@@ -675,7 +673,7 @@ await test(name('OP09'), async () => {
   );
   evidence('OP09', { key, competing, results: results.map((r) => r.value) });
 });
-await test(name('OP10'), async () => {
+void test(name('OP10'), async () => {
   const old = await failure(badEvent);
   const corrected = await change('fixture-08', 'update', 42);
   assert.ok(
@@ -689,7 +687,7 @@ await test(name('OP10'), async () => {
   assert.equal((await current(badEvent))['state'], 'dead_letter');
   evidence('OP10', { oldEvent: badEvent, newEvent: event(corrected), detail });
 });
-await test(name('OP11'), async () => {
+void test(name('OP11'), async () => {
   await rawPublish(Buffer.from('M6-invalid-json-private-body'), 'not-an-event');
   const outcome = await consumer().once();
   assert.equal(outcome.quarantined.length, 1);
@@ -743,7 +741,7 @@ await test(name('OP11'), async () => {
   await deliver();
   evidence('OP11', { quarantine: q, outcome });
 });
-await test(name('OP12'), async () => {
+void test(name('OP12'), async () => {
   const key = randomUUID(),
     body = { fixture: 'fixture-10', operation: 'create', value: 44 };
   const committed = await crashAfterCommit(
@@ -790,7 +788,7 @@ await test(name('OP12'), async () => {
     originalTerminalAttempt: badAttempt,
   });
 });
-await test(name('OP13'), async () => {
+void test(name('OP13'), async () => {
   const fixture = await change('fixture-11');
   await captureDrain();
   for (const sink of ['elasticsearch', 'rabbitmq'])
@@ -827,6 +825,14 @@ await test(name('OP13'), async () => {
   assert.ok(rows.every((r) => r['state'] !== 'dead_letter'));
   const status = await get('/status');
   assert.equal(status['health'], 'unavailable');
+  assert.equal(
+    (
+      await api.request(
+        `/api/v1/entities/${epoch}/${string(fixture['entity_id'])}`,
+      )
+    ).status,
+    503,
+  );
   for (const sink of ['elasticsearch', 'rabbitmq'])
     data(
       await api.request(`/api/v1/simulations/network/${sink}`, 'PUT', {
@@ -870,7 +876,7 @@ await test(name('OP13'), async () => {
     reconnected: await get('/simulations'),
   });
 });
-await test(name('OP14'), async () => {
+void test(name('OP14'), async () => {
   const key = randomUUID();
   await post(`/backfills/${run}/resume`, {}, key);
   await delay(30);
@@ -919,7 +925,7 @@ await test(name('OP14'), async () => {
   );
   evidence('OP14', { matched, audit });
 });
-await test(name('OP15'), async () => {
+void test(name('OP15'), async () => {
   const before = await retained(db.p, [
     'pipeline.replay_requests',
     'pipeline.replay_items',
@@ -972,7 +978,7 @@ async function changeWithSource() {
     '{"name":"API down independent source command","loyalty_points":7}',
   );
 }
-await test(name('OP16'), async () => {
+void test(name('OP16'), async () => {
   const all = objects((await get('/failures?limit=100'))['items']);
   let cursor: string | null = null;
   const seen: Record<string, unknown>[] = [];
@@ -983,7 +989,7 @@ await test(name('OP16'), async () => {
     const items = objects(p['items']);
     assert.ok(items.length <= 2);
     seen.push(...items);
-    cursor = p['next_cursor'] === null ? null : string(p['next_cursor']);
+    cursor = p['next_cursor'] === null ? null : string(p['next_cursor'], 2048);
   } while (cursor);
   assert.deepEqual(seen, all);
   assert.equal(new Set(seen.map((r) => r['key'])).size, seen.length);
@@ -1013,7 +1019,7 @@ await test(name('OP16'), async () => {
   assert.ok(blocked.some((r) => r['type'] === 'backfill_block'));
   evidence('OP16', { failures: seen });
 });
-await test(name('OP18'), async () => {
+void test(name('OP18'), async () => {
   const status = await get('/status'),
     metrics = (await api.request('/metrics')).text;
   assert.equal(record(status['backfill'])['blocked'], true);

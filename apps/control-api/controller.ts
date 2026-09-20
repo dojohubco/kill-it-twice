@@ -1,3 +1,4 @@
+import { responseSchema, mutationSchema, errorSchema } from './schemas.ts';
 import {
   Body,
   Controller,
@@ -40,10 +41,26 @@ const jsonResponse = {
 function read(summary: string) {
   return ApiOperation({ summary });
 }
-@ApiResponse({ status: 400, description: 'Invalid bounded input' })
-@ApiResponse({ status: 404, description: 'Missing identity' })
-@ApiResponse({ status: 422, description: 'Integrity or configuration block' })
-@ApiResponse({ status: 503, description: 'Dependency currently unavailable' })
+@ApiResponse({
+  status: 400,
+  schema: errorSchema,
+  description: 'Invalid bounded input',
+})
+@ApiResponse({
+  status: 404,
+  schema: errorSchema,
+  description: 'Missing identity',
+})
+@ApiResponse({
+  status: 422,
+  schema: errorSchema,
+  description: 'Integrity or configuration block',
+})
+@ApiResponse({
+  status: 503,
+  schema: errorSchema,
+  description: 'Dependency currently unavailable',
+})
 @ApiResponse({
   status: 200,
   description: 'Fresh observed state or original idempotent result',
@@ -79,11 +96,13 @@ export class ControlController {
     return { request_id: req.requestId, outcome: req.outcome, data: result };
   }
   @Get('status')
+  @ApiResponse({ status: 200, schema: responseSchema('status') })
   @read('Fresh operational snapshot')
   status(@Req() req: Request) {
     return this.result(req, 'status', this.service.status());
   }
   @Get('backfills/:runId')
+  @ApiResponse({ status: 200, schema: responseSchema('backfill_status') })
   @ApiParam({ name: 'runId', schema: uuidSchema })
   backfill(@Param('runId') run: string, @Req() req: Request) {
     return this.result(req, 'backfill_status', this.service.backfill(run));
@@ -91,9 +110,22 @@ export class ControlController {
   @Post('backfills')
   @ApiSecurity('operator')
   @ApiHeader({ name: 'Idempotency-Key', required: true, schema: uuidSchema })
-  @ApiResponse({ status: 202, description: 'Durably scheduled' })
-  @ApiResponse({ status: 409, description: 'Identity conflict' })
-  @ApiResponse({ status: 401, description: 'Operator token required' })
+  @ApiResponse({
+    status: 202,
+    schema: mutationSchema,
+    description: 'Durably scheduled',
+  })
+  @ApiResponse({ status: 200, schema: mutationSchema })
+  @ApiResponse({
+    status: 409,
+    schema: errorSchema,
+    description: 'Identity conflict',
+  })
+  @ApiResponse({
+    status: 401,
+    schema: errorSchema,
+    description: 'Operator token required',
+  })
   @ApiBody({
     schema: {
       type: 'object',
@@ -117,9 +149,22 @@ export class ControlController {
   @Post('backfills/:runId/pause')
   @ApiSecurity('operator')
   @ApiHeader({ name: 'Idempotency-Key', required: true, schema: uuidSchema })
-  @ApiResponse({ status: 202, description: 'Durably paused' })
-  @ApiResponse({ status: 409, description: 'Identity conflict' })
-  @ApiResponse({ status: 401, description: 'Operator token required' })
+  @ApiResponse({
+    status: 202,
+    schema: mutationSchema,
+    description: 'Durably paused',
+  })
+  @ApiResponse({ status: 200, schema: mutationSchema })
+  @ApiResponse({
+    status: 409,
+    schema: errorSchema,
+    description: 'Identity conflict',
+  })
+  @ApiResponse({
+    status: 401,
+    schema: errorSchema,
+    description: 'Operator token required',
+  })
   @ApiParam({ name: 'runId', schema: uuidSchema })
   @ApiBody({ schema: { type: 'object', additionalProperties: false } })
   pause(
@@ -135,9 +180,22 @@ export class ControlController {
   @Post('backfills/:runId/resume')
   @ApiSecurity('operator')
   @ApiHeader({ name: 'Idempotency-Key', required: true, schema: uuidSchema })
-  @ApiResponse({ status: 202, description: 'Durably resumed' })
-  @ApiResponse({ status: 409, description: 'Identity conflict' })
-  @ApiResponse({ status: 401, description: 'Operator token required' })
+  @ApiResponse({
+    status: 202,
+    schema: mutationSchema,
+    description: 'Durably resumed',
+  })
+  @ApiResponse({ status: 200, schema: mutationSchema })
+  @ApiResponse({
+    status: 409,
+    schema: errorSchema,
+    description: 'Identity conflict',
+  })
+  @ApiResponse({
+    status: 401,
+    schema: errorSchema,
+    description: 'Operator token required',
+  })
   @ApiParam({ name: 'runId', schema: uuidSchema })
   @ApiBody({ schema: { type: 'object', additionalProperties: false } })
   resume(
@@ -151,6 +209,7 @@ export class ControlController {
     );
   }
   @Get('entities')
+  @ApiResponse({ status: 200, schema: responseSchema('entity_search') })
   @ApiQuery({
     name: 'limit',
     required: false,
@@ -169,6 +228,7 @@ export class ControlController {
     return this.result(req, 'entity_search', this.service.entities(query));
   }
   @Get('entities/:sourceEpoch/:entityId')
+  @ApiResponse({ status: 200, schema: responseSchema('entity_detail') })
   @ApiParam({ name: 'sourceEpoch', schema: uuidSchema })
   @ApiParam({ name: 'entityId', schema: decimal })
   entity(
@@ -183,11 +243,13 @@ export class ControlController {
     );
   }
   @Get('events/:eventId')
+  @ApiResponse({ status: 200, schema: responseSchema('event_detail') })
   @ApiParam({ name: 'eventId', schema: { type: 'string', maxLength: 80 } })
   event(@Param('eventId') event: string, @Req() req: Request) {
     return this.result(req, 'event_detail', this.service.event(event));
   }
   @Get('failures')
+  @ApiResponse({ status: 200, schema: responseSchema('failures') })
   @ApiQuery({
     name: 'limit',
     required: false,
@@ -200,6 +262,7 @@ export class ControlController {
     return this.result(req, 'failures', this.service.failures(query));
   }
   @Get('config')
+  @ApiResponse({ status: 200, schema: responseSchema('config') })
   config(@Req() req: Request) {
     return this.result(req, 'config', this.service.config());
   }
@@ -207,9 +270,22 @@ export class ControlController {
   @ApiSecurity('operator')
   @ApiHeader({ name: 'Idempotency-Key', required: true, schema: uuidSchema })
   @ApiParam({ name: 'eventId', schema: { type: 'string', maxLength: 80 } })
-  @ApiResponse({ status: 202, description: 'ES replay durably scheduled' })
-  @ApiResponse({ status: 409, description: 'Stale attempt or key conflict' })
-  @ApiResponse({ status: 401, description: 'Operator token required' })
+  @ApiResponse({
+    status: 202,
+    schema: mutationSchema,
+    description: 'ES replay durably scheduled',
+  })
+  @ApiResponse({ status: 200, schema: mutationSchema })
+  @ApiResponse({
+    status: 409,
+    schema: errorSchema,
+    description: 'Stale attempt or key conflict',
+  })
+  @ApiResponse({
+    status: 401,
+    schema: errorSchema,
+    description: 'Operator token required',
+  })
   @ApiBody({
     schema: {
       type: 'object',
@@ -236,9 +312,22 @@ export class ControlController {
   @Post('simulations/source-change')
   @ApiSecurity('operator')
   @ApiHeader({ name: 'Idempotency-Key', required: true, schema: uuidSchema })
-  @ApiResponse({ status: 202, description: 'Source command committed' })
-  @ApiResponse({ status: 409, description: 'Fixture or key conflict' })
-  @ApiResponse({ status: 401, description: 'Operator token required' })
+  @ApiResponse({
+    status: 202,
+    schema: mutationSchema,
+    description: 'Source command committed',
+  })
+  @ApiResponse({ status: 200, schema: mutationSchema })
+  @ApiResponse({
+    status: 409,
+    schema: errorSchema,
+    description: 'Fixture or key conflict',
+  })
+  @ApiResponse({
+    status: 401,
+    schema: errorSchema,
+    description: 'Operator token required',
+  })
   @ApiBody({
     schema: {
       type: 'object',
@@ -270,8 +359,17 @@ export class ControlController {
     status: 202,
     description: 'Source-valid corrupt mapped field committed',
   })
-  @ApiResponse({ status: 409, description: 'Fixture or key conflict' })
-  @ApiResponse({ status: 401, description: 'Operator token required' })
+  @ApiResponse({ status: 200, schema: mutationSchema })
+  @ApiResponse({
+    status: 409,
+    schema: errorSchema,
+    description: 'Fixture or key conflict',
+  })
+  @ApiResponse({
+    status: 401,
+    schema: errorSchema,
+    description: 'Operator token required',
+  })
   @ApiBody({
     schema: {
       type: 'object',
@@ -294,9 +392,22 @@ export class ControlController {
   @Put('simulations/network/elasticsearch')
   @ApiSecurity('operator')
   @ApiHeader({ name: 'Idempotency-Key', required: true, schema: uuidSchema })
-  @ApiResponse({ status: 202, description: 'Configured proxy state observed' })
-  @ApiResponse({ status: 409, description: 'Pending or conflicting request' })
-  @ApiResponse({ status: 401, description: 'Operator token required' })
+  @ApiResponse({
+    status: 202,
+    schema: mutationSchema,
+    description: 'Configured proxy state observed',
+  })
+  @ApiResponse({ status: 200, schema: mutationSchema })
+  @ApiResponse({
+    status: 409,
+    schema: errorSchema,
+    description: 'Pending or conflicting request',
+  })
+  @ApiResponse({
+    status: 401,
+    schema: errorSchema,
+    description: 'Operator token required',
+  })
   @ApiBody({
     schema: {
       type: 'object',
@@ -319,9 +430,22 @@ export class ControlController {
   @Put('simulations/network/rabbitmq')
   @ApiSecurity('operator')
   @ApiHeader({ name: 'Idempotency-Key', required: true, schema: uuidSchema })
-  @ApiResponse({ status: 202, description: 'Configured proxy state observed' })
-  @ApiResponse({ status: 409, description: 'Pending or conflicting request' })
-  @ApiResponse({ status: 401, description: 'Operator token required' })
+  @ApiResponse({
+    status: 202,
+    schema: mutationSchema,
+    description: 'Configured proxy state observed',
+  })
+  @ApiResponse({ status: 200, schema: mutationSchema })
+  @ApiResponse({
+    status: 409,
+    schema: errorSchema,
+    description: 'Pending or conflicting request',
+  })
+  @ApiResponse({
+    status: 401,
+    schema: errorSchema,
+    description: 'Operator token required',
+  })
   @ApiBody({
     schema: {
       type: 'object',
@@ -342,6 +466,7 @@ export class ControlController {
     );
   }
   @Get('simulations')
+  @ApiResponse({ status: 200, schema: responseSchema('simulations') })
   simulations(@Req() req: Request) {
     return this.result(req, 'simulations', this.service.simulations());
   }
