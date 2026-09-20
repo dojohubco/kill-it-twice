@@ -50,7 +50,7 @@ export const backfillUpgradeCases = [
 export const backfillEmptyCases = [
   {
     id: 'BF01E',
-    name: 'BF01E actual empty legacy-active epoch seals an empty run and fence',
+    name: 'BF01E empty and populated legacy-active epochs retain exact run identity',
     file: 'tests/backfill/empty.test.ts',
   },
 ];

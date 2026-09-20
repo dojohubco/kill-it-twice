@@ -171,7 +171,10 @@ BEGIN
  SELECT * INTO old FROM pipeline.backfill_batches WHERE batch_id=batch;
  IF FOUND THEN
   IF ROW(old.run_id,old.range_no,old.owner_id,old.generation,old.previous_key,old.next_key,old.eof,old.items,old.observation) IS DISTINCT FROM ROW(id,num,incarnation,gen,previous_key,next_key,eof,items,observation) OR EXISTS(SELECT FROM jsonb_array_elements(inputs) supplied WHERE NOT EXISTS(SELECT FROM pipeline.events e WHERE e.event_id=convert_from(decode(supplied->>'body','hex'),'UTF8')::jsonb->>'event_id' AND e.body_bytes=decode(supplied->>'body','hex') AND e.content_sha256=supplied->>'hash')) THEN RAISE EXCEPTION 'Batch request key conflict' USING ERRCODE='P8003'; END IF;
-  FOR x IN SELECT value FROM jsonb_array_elements(items) LOOP PERFORM pipeline.assert_obligations(x->>'event_id'); END LOOP;
+  FOR x IN SELECT value FROM jsonb_array_elements(items) LOOP
+   IF NOT EXISTS(SELECT FROM pipeline.backfill_members m WHERE m.run_id=id AND m.event_id=x->>'event_id') THEN RAISE EXCEPTION 'Committed batch membership missing' USING ERRCODE='P8003'; END IF;
+   PERFORM pipeline.assert_obligations(x->>'event_id');
+  END LOOP;
   RETURN jsonb_build_object('batch_id',batch,'replayed',true,'next_key',old.next_key::text,'eof',old.eof,'items',old.items,'created_at',old.created_at);
  END IF;
  IF r.phase IS DISTINCT FROM (CASE WHEN num=0 THEN 'importing' ELSE 'scanning' END) OR q.state<>'leased' OR q.owner_id IS DISTINCT FROM incarnation OR q.generation IS DISTINCT FROM gen OR q.checkpoint IS DISTINCT FROM previous_key OR q.lease_until<=clock_timestamp() THEN RAISE EXCEPTION 'Stale page ownership or cursor' USING ERRCODE='P8002'; END IF;

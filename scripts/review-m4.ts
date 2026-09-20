@@ -453,6 +453,21 @@ if (mode === 'capture') {
           );
       }
     }
+    if (m5b) {
+      for (const entry of await readdir('artifacts/m5b-empty', {
+        withFileTypes: true,
+      })) {
+        if (
+          entry.isDirectory() &&
+          !runs.some((p) => basename(dirname(String(p))) === entry.name)
+        )
+          await cp(
+            join('artifacts/m5b-empty', entry.name),
+            join(development, entry.name),
+            { recursive: true },
+          );
+      }
+    }
     for (const path of runs) {
       const dir = dirname(String(path));
       await cp(dir, join(bundle, 'runs', basename(dir)), { recursive: true });

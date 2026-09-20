@@ -316,6 +316,47 @@ for (const [id, boundary, kill] of [
       replay = await backfillLedger().page(request);
       assert.equal(object(replay)['replayed'], true);
       assert.deepEqual(await snapshot(p), stored);
+      if (id === 'BF04') {
+        const event = request.page.events[0];
+        assert.ok(event);
+        await p.query('BEGIN');
+        try {
+          await p.query(
+            'ALTER TABLE pipeline.backfill_members DISABLE TRIGGER no_rewrite',
+          );
+          await p.query(
+            'DELETE FROM pipeline.backfill_members WHERE run_id=$1 AND event_id=$2',
+            [runId, event.body.event_id],
+          );
+          await assert.rejects(
+            p.query(
+              'SELECT pipeline.backfill_page($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+              [
+                runId,
+                request.claim.range,
+                request.claim.owner,
+                request.claim.generation,
+                request.batchId,
+                request.claim.checkpoint,
+                request.page.next,
+                request.page.eof,
+                JSON.stringify(
+                  request.page.events.map((e, i) => ({
+                    key: request.page.keys[i],
+                    body: e.bodyBytes.toString('hex'),
+                    hash: e.contentSha256,
+                  })),
+                ),
+                JSON.stringify(request.page.observation),
+              ],
+            ),
+            { code: 'P8003' },
+          );
+        } finally {
+          await p.query('ROLLBACK');
+        }
+        assert.deepEqual(await snapshot(p), stored);
+      }
     }
     evidence(id, {
       barrier,

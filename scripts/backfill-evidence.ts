@@ -52,7 +52,11 @@ export async function checkBackfillEvidence(
   if (empty) {
     const r = one('BF01E');
     assert.equal(object(r['completed'])['phase'], 'complete');
-    return { empty: true, requiredEvents: 0 };
+    assert.equal(
+      object(object(r['populatedLegacy'])['completed'])['phase'],
+      'complete',
+    );
+    return { empty: true, populatedLegacy: true, requiredEvents: [0, 1] };
   }
   if (upgrade) {
     const r = one('BF16');
