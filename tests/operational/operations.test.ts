@@ -16,6 +16,7 @@ import { Consumer } from '../../src/rabbitmq/consumer.ts';
 import { ConsumerDatabase } from '../../src/rabbitmq/consumer-db.ts';
 import {
   connections,
+  checkStartupFailure,
   migrateAll,
   apiConfig,
   startApi,
@@ -148,6 +149,7 @@ async function replayBody(id: string) {
   };
 }
 void test(name('OP01'), async () => {
+  await checkStartupFailure();
   const reply = await api.request('/api/v1/openapi.json');
   assert.equal(reply.status, 200);
   const schema = record(reply.value),

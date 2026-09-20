@@ -282,3 +282,42 @@ export async function retained(client: pg.Client, tables: string[]) {
     ).rows;
   return result;
 }
+
+export async function checkStartupFailure() {
+  const directory = await mkdtemp(join(tmpdir(), 'kit-startup-'));
+  const path = join(directory, 'malformed.json');
+  const secret = randomBytes(32).toString('hex');
+  await writeFile(path, `{"token":"${secret}",broken}`, { mode: 0o600 });
+  const child = fork(
+    resolve('artifacts/control-api-build/apps/control-api/main.js'),
+    [],
+    {
+      env: { ...process.env, CONTROL_CONFIG_FILE: path },
+      stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
+    },
+  );
+  let stdout = '',
+    stderr = '';
+  child.stdout?.on('data', (v: Buffer) => {
+    stdout += v.toString();
+  });
+  child.stderr?.on('data', (v: Buffer) => {
+    stderr += v.toString();
+  });
+  const timer = setTimeout(() => child.kill('SIGKILL'), 10000);
+  try {
+    const exit = await once(child, 'exit');
+    assert.deepEqual(exit, [1, null]);
+    assert.equal(stderr, '');
+    assert.ok(!stdout.includes(secret));
+    const lines = stdout.trim().split('\n');
+    assert.equal(lines.length, 1);
+    const entry = record(JSON.parse(lines[0] ?? ''));
+    assert.equal(entry['operation'], 'startup');
+    assert.equal(entry['error_class'], 'startup_failure');
+    evidence('OP-startup-failure', { exit, log: entry });
+  } finally {
+    clearTimeout(timer);
+    await rm(directory, { recursive: true, force: true });
+  }
+}

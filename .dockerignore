@@ -1,0 +1,9 @@
+*
+!package.json
+!package-lock.json
+!tsconfig.json
+!src/
+!src/**
+!apps/
+!apps/control-api/
+!apps/control-api/**

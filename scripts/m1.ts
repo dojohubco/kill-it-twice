@@ -1632,6 +1632,7 @@ try {
       'es-upgrade.json',
       'es.log',
       'prerequisite.json',
+      'openapi.json',
     ]);
     for (const file of await readdir(artifactDir)) {
       if (
