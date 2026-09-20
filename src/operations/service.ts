@@ -168,9 +168,21 @@ export class OperationsService {
                   ),
           };
         }),
-        this.#observe(async () =>
-          one(await this.db.read('pipeline', 'snapshot')),
-        ),
+        this.#observe(async () => {
+          const r = one(await this.db.read('pipeline', 'snapshot'));
+          return {
+            ...r,
+            es_oldest_unresolved_age_seconds:
+              r['es_oldest_unresolved_at'] === null
+                ? null
+                : Math.max(
+                    0,
+                    (Date.parse(string(r['observed_at'])) -
+                      Date.parse(string(r['es_oldest_unresolved_at']))) /
+                      1000,
+                  ),
+          };
+        }),
         this.#observe(async () =>
           one(await this.db.read('consumer', 'snapshot')),
         ),

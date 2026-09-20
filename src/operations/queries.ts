@@ -10,6 +10,7 @@ export const queries = {
   },
   pipeline: {
     snapshot: `SELECT jsonb_build_object('observed_at',clock_timestamp()::text,
+   'es_oldest_unresolved_at',(SELECT min(e.staged_at)::text FROM pipeline.events e JOIN pipeline.delivery_intents d USING(event_id) WHERE d.kind='elasticsearch' AND d.state<>'satisfied'),
    'staged',(SELECT count(*)::text FROM pipeline.events),
    'deliveries',(SELECT coalesce(jsonb_agg(to_jsonb(x)),'[]') FROM (SELECT kind sink,state,count(*)::text count,min(created_at)::text oldest_at FROM pipeline.delivery_intents GROUP BY kind,state) x),
    'observations',(SELECT coalesce(jsonb_agg(to_jsonb(x)),'[]') FROM (SELECT state,count(*)::text count FROM pipeline.consumer_observations GROUP BY state) x),

@@ -56,7 +56,29 @@ const schemas: Record<string, SchemaObject> = {
     dependencies: object(
       Object.fromEntries(
         ['source', 'pipeline', 'consumer', 'elasticsearch', 'rabbitmq'].map(
-          (k) => [k, observation],
+          (k) => [
+            k,
+            k === 'pipeline'
+              ? {
+                  ...observation,
+                  properties: {
+                    ...observation.properties,
+                    data: {
+                      ...object({
+                        es_oldest_unresolved_at: timestamp,
+                        es_oldest_unresolved_age_seconds: {
+                          type: 'number',
+                          minimum: 0,
+                          nullable: true,
+                        },
+                      }),
+                      additionalProperties: true,
+                      nullable: true,
+                    },
+                  },
+                }
+              : observation,
+          ],
         ),
       ),
     ),

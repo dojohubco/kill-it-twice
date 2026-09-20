@@ -261,6 +261,9 @@ void test(name('OP02'), async () => {
   assert.equal(source['freshness'], 'fresh');
   assert.equal(facts['pending'], '0');
   assert.equal(facts['oldest_pending_at'], null);
+  const pipelineIdle = record(record(dependencies['pipeline'])['data']);
+  assert.equal(pipelineIdle['es_oldest_unresolved_at'], null);
+  assert.equal(pipelineIdle['es_oldest_unresolved_age_seconds'], null);
   await delay(25);
   assert.equal(
     record(
@@ -484,7 +487,31 @@ void test(name('OP06'), async () => {
   const pending = metricMap((await api.request('/metrics')).text).get(
     'pipeline_source_pending',
   );
+  await captureDrain();
+  const stagedSnapshot = record(
+    record(record((await get('/status'))['dependencies'])['pipeline'])['data'],
+  );
+  const oldestStage = (
+    await db.p.query<{ oldest: string }>(
+      "SELECT min(e.staged_at)::text oldest FROM pipeline.events e JOIN pipeline.delivery_intents d USING(event_id) WHERE d.kind='elasticsearch' AND d.state<>'satisfied'",
+    )
+  ).rows[0];
+  assert.equal(stagedSnapshot['es_oldest_unresolved_at'], oldestStage?.oldest);
+  assert.equal(
+    stagedSnapshot['es_oldest_unresolved_age_seconds'],
+    Math.max(
+      0,
+      (Date.parse(string(stagedSnapshot['observed_at'])) -
+        Date.parse(string(stagedSnapshot['es_oldest_unresolved_at']))) /
+        1000,
+    ),
+  );
   await deliver();
+  const settledSnapshot = record(
+    record(record((await get('/status'))['dependencies'])['pipeline'])['data'],
+  );
+  assert.equal(settledSnapshot['es_oldest_unresolved_at'], null);
+  assert.equal(settledSnapshot['es_oldest_unresolved_age_seconds'], null);
   const settled = metricMap((await api.request('/metrics')).text);
   assert.ok(Number(pending) > Number(settled.get('pipeline_source_pending')));
   const newer = counters((await api.request('/metrics')).text);
