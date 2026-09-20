@@ -144,7 +144,10 @@ export class Backfill {
           stop.abort();
           await renew;
         }
-        if (lost) throw lost;
+        if (lost !== undefined)
+          throw lost instanceof Error
+            ? lost
+            : new Error('Renewal failed', { cause: lost });
         if (page.blocked) {
           if (!(await ledger.change(claim, 'block', 1, page.blocked.reason)))
             throw new Error('Backfill ownership lost before blockage');

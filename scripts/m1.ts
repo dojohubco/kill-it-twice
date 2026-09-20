@@ -1,3 +1,16 @@
+import {
+  backfillCases,
+  backfillUpgradeCases,
+  backfillEmptyCases,
+} from './required-backfill-cases.ts';
+import {
+  migrateBackfillSource,
+  migrateBackfillPipeline,
+} from './migrate-backfill.ts';
+import {
+  checkBackfillEvidence,
+  backfillSnapshot,
+} from './backfill-evidence.ts';
 import { checkBootstrapEvidence } from './bootstrap-evidence.ts';
 import { migrateBootstrap } from './migrate-bootstrap.ts';
 import {
@@ -105,6 +118,8 @@ assert.ok(
     'm41-repro',
     'm41',
     'm5a',
+    'm5b',
+    'm5b-empty',
   ].includes(profile),
   'Expected an explicitly supported acceptance or reproduction profile',
 );
@@ -113,8 +128,14 @@ const oracleAcceptance = profile === 'm3-oracle';
 const batchReproduction = profile === 'm41-repro';
 const batchProfile = profile === 'm41';
 const bootstrapProfile = profile === 'm5a';
+const emptyBackfill = profile === 'm5b-empty';
+const backfillProfile = profile === 'm5b' || emptyBackfill;
 const rabbitProfile =
-  profile === 'm4' || batchReproduction || batchProfile || bootstrapProfile;
+  profile === 'm4' ||
+  batchReproduction ||
+  batchProfile ||
+  bootstrapProfile ||
+  backfillProfile;
 const esProfile =
   profile === 'm3' || oracleReproduction || oracleAcceptance || rabbitProfile;
 let rabbitService: Awaited<ReturnType<typeof startRabbit>> | undefined;
@@ -141,41 +162,47 @@ const upgrade = process.argv[3] === '--upgrade';
 assert.ok(
   process.argv[3] === undefined || (twoDatabases && !reproduction && upgrade),
 );
-const inventory = bootstrapProfile
-  ? upgrade
-    ? bootstrapUpgradeCases
-    : bootstrapCases
-  : batchReproduction
-    ? batchReproductionCases
-    : batchProfile
-      ? batchCases
-      : rabbitProfile
-        ? rabbitCases
-        : oracleAcceptance
-          ? oracleCases
-          : oracleReproduction
-            ? oracleReproductionCases
-            : esProfile
-              ? [...esCases, expectationInventoryCase]
-              : reproduction
-                ? reproductionCases
-                : guarded
-                  ? [
-                      ...captureCases,
-                      ...isolationCases,
-                      ...(upgrade ? [] : registrationCases),
-                    ]
-                  : profile === 'm2c'
-                    ? captureCases
-                    : profile === 'm2b'
-                      ? stagingCases
-                      : profile === 'm2a'
-                        ? [
-                            ...requiredCases,
-                            ...commandCases,
-                            ...commandFaultCases,
-                          ]
-                        : requiredCases;
+const inventory = backfillProfile
+  ? emptyBackfill
+    ? backfillEmptyCases
+    : upgrade
+      ? backfillUpgradeCases
+      : backfillCases
+  : bootstrapProfile
+    ? upgrade
+      ? bootstrapUpgradeCases
+      : bootstrapCases
+    : batchReproduction
+      ? batchReproductionCases
+      : batchProfile
+        ? batchCases
+        : rabbitProfile
+          ? rabbitCases
+          : oracleAcceptance
+            ? oracleCases
+            : oracleReproduction
+              ? oracleReproductionCases
+              : esProfile
+                ? [...esCases, expectationInventoryCase]
+                : reproduction
+                  ? reproductionCases
+                  : guarded
+                    ? [
+                        ...captureCases,
+                        ...isolationCases,
+                        ...(upgrade ? [] : registrationCases),
+                      ]
+                    : profile === 'm2c'
+                      ? captureCases
+                      : profile === 'm2b'
+                        ? stagingCases
+                        : profile === 'm2a'
+                          ? [
+                              ...requiredCases,
+                              ...commandCases,
+                              ...commandFaultCases,
+                            ]
+                          : requiredCases;
 const runId = `${profile}-${new Date().toISOString().replace(/[^0-9]/g, '')}-${randomBytes(4).toString('hex')}`;
 const artifactDir = resolve(`artifacts/${profile}`, runId);
 await mkdir(artifactDir, { recursive: true });
@@ -190,7 +217,11 @@ const capturePassword = randomBytes(24).toString('hex');
 const pipelineCapturePassword = randomBytes(24).toString('hex');
 let pipelineId = '';
 const bootstrapPassword = randomBytes(24).toString('hex');
+const backfillSourcePassword = randomBytes(24).toString('hex');
+const backfillPipelinePassword = randomBytes(24).toString('hex');
 const secrets = [
+  backfillSourcePassword,
+  backfillPipelinePassword,
   bootstrapPassword,
   esPassword,
   adminPassword,
@@ -244,23 +275,29 @@ function pipelineAdmin(label: string) {
 const manifest: Record<string, unknown> = {
   runId,
   profile,
-  migrationMode: bootstrapProfile
-    ? upgrade
-      ? 'populated M4.1 active source upgrade'
-      : 'fresh closed bootstrap'
-    : upgrade
-      ? batchProfile
-        ? 'populated M4 consumer upgrade'
-        : rabbitProfile
-          ? 'populated M3.1 upgrade'
-          : esProfile
-            ? 'populated guarded M2C.1 upgrade'
-            : guarded
-              ? 'populated registered M2C upgrade'
-              : profile === 'm2c'
-                ? 'populated M2B upgrade'
-                : 'populated M2A upgrade'
-      : 'fresh',
+  migrationMode: backfillProfile
+    ? emptyBackfill
+      ? 'empty legacy-active source'
+      : upgrade
+        ? 'populated M5A backfill upgrade'
+        : 'fresh baseline backfill'
+    : bootstrapProfile
+      ? upgrade
+        ? 'populated M4.1 active source upgrade'
+        : 'fresh closed bootstrap'
+      : upgrade
+        ? batchProfile
+          ? 'populated M4 consumer upgrade'
+          : rabbitProfile
+            ? 'populated M3.1 upgrade'
+            : esProfile
+              ? 'populated guarded M2C.1 upgrade'
+              : guarded
+                ? 'populated registered M2C upgrade'
+                : profile === 'm2c'
+                  ? 'populated M2B upgrade'
+                  : 'populated M2A upgrade'
+        : 'fresh',
   artifactDir,
   startedAt: new Date().toISOString(),
   status: 'RUNNING',
@@ -632,9 +669,16 @@ try {
             });
             pipelineId = identity.pipelineId;
             manifest['pipelineId'] = pipelineId;
-            if (bootstrapProfile && !upgrade)
+            if (
+              (bootstrapProfile && !upgrade) ||
+              (backfillProfile && !emptyBackfill)
+            )
               await migrateBootstrap(admin, bootstrapPassword);
-            else await registerCapture(admin, pipelineId, sourceEpoch);
+            else {
+              await registerCapture(admin, pipelineId, sourceEpoch);
+              if (emptyBackfill)
+                await migrateBootstrap(admin, bootstrapPassword);
+            }
           } else if (captureProfile) {
             const result = await initializeCaptureFixture(admin, pAdmin, {
               source: {
@@ -804,7 +848,7 @@ try {
           application_name: `${runId}:rabbit-upgrade`,
         };
         assert.ok(esService && receiver && rabbitService);
-        if (upgrade) {
+        if (upgrade && !backfillProfile) {
           const sourceConfig = {
             host: '127.0.0.1',
             port,
@@ -947,7 +991,7 @@ try {
           consumerSqlPassword,
           consumerReaderPassword,
         );
-        if ((batchProfile && !upgrade) || bootstrapProfile) {
+        if ((batchProfile && !upgrade) || bootstrapProfile || backfillProfile) {
           const c = new pg.Client({
             ...pConfig,
             database: 'consumer_m4',
@@ -1001,12 +1045,41 @@ try {
       () => p.end(),
     );
   }
+  if (backfillProfile && !upgrade) {
+    const s = new pg.Client({
+      host: '127.0.0.1',
+      port,
+      database: 'source_m1',
+      user: 'm1_admin',
+      password: adminPassword,
+      application_name: `${runId}:backfill-migration`,
+      connectionTimeoutMillis: 5000,
+      query_timeout: 15000,
+    });
+    await withCleanup(
+      async () => {
+        await s.connect();
+        await migrateBackfillSource(s, backfillSourcePassword);
+      },
+      () => s.end(),
+    );
+    const p = pipelineAdmin('backfill-migration');
+    await withCleanup(
+      async () => {
+        await p.connect();
+        await migrateBackfillPipeline(p, backfillPipelinePassword);
+      },
+      () => p.end(),
+    );
+  }
   const testEnv = {
     ...env,
     M1_RUN_ID: runId,
     M4_UPGRADE: String(upgrade),
     M41_UPGRADE: String(batchProfile && upgrade),
     SOURCE_BOOTSTRAP_PASSWORD: bootstrapPassword,
+    SOURCE_BACKFILL_PASSWORD: backfillSourcePassword,
+    PIPELINE_BACKFILL_PASSWORD: backfillPipelinePassword,
     PIPELINE_RABBIT_PASSWORD: publisherSqlPassword,
     PIPELINE_RECEIPTS_PASSWORD: receiptSqlPassword,
     CONSUMER_PASSWORD: consumerSqlPassword,
@@ -1072,6 +1145,12 @@ try {
     { code: 0, signal: null, timedOut: false, outputOverflow: false },
     inventory,
   );
+  if (backfillProfile)
+    manifest['backfillEvidence'] = await checkBackfillEvidence(
+      join(artifactDir, 'sql-evidence.jsonl'),
+      upgrade,
+      emptyBackfill,
+    );
   if (bootstrapProfile)
     manifest['bootstrapEvidence'] = await checkBootstrapEvidence(
       join(artifactDir, 'sql-evidence.jsonl'),
@@ -1114,7 +1193,7 @@ try {
             application_name: string;
             state: string;
           }>(
-            "SELECT pid, application_name, state FROM pg_stat_activity WHERE usename IN ('source_writer','source_command','source_reader','source_capture','source_bootstrap')",
+            "SELECT pid, application_name, state FROM pg_stat_activity WHERE usename IN ('source_writer','source_command','source_reader','source_capture','source_bootstrap','source_backfill')",
           )
         ).rows;
         assert.deepEqual(sessions, [], 'runtime writer session leaked');
@@ -1147,7 +1226,7 @@ try {
           ? await captureSnapshot(connection)
           : undefined;
         const bootstrap: Record<string, unknown> = {};
-        if (bootstrapProfile)
+        if (bootstrapProfile || backfillProfile)
           for (const table of [
             'bootstrap_manifest',
             'bootstrap_chunks',
@@ -1165,7 +1244,10 @@ try {
           receipts,
           sessions,
           capture,
-          ...(bootstrapProfile ? { bootstrap } : {}),
+          ...(bootstrapProfile || backfillProfile ? { bootstrap } : {}),
+          ...(backfillProfile
+            ? { backfill: await backfillSnapshot(connection, 'source') }
+            : {}),
         };
       },
       () => connection.end(),
@@ -1181,6 +1263,9 @@ try {
           ? {
               ...base,
               ...(await esSnapshot(c)),
+              ...(backfillProfile
+                ? { backfill: await backfillSnapshot(c, 'pipeline') }
+                : {}),
               ...(rabbitProfile ? await rabbitSnapshot(c) : {}),
             }
           : base;

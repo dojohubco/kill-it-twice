@@ -47,3 +47,10 @@ export const backfillUpgradeCases = [
     file: 'tests/backfill/upgrade.test.ts',
   },
 ];
+export const backfillEmptyCases = [
+  {
+    id: 'BF01E',
+    name: 'BF01E actual empty legacy-active epoch seals an empty run and fence',
+    file: 'tests/backfill/empty.test.ts',
+  },
+];
