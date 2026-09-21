@@ -89,6 +89,7 @@ export class Backfill {
   async once(
     run: string,
     signal?: AbortSignal,
+    observation: 'full' | 'admission' = 'full',
   ): Promise<{
     workerId: string;
     page?: Record<string, unknown>;
@@ -100,7 +101,9 @@ export class Backfill {
     let claimed: Claim | null = null;
     const ledger = this.#ledger();
     try {
-      const before = await ledger.status(run);
+      const readStatus = () =>
+        observation === 'admission' ? ledger.poll(run) : ledger.status(run);
+      const before = await readStatus();
       if (
         signal?.aborted ||
         before.paused ||
@@ -166,7 +169,7 @@ export class Backfill {
       return {
         workerId: this.workerId,
         ...(pageResult === undefined ? {} : { page: pageResult }),
-        status: await ledger.status(run),
+        status: await readStatus(),
       };
     } catch (primary) {
       const code =

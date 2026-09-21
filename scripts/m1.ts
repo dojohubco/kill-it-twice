@@ -167,8 +167,11 @@ const captureProfile =
   profile === 'm2c' || guarded || reproduction || esProfile;
 const twoDatabases = profile === 'm2b' || captureProfile;
 const upgrade = process.argv[3] === '--upgrade';
+const capacitySource = bootstrapProfile && process.argv[3] === '--capacity';
 assert.ok(
-  process.argv[3] === undefined || (twoDatabases && !reproduction && upgrade),
+  process.argv[3] === undefined ||
+    (twoDatabases && !reproduction && upgrade) ||
+    capacitySource,
 );
 const inventory = operationalProfile
   ? upgrade
@@ -287,6 +290,14 @@ function pipelineAdmin(label: string) {
 const manifest: Record<string, unknown> = {
   runId,
   profile,
+  ...(capacitySource
+    ? {
+        capacitySourceMigrations: [
+          '009-source-validation-indexes.sql',
+          '010-source-chunk-validation.sql',
+        ],
+      }
+    : {}),
   migrationMode: operationalProfile
     ? upgrade
       ? 'populated M5B operational upgrade'
@@ -689,11 +700,15 @@ try {
               (bootstrapProfile && !upgrade) ||
               (backfillProfile && !emptyBackfill)
             )
-              await migrateBootstrap(admin, bootstrapPassword);
+              await migrateBootstrap(admin, bootstrapPassword, capacitySource);
             else {
               await registerCapture(admin, pipelineId, sourceEpoch);
               if (emptyBackfill)
-                await migrateBootstrap(admin, bootstrapPassword);
+                await migrateBootstrap(
+                  admin,
+                  bootstrapPassword,
+                  capacitySource,
+                );
             }
           } else if (captureProfile) {
             const result = await initializeCaptureFixture(admin, pAdmin, {

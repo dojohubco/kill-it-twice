@@ -36,6 +36,7 @@ interface Work {
   advance(run: string): Promise<Record<string, unknown>>;
   pause(run: string, paused: boolean): Promise<void>;
   status(run: string): Promise<ReturnType<typeof status>>;
+  poll(run: string): Promise<ReturnType<typeof status>>;
 }
 export class BackfillLedger {
   readonly #owner: TransactionOwner<Work>;
@@ -157,6 +158,10 @@ export class BackfillLedger {
             paused,
           ]);
         },
+        poll: async (run: string) =>
+          status(
+            await query('SELECT pipeline.backfill_poll($1) value', [uuid(run)]),
+          ),
         status: async (run: string) =>
           status(
             await query('SELECT pipeline.backfill_status($1) value', [
@@ -194,6 +199,9 @@ export class BackfillLedger {
   }
   pause(run: string, paused: boolean) {
     return this.transaction((tx) => tx.pause(run, paused));
+  }
+  poll(run: string) {
+    return this.transaction((tx) => tx.poll(run));
   }
   status(run: string) {
     return this.transaction((tx) => tx.status(run));

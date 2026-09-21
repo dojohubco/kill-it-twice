@@ -2,7 +2,11 @@ import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import type pg from 'pg';
 import { CleanupFailure } from './support.ts';
-export async function migrateBootstrap(client: pg.Client, password: string) {
+export async function migrateBootstrap(
+  client: pg.Client,
+  password: string,
+  capacity = false,
+) {
   assert.match(password, /^[a-f0-9]{48}$/);
   try {
     assert.equal(
@@ -15,6 +19,18 @@ export async function migrateBootstrap(client: pg.Client, password: string) {
         'utf8',
       ),
     );
+    if (capacity) {
+      for (const file of [
+        '009-source-validation-indexes.sql',
+        '010-source-chunk-validation.sql',
+      ])
+        await client.query(
+          await readFile(
+            new URL('../migrations/' + file, import.meta.url),
+            'utf8',
+          ),
+        );
+    }
     await client.query(
       `ALTER ROLE source_bootstrap LOGIN PASSWORD '${password}'`,
     );

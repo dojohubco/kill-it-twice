@@ -130,3 +130,22 @@ void test('bounded receipt batch validates before writes and uses one sorted loc
   );
   assert.deepEqual(writes, []);
 });
+
+void test('receipt batch configuration remains finite and validates before any connection', () => {
+  const db = new ConsumerDatabase(config);
+  for (const invalid of [
+    0,
+    -1,
+    33,
+    1.5,
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+  ]) {
+    assert.throws(
+      () => new ReceiptObserver(config, db, invalid),
+      /bounded receipt batch/,
+    );
+  }
+  assert.doesNotThrow(() => new ReceiptObserver(config, db, 1));
+  assert.doesNotThrow(() => new ReceiptObserver(config, db, 32));
+});

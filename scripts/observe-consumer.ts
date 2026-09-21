@@ -9,7 +9,11 @@ try {
   if (mode === 'status')
     await writeCaptureReport(process.stdout, await db.status());
   else {
-    const observer = new ReceiptObserver(sqlConfig('pipeline_receipts'), db),
+    const observer = new ReceiptObserver(
+        sqlConfig('pipeline_receipts'),
+        db,
+        Number(process.env['RECEIPT_BATCH_SIZE'] ?? '8'),
+      ),
       signal = stopSignal();
     do {
       const result = await observer.once();

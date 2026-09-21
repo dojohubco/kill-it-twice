@@ -31,7 +31,7 @@ while (!stop.signal.aborted) {
   for (const run of runs) {
     if (stop.signal.aborted) break;
     try {
-      const result = await worker.once(run.run_id, stop.signal);
+      const result = await worker.once(run.run_id, stop.signal, 'admission');
       progressed ||= result.page !== undefined;
       await writeCaptureReport(process.stdout, {
         type: 'backfill',

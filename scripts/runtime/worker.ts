@@ -28,6 +28,8 @@ try {
   }
   for (const s of ['SIGINT', 'SIGTERM']) process.removeListener(s, stop);
   if (!start.signal.aborted) {
+    // Initializer applies both owning-database read bounds before this worker starts.
+    if (role === 'observer') process.env['RECEIPT_BATCH_SIZE'] ??= '32';
     const runners: Record<string, () => Promise<unknown>> = {
       capture: () => import('../capture.ts'),
       elasticsearch: () => import('../deliver-es.ts'),

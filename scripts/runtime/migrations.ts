@@ -87,6 +87,7 @@ export const sourceFiles = [
   '007-source-backfill-fence.sql',
   '008-source-operations.sql',
   '009-source-validation-indexes.sql',
+  '010-source-chunk-validation.sql',
 ] as const;
 export const pipelineFiles = [
   'pipeline/001-staging.sql',
@@ -98,9 +99,11 @@ export const pipelineFiles = [
   'pipeline/007-operations.sql',
   'pipeline/008-recovery-controls.sql',
   'pipeline/009-runtime-discovery.sql',
+  'pipeline/010-capacity-polling.sql',
 ] as const;
 export const consumerFiles = [
   'consumer/001-consumer.sql',
   'consumer/002-batch-byte-accounting.sql',
   'consumer/003-operations.sql',
+  'consumer/004-bounded-receipt-reads.sql',
 ] as const;

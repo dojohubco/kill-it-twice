@@ -10,7 +10,15 @@ import { digest, decodeWire } from './protocol.ts';
 export class ReceiptObserver {
   readonly #pipeline: ConnectionConfig;
   readonly #consumer: ConsumerDatabase;
-  constructor(pipeline: ConnectionConfig, consumer: ConsumerDatabase) {
+  readonly #batchSize: number;
+  constructor(
+    pipeline: ConnectionConfig,
+    consumer: ConsumerDatabase,
+    batchSize = 8,
+  ) {
+    if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > 32)
+      throw new Error('Invalid bounded receipt batch size');
+    this.#batchSize = batchSize;
     this.#pipeline = { ...pipeline };
     this.#consumer = consumer;
   }
@@ -21,7 +29,8 @@ export class ReceiptObserver {
           async () =>
             (
               await client.query<Record<string, unknown>>(
-                'SELECT * FROM pipeline.receipt_due(8,1000)',
+                'SELECT * FROM pipeline.receipt_due($1,1000)',
+                [this.#batchSize],
               )
             ).rows,
         ),
@@ -69,6 +78,8 @@ export class ReceiptObserver {
     )
       throw new Error('Consumer receipt identity mismatch');
     const due = await this.#owner().transaction((tx) => tx.due());
+    if (due.length > this.#batchSize)
+      throw new Error('Oversized expected receipt set');
     const events = due.map((r) => {
       if (!Buffer.isBuffer(r['body']))
         throw new Error('Invalid expected receipt');
