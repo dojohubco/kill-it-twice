@@ -1,6 +1,6 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { ConsumerDatabase } from '../src/rabbitmq/consumer-db.ts';
-import { ReceiptObserver } from '../src/rabbitmq/receipts.ts';
+import { ReceiptObserver, receiptPollDelay } from '../src/rabbitmq/receipts.ts';
 import { writeCaptureReport } from '../src/internal/capture-report.ts';
 import { sqlConfig, cliMode, stopSignal } from './rabbit-cli-config.ts';
 const mode = cliMode(),
@@ -12,10 +12,11 @@ try {
     const observer = new ReceiptObserver(sqlConfig('pipeline_receipts'), db),
       signal = stopSignal();
     do {
-      await writeCaptureReport(process.stdout, await observer.once());
+      const result = await observer.once();
+      await writeCaptureReport(process.stdout, result);
       if (mode !== 'follow') break;
       try {
-        await delay(1000, undefined, { signal });
+        await delay(receiptPollDelay(result), undefined, { signal });
       } catch (error) {
         if (!signal.aborted) throw error;
       }

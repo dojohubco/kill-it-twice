@@ -80,6 +80,13 @@ export class ReceiptObserver {
       events.map((e) => digest(e.wireBytes)),
     );
     const observed: { eventId: string; state: string; status: string }[] = [];
+    const verified: {
+      id: string;
+      state: string;
+      bytes: Buffer;
+      hash: string;
+      receipt: string;
+    }[] = [];
     const seen = new Set<string>();
     for (const r of receipts) {
       const id = field(r, 'event_id');
@@ -119,23 +126,43 @@ export class ReceiptObserver {
         )
           throw new Error('Forged claimed ID is not expected-event quarantine');
       } else throw new Error('Unknown consumer receipt disposition');
-      const status = await this.#owner().transaction((tx) =>
-        tx.observe(
-          id,
-          identity.consumerId,
-          identity.registrationId,
-          identity.epoch,
-          identity.pipelineId,
-          state,
-          e.bodyBytes,
-          e.contentSha256,
-          field(r, 'receipt_id'),
-        ),
-      );
-      if (status !== 'observed' && status !== 'already_observed')
-        throw new Error('Missing committed consumer observation');
-      observed.push({ eventId: id, state, status });
+      verified.push({
+        id,
+        state,
+        bytes: e.bodyBytes,
+        hash: e.contentSha256,
+        receipt: field(r, 'receipt_id'),
+      });
     }
+    // Validate the entire bounded remote response before one local transaction.
+    // Sorted locks avoid inversions between two observers selecting the same identities.
+    verified.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    if (verified.length)
+      await this.#owner().transaction(async (tx) => {
+        for (const item of verified) {
+          const status = await tx.observe(
+            item.id,
+            identity.consumerId,
+            identity.registrationId,
+            identity.epoch,
+            identity.pipelineId,
+            item.state,
+            item.bytes,
+            item.hash,
+            item.receipt,
+          );
+          if (status !== 'observed' && status !== 'already_observed')
+            throw new Error('Missing committed consumer observation');
+          observed.push({ eventId: item.id, state: item.state, status });
+        }
+      });
     return { requested: events.map((e) => e.body.event_id), observed };
   }
+}
+
+// Progress drains bounded work with a yield; missing/duplicate-only results retain cooldown.
+export function receiptPollDelay(value: {
+  observed: readonly { status: string }[];
+}): number {
+  return value.observed.some((r) => r.status === 'observed') ? 10 : 1000;
 }

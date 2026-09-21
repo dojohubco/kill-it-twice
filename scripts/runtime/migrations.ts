@@ -86,6 +86,7 @@ export const sourceFiles = [
   '006-source-baselines.sql',
   '007-source-backfill-fence.sql',
   '008-source-operations.sql',
+  '009-source-validation-indexes.sql',
 ] as const;
 export const pipelineFiles = [
   'pipeline/001-staging.sql',
