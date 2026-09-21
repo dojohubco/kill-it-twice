@@ -42,6 +42,17 @@ function event(id: string) {
 void test('receipt polling yields on useful progress and backs off when none is committed', () => {
   assert.equal(receiptPollDelay({ observed: [] }), 1000);
   assert.equal(
+    receiptPollDelay({ requested: ['unprocessed'], observed: [] }),
+    50,
+  );
+  assert.equal(
+    receiptPollDelay({
+      requested: ['duplicate'],
+      observed: [{ status: 'already_observed' }],
+    }),
+    50,
+  );
+  assert.equal(
     receiptPollDelay({ observed: [{ status: 'already_observed' }] }),
     1000,
   );

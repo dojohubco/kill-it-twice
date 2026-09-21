@@ -22,7 +22,8 @@
     "scripts/runtime/gateway.ts",
     "scripts/verification/fault-worker.ts",
     "scripts/verification/commands.ts",
-    "scripts/verification/inspect.ts"
+    "scripts/verification/inspect.ts",
+    "scripts/capacity/receipt-proof.ts"
   ],
   "project": [
     "src/**/*.ts",

@@ -174,6 +174,8 @@ export class ReceiptObserver {
 // Progress drains bounded work with a yield; missing/duplicate-only results retain cooldown.
 export function receiptPollDelay(value: {
   observed: readonly { status: string }[];
+  requested?: readonly string[];
 }): number {
-  return value.observed.some((r) => r.status === 'observed') ? 10 : 1000;
+  if (value.observed.some((r) => r.status === 'observed')) return 10;
+  return value.requested?.length ? 50 : 1000;
 }
