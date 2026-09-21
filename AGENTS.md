@@ -83,3 +83,9 @@ M2A is separately authorized source-command idempotency only. `npm run test:inte
 ### Direct operational recovery
 
 `npm run operations -- snapshot|follow|operation|run|list|failures|replay|supersede|verify-target|pause|resume` uses the existing private `CONTROL_CONFIG_FILE`. Actions take explicit UUIDs and bounded JSON stdin; never put that file or its credentials in Git. No new HTTP/UI surface is authorized by the recovery completion. Preserve legacy OP tests plus RC01-RC09 and the forward pipeline 008 preservation check. Metric definitions live in `docs/metric-definitions.md`. Actor labels are audit attribution only; remote validation and local commit are separate boundaries. Commit scopes describe subsystems, not milestone numbers.
+
+## Interface skills
+
+For authorized UI work, read all nine project skills under `.agents/skills/` and their relevant references: better-interface, better-accessibility, better-layout, better-writing, better-typography, better-colors, better-ui, emil-design-eng, and explain-interface. Apply each to its own domain; follow repository correctness/stack constraints rather than installing React or a motion package from illustrative snippets. Accessibility and truthful operational states take priority over decoration. Resolve overlapping recommendations deliberately in the interface design note; do not claim rendered verification from source inspection alone.
+
+Keep the vendored skill files unchanged unless an explicit upstream update is requested. `skills-lock.json` records their sources/content fingerprints; `.agents/README.md` records attribution. Formatting excludes only the vendored skill content, not application documentation or UI code. Use actual browser checks before claiming visual/accessibility coverage, and report checks that have not run. Commit scopes name subsystems such as `ui`, `operations`, or `verify`, not milestones.
