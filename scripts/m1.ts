@@ -1290,7 +1290,7 @@ try {
             'pipeline.replay_requests',
             'pipeline.replay_items',
             'pipeline.operator_receipts',
-            'pipeline.network_actions',
+            'pipeline.network_requests',
             'pipeline.attempt_totals',
             'pipeline.recovery_requests',
             'pipeline.recovery_items',

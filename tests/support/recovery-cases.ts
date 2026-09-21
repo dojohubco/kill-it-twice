@@ -261,7 +261,11 @@ export function recoveryCaseDefinitions(context: () => Context) {
           `/${required('ES_INDEX')}/_doc/${corrected.documentId}?version=2&version_type=external_gte`,
           exactJson(body),
         );
-        const network = new OperationsService(cfg);
+        // Match the configuration loader's normalized origin for direct in-process use.
+        const network = new OperationsService({
+          ...cfg,
+          proxyApi: cfg.proxyApi.replace(/\/$/, ''),
+        });
         const unavailable = await withCleanup(
           async () => {
             await network.network(randomUUID(), randomUUID(), 'elasticsearch', {
