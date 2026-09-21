@@ -65,7 +65,8 @@
     "test:ui:live": "npm run build:ui && npm run build:api && node scripts/test-ui-live.ts",
     "verify:runtime": "python3 -B scripts/verify-runtime.py",
     "test:runtime:browser": "node scripts/runtime-browser.ts",
-    "runtime:preflight": "node scripts/runtime-preflight.ts"
+    "runtime:preflight": "node scripts/runtime-preflight.ts",
+    "verify:functional": "python3 -B scripts/verify-final.py --count 1024"
   },
   "dependencies": {
     "@angular/common": "21.2.23",

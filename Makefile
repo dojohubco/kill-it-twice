@@ -95,3 +95,7 @@ operator-token:
 .PHONY: verify-runtime
 verify-runtime: quality
 	npm run verify:runtime
+
+.PHONY: verify-functional
+verify-functional: quality
+	npm run verify:functional

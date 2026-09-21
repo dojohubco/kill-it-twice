@@ -19,7 +19,10 @@
     "scripts/runtime/seed.ts",
     "scripts/runtime/change.ts",
     "scripts/runtime/inspect.ts",
-    "scripts/runtime/gateway.ts"
+    "scripts/runtime/gateway.ts",
+    "scripts/verification/fault-worker.ts",
+    "scripts/verification/commands.ts",
+    "scripts/verification/inspect.ts"
   ],
   "project": [
     "src/**/*.ts",
