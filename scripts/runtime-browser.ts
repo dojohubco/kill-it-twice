@@ -79,7 +79,9 @@ await withCleanup(
       path: resolve(output, 'runtime-record.png'),
       fullPage: true,
     });
-    await page.keyboard.press('Escape');
+    await page
+      .getByRole('button', { name: 'Close record details', exact: true })
+      .click();
     await page.locator('#record-detail-title').waitFor({ state: 'hidden' });
     await page.setViewportSize({ width: 390, height: 844 });
     assert.ok(
