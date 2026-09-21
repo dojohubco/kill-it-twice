@@ -270,6 +270,7 @@ void test(
       assert.equal(writes[0]?.body, writes[1]?.body);
       await dialog.getByRole('button', { name: 'Done', exact: true }).click();
       await dialog.waitFor({ state: 'hidden' });
+      await page.getByRole('dialog').waitFor({ state: 'hidden' });
       assert.equal(await page.getByRole('dialog').count(), 0);
     }),
 );
@@ -335,6 +336,7 @@ void test(
         .getByRole('dialog', { name: 'Replay this Elasticsearch failure?' })
         .waitFor();
       await page.keyboard.press('Escape');
+      await page.getByRole('dialog').waitFor({ state: 'hidden' });
       assert.equal(await page.getByRole('dialog').count(), 0);
     }),
 );
@@ -456,6 +458,7 @@ void test(
         );
       }
       await page.keyboard.press('Escape');
+      await page.getByRole('dialog').waitFor({ state: 'hidden' });
       assert.equal(await page.getByRole('dialog').count(), 0);
       assert.equal(
         await page
