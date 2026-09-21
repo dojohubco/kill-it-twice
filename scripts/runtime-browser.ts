@@ -22,6 +22,13 @@ await withCleanup(
     page.on('pageerror', (error) => {
       if (errors.length < 20) errors.push(error.message);
     });
+    page.on('console', (message) => {
+      if (
+        message.type() === 'error' &&
+        /Content Security Policy|inline event handler/i.test(message.text())
+      )
+        errors.push(message.text());
+    });
     page.on('request', (request) => {
       const target = new URL(request.url());
       if (target.pathname.startsWith('/api/v1/')) {
@@ -36,6 +43,25 @@ await withCleanup(
     await page.getByText(expected, { exact: true }).first().waitFor();
     assert.equal(new URL(page.url()).pathname, '/overview');
     assert.ok((await page.title()).length > 0);
+    const styles = await page
+      .locator('link[rel=stylesheet]')
+      .evaluateAll((links) =>
+        links.map((node) => {
+          const link = node as HTMLLinkElement;
+          return {
+            loaded: !!link.sheet,
+            media: link.media,
+            handler: link.getAttribute('onload'),
+          };
+        }),
+      );
+    assert.ok(
+      styles.length > 0 &&
+        styles.every(
+          (s) => s.loaded && s.media !== 'print' && s.handler === null,
+        ),
+      'Production stylesheet must apply without blocked inline script',
+    );
     await page.screenshot({
       path: resolve(output, 'runtime-overview.png'),
       fullPage: true,
@@ -54,6 +80,7 @@ await withCleanup(
       fullPage: true,
     });
     await page.keyboard.press('Escape');
+    await page.locator('#record-detail-title').waitFor({ state: 'hidden' });
     await page.setViewportSize({ width: 390, height: 844 });
     assert.ok(
       await page.evaluate(
@@ -74,6 +101,7 @@ await withCleanup(
         browser: browser.version(),
         browserPath: 'project Playwright; Browser plugin not available',
         interceptedResponses: 0,
+        appliedStylesheets: styles,
         expectedStaged: expected,
         record: label,
         requests: [...paths],
