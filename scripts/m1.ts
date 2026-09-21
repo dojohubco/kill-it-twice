@@ -1269,10 +1269,42 @@ try {
           ...(backfillProfile
             ? { backfill: await backfillSnapshot(connection, 'source') }
             : {}),
+          ...(operationalProfile
+            ? {
+                operations: await retainedOperationalRows(connection, 'source'),
+              }
+            : {}),
         };
       },
       () => connection.end(),
     );
+  }
+  async function retainedOperationalRows(
+    client: pg.Client,
+    store: 'source' | 'pipeline',
+  ) {
+    const tables =
+      store === 'source'
+        ? ['source.operator_fixtures', 'source.operator_receipts']
+        : [
+            'pipeline.replay_requests',
+            'pipeline.replay_items',
+            'pipeline.operator_receipts',
+            'pipeline.network_actions',
+            'pipeline.attempt_totals',
+            'pipeline.recovery_requests',
+            'pipeline.recovery_items',
+            'pipeline.recovery_checks',
+            'pipeline.replay_attempt_links',
+          ];
+    const values: Record<string, unknown> = {};
+    for (const table of tables)
+      values[table] = (
+        await client.query<{ value: string }>(
+          `SELECT row_to_json(t)::text value FROM ${table} t ORDER BY row_to_json(t)::text COLLATE "C"`,
+        )
+      ).rows;
+    return values;
   }
   async function retainedPipeline() {
     const c = pipelineAdmin('restart-pipeline');
@@ -1288,6 +1320,9 @@ try {
                 ? { backfill: await backfillSnapshot(c, 'pipeline') }
                 : {}),
               ...(rabbitProfile ? await rabbitSnapshot(c) : {}),
+              ...(operationalProfile
+                ? { operations: await retainedOperationalRows(c, 'pipeline') }
+                : {}),
             }
           : base;
       },
@@ -1311,7 +1346,7 @@ try {
         assert.deepEqual(
           (
             await c.query(
-              "SELECT pid FROM pg_stat_activity WHERE usename IN ('pipeline_rabbit','pipeline_receipts','pipeline_backfill','consumer_runtime','consumer_receipt_reader')",
+              "SELECT pid FROM pg_stat_activity WHERE usename IN ('pipeline_rabbit','pipeline_receipts','pipeline_backfill','consumer_runtime','consumer_receipt_reader','pipeline_operator','source_operator','consumer_operator')",
             )
           ).rows,
           [],
