@@ -27,6 +27,7 @@ if (mode === 'compose') {
     ['compose.m3.yaml'],
     ['compose.m4.yaml'],
     ['compose.m6.yaml'],
+    ['compose.yaml'],
   ])
     await checked(
       'docker',
@@ -48,6 +49,8 @@ if (mode === 'compose') {
         CONTROL_CONFIG_FILE: '/nonsecret-quality-fixture/control.json',
       },
     );
+  for (const file of ['infra/runtime/provision.sh', 'infra/runtime/realm.sh'])
+    await checked('bash', ['-n', file]);
 } else if (mode === 'workflow') {
   const binary = join(actionlint.directory, 'actionlint');
   let bytes: Buffer, verification: Record<string, unknown>;
@@ -75,7 +78,7 @@ if (mode === 'compose') {
     (await checked(binary, ['-version'])).split('\n')[0],
     actionlint.version,
   );
-  // Only workflow validation is in scope. No shell files or Python workflows exist.
+  // Workflow syntax is checked here; runtime shell syntax is validated by the Compose check.
   await checked(binary, ['-color', '-shellcheck=', '-pyflakes=']);
 } else {
   throw new Error('Expected compose or workflow validation');

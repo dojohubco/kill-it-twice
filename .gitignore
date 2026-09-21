@@ -8,3 +8,7 @@ artifacts/
 
 # Reproducible Angular build cache; never application source.
 .angular/
+
+# Python diagnostic/verification bytecode, never source.
+__pycache__/
+*.pyc

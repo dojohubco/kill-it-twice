@@ -7,3 +7,12 @@
 !apps/
 !apps/control-api/
 !apps/control-api/**
+!angular.json
+!apps/operator-ui/
+!apps/operator-ui/**
+!apps/runtime/
+!apps/runtime/**
+!scripts/
+!scripts/**
+!migrations/
+!migrations/**

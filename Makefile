@@ -77,3 +77,21 @@ verify-m6: verify-m5b
 verify-ui: quality
 	npm run build:ui
 	npm run test:ui
+
+.PHONY: up down seed runtime-status operator-token
+SEED_COUNT ?= 1024
+up:
+	npm run runtime:preflight
+	docker compose up -d --build
+down:
+	docker compose down
+seed:
+	docker compose run --rm --no-deps seed node scripts/runtime/seed.ts $(SEED_COUNT)
+runtime-status:
+	docker compose run --rm --no-deps inspect
+operator-token:
+	@docker compose run --rm --no-deps inspect node scripts/runtime/inspect.ts token
+
+.PHONY: verify-runtime
+verify-runtime: quality
+	npm run verify:runtime

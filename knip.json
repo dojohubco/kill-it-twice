@@ -13,7 +13,13 @@
     "tests/support/bootstrap-child.ts",
     "tests/support/backfill-child.ts",
     "apps/control-api/main.ts",
-    "tests/support/recovery-child.ts"
+    "tests/support/recovery-child.ts",
+    "scripts/runtime/initialize.ts",
+    "scripts/runtime/worker.ts",
+    "scripts/runtime/seed.ts",
+    "scripts/runtime/change.ts",
+    "scripts/runtime/inspect.ts",
+    "scripts/runtime/gateway.ts"
   ],
   "project": [
     "src/**/*.ts",

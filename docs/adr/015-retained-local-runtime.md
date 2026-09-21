@@ -23,3 +23,11 @@ Named volumes intentionally persist across ordinary `docker compose down`/up. Re
 Resource ceilings make retained work visible rather than promising unlimited buffering. The planned capacity profile needs direct elapsed time, memory and storage observations. Small correctness gates and build sizes cannot establish 2M-row capacity. No schema or batch-size optimization is selected before actual evidence motivates it.
 
 References: Docker Compose startup ordering and `service_completed_successfully` (https://docs.docker.com/compose/how-tos/startup-order/); Elasticsearch file realm and role files (https://www.elastic.co/docs/deploy-manage/users-roles/cluster-or-deployment-auth/file-based). These describe orchestration/authentication mechanisms, not the application delivery guarantee.
+
+## Run-discovery refinement
+
+Inspection found that pipeline_backfill intentionally has no direct table SELECT grant. Forward migration 009 adds only a bounded SECURITY DEFINER navigation function (maximum 16 run identities), with an exact database timestamp/UUID cursor. It does not broaden table access or add a capture watermark. Runtime dispatch calls the existing worker for each discovered run.
+
+## Gateway network refinement
+
+The first live Compose experiment showed Docker retaining the requested port binding but not publishing it for a gateway connected only to an internal network. The gateway alone also joins a frontend bridge; its sole published socket remains explicitly bound to host loopback. Databases, receivers, proxy control and workers remain on the private internal network only. This does not authorize a host firewall or Docker daemon change.

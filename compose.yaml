@@ -1,0 +1,237 @@
+name: kill-it-twice-local
+x-app: &app
+  image: ${KIT_IMAGE:-kill-it-twice-runtime:local}
+  build:
+    context: .
+    dockerfile: apps/runtime/Dockerfile
+  user: '1000:0'
+  read_only: true
+  tmpfs: ['/tmp:size=64m,mode=1777']
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  mem_limit: 256m
+  pids_limit: 64
+  environment: { NODE_OPTIONS: '--max-old-space-size=128' }
+  stop_grace_period: 20s
+  logging: { driver: json-file, options: { max-size: 10m, max-file: '3' } }
+  labels: { io.kill-it-twice.runtime: 'true' }
+x-worker: &worker
+  <<: *app
+  restart: unless-stopped
+  command: [node, scripts/runtime/worker.ts]
+  depends_on:
+    initializer: { condition: service_completed_successfully }
+services:
+  provision:
+    image: postgres:18.6-bookworm@sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af
+    entrypoint: [bash, /provision.sh]
+    read_only: true
+    mem_limit: 128m
+    volumes:
+      - ./infra/runtime/provision.sh:/provision.sh:ro,Z
+      - setup-secrets:/private
+      - source-secret:/source-secret
+      - pipeline-secret:/pipeline-secret
+      - es-config:/es
+      - rabbit-config:/rabbit
+      - rabbit-data:/rabbit-data
+      - ready:/ready
+      - capture-config:/out/capture
+      - backfill-config:/out/backfill
+      - es-worker-config:/out/elasticsearch
+      - publisher-config:/out/publisher
+      - consumer-config:/out/consumer
+      - observer-config:/out/observer
+      - control-config:/out/control
+      - seed-config:/out/seed
+      - writer-config:/out/writer
+  source:
+    image: postgres:18.6-bookworm@sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af
+    environment:
+      POSTGRES_USER: source_admin
+      POSTGRES_DB: source_m1
+      POSTGRES_PASSWORD_FILE: /run/secrets/password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    volumes: [source-data:/var/lib/postgresql, source-secret:/run/secrets:ro]
+    depends_on: { provision: { condition: service_completed_successfully } }
+    command: [postgres, -c, log_min_error_statement=panic]
+    mem_limit: 1g
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -h 127.0.0.1 -U source_admin -d source_m1']
+      interval: 2s
+      timeout: 3s
+      retries: 60
+  pipeline:
+    image: postgres:18.6-bookworm@sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af
+    environment:
+      POSTGRES_USER: pipeline_admin
+      POSTGRES_DB: pipeline_m2b
+      POSTGRES_PASSWORD_FILE: /run/secrets/password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    volumes:
+      [pipeline-data:/var/lib/postgresql, pipeline-secret:/run/secrets:ro]
+    depends_on: { provision: { condition: service_completed_successfully } }
+    command: [postgres, -c, log_min_error_statement=panic]
+    mem_limit: 1g
+    healthcheck:
+      test:
+        [CMD-SHELL, 'pg_isready -h 127.0.0.1 -U pipeline_admin -d pipeline_m2b']
+      interval: 2s
+      timeout: 3s
+      retries: 60
+  realm:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.5.4@sha256:82ac14f43fe701992e601f4cc81e1c0d7dbc5a2576d8cd736006452925df4026
+    user: '0:0'
+    entrypoint: [bash, /realm.sh]
+    environment: { ES_PATH_CONF: /kit, CLI_JAVA_OPTS: '-Xms16m -Xmx64m' }
+    volumes:
+      [
+        es-config:/kit,
+        setup-secrets:/private:ro,
+        './infra/runtime/realm.sh:/realm.sh:ro,Z',
+      ]
+    depends_on: { provision: { condition: service_completed_successfully } }
+    mem_limit: 256m
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.5.4@sha256:82ac14f43fe701992e601f4cc81e1c0d7dbc5a2576d8cd736006452925df4026
+    user: '1000:0'
+    environment: { ES_PATH_CONF: /kit, ES_JAVA_OPTS: '-Xms1g -Xmx1g' }
+    volumes: [es-data:/usr/share/elasticsearch/data, es-config:/kit]
+    depends_on: { realm: { condition: service_completed_successfully } }
+    mem_limit: 2g
+    stop_grace_period: 30s
+  rabbitmq:
+    image: rabbitmq:4.3.6-management@sha256:de62d9901fb73aaa8767b9c1e9ea32f2938f69d1b83e430f7c5ca854081d2128
+    hostname: kit-broker
+    user: '1000:0'
+    environment:
+      HOME: /var/lib/rabbitmq
+      RABBITMQ_ENABLED_PLUGINS_FILE: /kit/enabled_plugins
+      RABBITMQ_CONFIG_FILE: /kit/rabbitmq
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: '+S 2:2 +A 4'
+    volumes: [rabbit-data:/var/lib/rabbitmq, rabbit-config:/kit:ro]
+    depends_on: { provision: { condition: service_completed_successfully } }
+    mem_limit: 1g
+    stop_grace_period: 30s
+    ulimits: { nofile: { soft: 65536, hard: 65536 } }
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.12.0@sha256:9378ed52a28bc50edc1350f936f518f31fa95f0d15917d6eb40b8e376d1a214e
+    command: [-host, 0.0.0.0, -config, /config/proxies.json]
+    volumes: ['./infra/runtime/proxies.json:/config/proxies.json:ro,Z']
+    mem_limit: 128m
+  initializer:
+    <<: *app
+    user: '0:0'
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER]
+    command: [node, scripts/runtime/initialize.ts]
+    depends_on:
+      source: { condition: service_healthy }
+      pipeline: { condition: service_healthy }
+      elasticsearch: { condition: service_started }
+      rabbitmq: { condition: service_started }
+      toxiproxy: { condition: service_started }
+    volumes:
+      - setup-secrets:/private
+      - es-config:/es
+      - ready:/ready
+      - capture-config:/out/capture
+      - backfill-config:/out/backfill
+      - es-worker-config:/out/elasticsearch
+      - publisher-config:/out/publisher
+      - consumer-config:/out/consumer
+      - observer-config:/out/observer
+      - control-config:/out/control
+      - seed-config:/out/seed
+      - writer-config:/out/writer
+  capture:
+    <<: *worker
+    volumes: [capture-config:/config:ro, ready:/ready:ro]
+  backfill:
+    <<: *worker
+    volumes: [backfill-config:/config:ro, ready:/ready:ro]
+  es-worker:
+    <<: *worker
+    volumes: [es-worker-config:/config:ro, ready:/ready:ro]
+  publisher:
+    <<: *worker
+    volumes: [publisher-config:/config:ro, ready:/ready:ro]
+  consumer:
+    <<: *worker
+    volumes: [consumer-config:/config:ro, ready:/ready:ro]
+  observer:
+    <<: *worker
+    volumes: [observer-config:/config:ro, ready:/ready:ro]
+  control-api:
+    <<: *app
+    restart: unless-stopped
+    command: [node, artifacts/control-api-build/apps/control-api/main.js]
+    environment:
+      NODE_OPTIONS: --max-old-space-size=192
+      CONTROL_CONTAINER: '1'
+      CONTROL_CONFIG_FILE: /config/control.json
+    depends_on: { initializer: { condition: service_completed_successfully } }
+    volumes: [control-config:/config:ro]
+  ui:
+    <<: *app
+    command: [node, scripts/runtime/gateway.ts]
+    ports: ['127.0.0.1:${KIT_UI_PORT:-4200}:4200']
+    networks: [default, frontend]
+    depends_on: { control-api: { condition: service_started } }
+    mem_limit: 128m
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:4200/_health').then(r=>{if(!r.ok)process.exitCode=1}).catch(()=>{process.exitCode=1})",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  seed:
+    <<: *app
+    profiles: [tools]
+    command: [node, scripts/runtime/seed.ts]
+    volumes: [seed-config:/config:ro, ready:/ready]
+    depends_on: { initializer: { condition: service_completed_successfully } }
+  writer:
+    <<: *app
+    profiles: [tools]
+    command: [node, scripts/runtime/change.ts]
+    volumes: [writer-config:/config:ro]
+    depends_on: { initializer: { condition: service_completed_successfully } }
+  inspect:
+    <<: *app
+    profiles: [tools]
+    user: '0:0'
+    command: [node, scripts/runtime/inspect.ts]
+    volumes: [setup-secrets:/private:ro, es-config:/es:ro]
+    depends_on: { initializer: { condition: service_completed_successfully } }
+networks:
+  frontend:
+    labels: { io.kill-it-twice.runtime: 'true' }
+  default:
+    internal: true
+    labels: { io.kill-it-twice.runtime: 'true' }
+volumes:
+  setup-secrets:
+  source-secret:
+  pipeline-secret:
+  source-data:
+  pipeline-data:
+  es-data:
+  es-config:
+  rabbit-data:
+  rabbit-config:
+  ready:
+  capture-config:
+  backfill-config:
+  es-worker-config:
+  publisher-config:
+  consumer-config:
+  observer-config:
+  control-config:
+  seed-config:
+  writer-config:

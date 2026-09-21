@@ -62,7 +62,10 @@
     "ui:dev": "ng serve operator-ui",
     "typecheck:ui": "ngc -p apps/operator-ui/tsconfig.app.json --noEmit",
     "test:ui": "node scripts/test-ui.ts",
-    "test:ui:live": "npm run build:ui && npm run build:api && node scripts/test-ui-live.ts"
+    "test:ui:live": "npm run build:ui && npm run build:api && node scripts/test-ui-live.ts",
+    "verify:runtime": "python3 -B scripts/verify-runtime.py",
+    "test:runtime:browser": "node scripts/runtime-browser.ts",
+    "runtime:preflight": "node scripts/runtime-preflight.ts"
   },
   "dependencies": {
     "@angular/common": "21.2.23",

@@ -1,0 +1,14 @@
+[
+  {
+    "name": "es",
+    "listen": "0.0.0.0:8666",
+    "upstream": "elasticsearch:9200",
+    "enabled": true
+  },
+  {
+    "name": "rabbit",
+    "listen": "0.0.0.0:8667",
+    "upstream": "rabbitmq:5671",
+    "enabled": true
+  }
+]
