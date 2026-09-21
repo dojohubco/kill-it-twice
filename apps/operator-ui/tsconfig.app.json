@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "../../artifacts/operator-ui-ts",
+    "noEmit": false
+  },
+  "files": ["src/main.ts"],
+  "include": ["src/**/*.d.ts"]
+}

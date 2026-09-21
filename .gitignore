@@ -5,3 +5,6 @@ artifacts/
 *.tsbuildinfo
 
 .tools/
+
+# Reproducible Angular build cache; never application source.
+.angular/

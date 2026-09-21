@@ -1,0 +1,50 @@
+{
+  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
+  "version": 1,
+  "cli": { "analytics": false },
+  "projects": {
+    "operator-ui": {
+      "projectType": "application",
+      "root": "apps/operator-ui",
+      "sourceRoot": "apps/operator-ui/src",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "outputPath": "artifacts/operator-ui-build",
+            "browser": "apps/operator-ui/src/main.ts",
+            "index": "apps/operator-ui/src/index.html",
+            "tsConfig": "apps/operator-ui/tsconfig.app.json",
+            "styles": ["apps/operator-ui/src/styles.css"],
+            "polyfills": [],
+            "budgets": [
+              {
+                "type": "initial",
+                "maximumWarning": "650kB",
+                "maximumError": "900kB"
+              }
+            ]
+          },
+          "configurations": {
+            "production": { "outputHashing": "all" },
+            "development": {
+              "optimization": false,
+              "sourceMap": true,
+              "extractLicenses": false
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "options": {
+            "buildTarget": "operator-ui:build:development",
+            "host": "127.0.0.1",
+            "port": 4200,
+            "proxyConfig": "apps/operator-ui/proxy.conf.json"
+          }
+        }
+      }
+    }
+  }
+}

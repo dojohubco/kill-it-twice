@@ -1,0 +1,198 @@
+<div class="page-heading">
+  <div>
+    <h1 tabindex="-1">Records</h1>
+    <p class="page-description">
+      Browse the searchable receiver state, then compare its version with the
+      source.
+    </p>
+  </div>
+  <button
+    type="button"
+    class="button secondary"
+    (click)="load()"
+    [disabled]="loading()"
+  >
+    <kit-icon name="refresh" />Refresh records
+  </button>
+</div>
+<section class="panel">
+  <form class="search-toolbar" (submit)="search($event)">
+    <div class="field grow">
+      <label for="record-search">Search record names</label>
+      <div class="input-with-icon">
+        <kit-icon name="search" /><input
+          id="record-search"
+          name="q"
+          type="search"
+          maxlength="128"
+          placeholder="Search indexed names…"
+          autocomplete="off"
+        />
+      </div>
+    </div>
+    <label class="checkbox-label"
+      ><input name="deleted" type="checkbox" />Include tombstones</label
+    ><button type="submit" class="button" [disabled]="loading()">
+      {{loading()?'Searching…':'Search records'}}
+    </button>
+  </form>
+  <p class="help-text">
+    Search is near realtime. Record detail uses a realtime receiver read.
+    Pagination is navigation, not a completeness proof.
+  </p>
+</section>
+@if(error()){
+<div class="notice danger" role="alert">
+  <strong>Unable to refresh records</strong>
+  <p>{{error()}}</p>
+  @if(result()){
+  <p class="small">Retained rows are from the last successful observation.</p>
+  }
+</div>
+}
+<section class="panel table-panel" [attr.aria-busy]="loading()">
+  <div class="section-heading">
+    <h2>Receiver records</h2>
+    <span class="muted small"
+      >{{loading()?'Loading…':timestamp(result()?.['observed_at'])}}</span
+    >
+  </div>
+  <div
+    class="table-scroll"
+    role="region"
+    aria-label="Searchable receiver records"
+    tabindex="0"
+  >
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Entity ID</th>
+          <th>Version</th>
+          <th>Country</th>
+          <th>State</th>
+          <th><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for(item of records(result()?.['items']);track
+        value(item['source_epoch'])+':'+value(item['entity_id'])){
+        <tr>
+          <th scope="row">
+            {{value(record(item['search_fields'])['name'],'Unnamed record')}}
+          </th>
+          <td class="mono">{{value(item['entity_id'])}}</td>
+          <td class="mono">{{value(item['receiver_version'])}}</td>
+          <td>{{value(record(item['search_fields'])['country'])}}</td>
+          <td>
+            <kit-badge [state]="item['is_deleted']?'tombstone':'current'" />
+          </td>
+          <td>
+            <button
+              type="button"
+              class="text-button"
+              (click)="inspect(item)"
+              [disabled]="detailLoading()"
+              [attr.aria-label]="'Inspect record '+value(item['entity_id'])"
+            >
+              Inspect <kit-icon name="arrow" />
+            </button>
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  @if(!loading()&&!records(result()?.['items']).length){
+  <div class="empty-state">
+    <kit-icon name="records" />
+    <h3>{{error()?'Records are unavailable':'No matching records'}}</h3>
+    <p>
+      {{error()?'Restore the API or receiver connection and refresh.':'Clear the
+      search or include tombstones. The receiver may still be waiting for
+      delivery.'}}
+    </p>
+  </div>
+  }
+  <div class="pagination">
+    <span class="muted small">Page {{pageNo()}} · up to 25 records</span>
+    <div class="button-group">
+      <button
+        type="button"
+        class="button secondary compact"
+        (click)="previous()"
+        [disabled]="loading()||pageNo()===1"
+      >
+        Previous</button
+      ><button
+        type="button"
+        class="button secondary compact"
+        (click)="next()"
+        [disabled]="loading()||!result()?.['next_cursor']||pageNo()>=101"
+      >
+        Next
+      </button>
+    </div>
+  </div>
+</section>
+@if(detailLoading()){
+<p class="notice" role="status">Reading current receiver details…</p>
+}@if(detailError()){
+<p class="notice danger" role="alert">{{detailError()}}</p>
+} @if(detail();as d){
+<section class="panel">
+  <div class="section-heading">
+    <div>
+      <span class="field-label">Realtime detail</span>
+      <h2 id="record-detail-title" tabindex="-1">
+        {{value(record(record(d['projection'])['search_fields'])['name'],'Record
+        details')}}
+      </h2>
+    </div>
+    <button
+      type="button"
+      class="icon-button"
+      aria-label="Close record details"
+      (click)="detail.set(null)"
+    >
+      <kit-icon name="close" />
+    </button>
+  </div>
+  <div class="inline-state">
+    <kit-badge [state]="d['convergence']" /><span class="muted small"
+      >{{timestamp(d['observed_at'])}}</span
+    >
+  </div>
+  <dl class="definition-list">
+    <div>
+      <dt>Entity ID</dt>
+      <dd><code>{{value(record(d['projection'])['entity_id'])}}</code></dd>
+    </div>
+    <div>
+      <dt>Source epoch</dt>
+      <dd><code>{{value(record(d['projection'])['source_epoch'])}}</code></dd>
+    </div>
+    <div>
+      <dt>Source / receiver version</dt>
+      <dd>
+        <code
+          >{{value(record(d['source'])['entity_version'])}} /
+          {{value(d['receiver_version'])}}</code
+        >
+      </dd>
+    </div>
+  </dl>
+  <details open>
+    <summary>Indexed projection</summary>
+    <pre>{{jsonText(d['projection'])}}</pre>
+  </details>
+  <details>
+    <summary>Recent pipeline evidence (up to eight revisions)</summary>
+    <pre>{{jsonText(d['pipeline'])}}</pre>
+  </details>
+  <p class="help-text">
+    This view shows the API's bounded projection and recent evidence, not the
+    complete source payload or history.
+  </p>
+</section>
+}

@@ -45,3 +45,7 @@ Use Angular 21.2 with the existing Node 24/TypeScript 5.9 toolchain, exact packa
 Before acceptance: compiler/template checks, typed lint, bounded network/state unit cases, real Chromium keyboard/confirmation/navigation tests, 320px/desktop and 200% text/zoom checks, reduced-motion and forced-colors checks, and an automated accessibility audit. Browser fixtures prove UI response behavior, not real distributed guarantees. A live API observation is separately identified. Do not call a source-only review a rendered approval, or claim a screen-reader/device test that did not run.
 
 A screenshot is retained as test evidence, not used as the interface. No stock imagery, external font download or generated decorative assets are required for this data-first surface. G1-G5 and large-scale acceptance remain separate incomplete tasks.
+
+## Observation adapter refinement
+
+The existing read-only status route will reuse the already implemented OperationalMonitor, adding its verified consumer identity, last-known observations and server-side throughput samples. The UI must not duplicate that rate/identity logic. This is a thin HTTP adapter, not a new pipeline mutation or scheduler. Existing real operational tests will additionally assert the returned fields before this adapter is accepted.

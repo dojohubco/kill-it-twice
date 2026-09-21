@@ -42,6 +42,8 @@ jobs:
           node -e 'const fs=require("node:fs"); const [before,after]=process.argv.slice(1); const ok=BigInt(after)>=1048576n && (BigInt(before)<1048576n || after===before); const record={phase:"github-hosted-ubuntu-24.04-provisioning",platform:process.platform,required:"1048576",observedBefore:before,observedAfter:after,status:ok?"PASS":"FAIL",persistentTuning:false}; fs.writeFileSync("artifacts/ci/public/es-host-provisioning.json",JSON.stringify(record,null,2)+"\n"); console.log(JSON.stringify(record)); if(!ok)process.exitCode=1;' "$before" "$after"
       - name: Quality, prior profiles and operational control acceptance
         run: node scripts/ci-step.ts make verify-m6
+      - name: Build and verify the rendered operator interface
+        run: node scripts/ci-step.ts make verify-ui
       - name: Upload sanitized evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -64,5 +66,6 @@ jobs:
             artifacts/m3-oracle/**/public/**
             artifacts/m3.1/**/public/**
             artifacts/ci/public/**
+            artifacts/ui/browser-*/**
           if-no-files-found: error
           retention-days: 7

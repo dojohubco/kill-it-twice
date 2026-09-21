@@ -72,3 +72,8 @@ verify-m5b: verify-m5a
 verify-m6: verify-m5b
 	npm run test:integration:m6
 	npm run test:integration:m6 -- --upgrade
+
+.PHONY: verify-ui
+verify-ui: quality
+	npm run build:ui
+	npm run test:ui

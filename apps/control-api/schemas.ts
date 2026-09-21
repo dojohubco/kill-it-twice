@@ -83,6 +83,16 @@ const schemas: Record<string, SchemaObject> = {
       ),
     ),
     backfill: { ...backfill, nullable: true },
+    worker_liveness: enumeration('unknown_no_heartbeat_evidence'),
+    consumer_identity_validation: enumeration(
+      'matched',
+      'unknown_or_mismatched',
+    ),
+    consistency: enumeration(
+      'independent_observations_not_atomic_global_state',
+    ),
+    throughput: arbitrary,
+    recovery: arbitrary,
   }),
   backfill_status: backfill,
   entity_search: object({

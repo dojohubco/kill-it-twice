@@ -5,3 +5,5 @@ migrations/*.sql
 
 # Vendored upstream skill documents: preserve imported bytes and lock hashes.
 .agents/skills/
+
+.angular/

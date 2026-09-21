@@ -1,3 +1,4 @@
+import { inspectLiveInterface } from '../support/ui-live.ts';
 import { recoveryCaseDefinitions } from '../support/recovery-cases.ts';
 import pg from 'pg';
 import test, { before, after } from 'node:test';
@@ -1052,6 +1053,25 @@ void test(name('OP16'), async () => {
 void test(name('OP18'), async () => {
   const status = await get('/status'),
     metrics = (await api.request('/metrics')).text;
+  assert.equal(status['worker_liveness'], 'unknown_no_heartbeat_evidence');
+  assert.equal(status['consumer_identity_validation'], 'matched');
+  assert.equal(
+    status['consistency'],
+    'independent_observations_not_atomic_global_state',
+  );
+  for (const key of [
+    'staged',
+    'elasticsearch_satisfied',
+    'rabbitmq_confirmed',
+    'consumer_processed',
+    'mutation_effects',
+  ]) {
+    const sample = record(record(status['throughput'])[key]);
+    assert.ok(
+      ['warming', 'known', 'unknown'].includes(string(sample['state'])),
+    );
+    assert.ok('per_second' in sample);
+  }
   assert.equal(record(status['backfill'])['blocked'], true);
   assert.ok(metrics.includes('pipeline_delivery_settled_total'));
   assert.ok(metrics.includes('pipeline_consumer_effects_total'));
@@ -1098,8 +1118,10 @@ void test(name('OP18'), async () => {
       settlementsDelta,
       successfulSettlementsPerSecond: settlementsDelta / seconds,
     },
-    scope: 'backend G5 preparation; no UI or full G5 PASS',
+    scope: 'backend G5 preparation; no full G5 PASS',
   });
+  if (process.env['UI_LIVE_CHECK'] === '1')
+    evidence('UI-LIVE', await inspectLiveInterface(api.url));
 });
 
 for (const c of recoveryCaseDefinitions(() => ({ db, cfg, deliver })))

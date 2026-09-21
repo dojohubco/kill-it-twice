@@ -1,3 +1,4 @@
+import { OperationalMonitor } from '../../src/operations/monitor.ts';
 import { responseSchema, mutationSchema, errorSchema } from './schemas.ts';
 import {
   Body,
@@ -70,6 +71,7 @@ function read(summary: string) {
 export class ControlController {
   constructor(
     @Inject(OperationsService) private readonly service: OperationsService,
+    @Inject(OperationalMonitor) private readonly monitor: OperationalMonitor,
     @Inject(SETTINGS) private readonly settings: Settings,
   ) {}
   private async result(
@@ -99,7 +101,7 @@ export class ControlController {
   @ApiResponse({ status: 200, schema: responseSchema('status') })
   @read('Fresh operational snapshot')
   status(@Req() req: Request) {
-    return this.result(req, 'status', this.service.status());
+    return this.result(req, 'status', this.monitor.snapshot());
   }
   @Get('backfills/:runId')
   @ApiResponse({ status: 200, schema: responseSchema('backfill_status') })

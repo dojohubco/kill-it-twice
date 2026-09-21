@@ -9,7 +9,7 @@
   },
   "packageManager": "npm@12.0.2",
   "scripts": {
-    "typecheck": "tsc --noEmit && tsc -p apps/control-api/tsconfig.json --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p apps/control-api/tsconfig.json --noEmit && ngc -p apps/operator-ui/tsconfig.app.json --noEmit",
     "lint": "eslint . --max-warnings=0",
     "test:unit": "node --test --test-reporter=spec tests/unit/*.test.ts",
     "test:integration:m1": "node scripts/m1.ts",
@@ -57,9 +57,19 @@
     "control:api": "node artifacts/control-api-build/apps/control-api/main.js",
     "test:integration:m6": "npm run build:api && node scripts/m1.ts m6",
     "review:m6": "node scripts/review-m4.ts --m6",
-    "operations": "node scripts/operations.ts"
+    "operations": "node scripts/operations.ts",
+    "build:ui": "ng build operator-ui",
+    "ui:dev": "ng serve operator-ui",
+    "typecheck:ui": "ngc -p apps/operator-ui/tsconfig.app.json --noEmit",
+    "test:ui": "node scripts/test-ui.ts",
+    "test:ui:live": "npm run build:ui && npm run build:api && node scripts/test-ui-live.ts"
   },
   "dependencies": {
+    "@angular/common": "21.2.23",
+    "@angular/compiler": "21.2.23",
+    "@angular/core": "21.2.23",
+    "@angular/platform-browser": "21.2.23",
+    "@angular/router": "21.2.23",
     "@elastic/elasticsearch": "9.5.1",
     "@nestjs/common": "12.0.3",
     "@nestjs/core": "12.0.3",
@@ -72,6 +82,10 @@
     "rxjs": "7.8.2"
   },
   "devDependencies": {
+    "@angular/build": "21.2.24",
+    "@angular/cli": "21.2.24",
+    "@angular/compiler-cli": "21.2.23",
+    "@axe-core/playwright": "4.13.0",
     "@eslint/js": "10.0.1",
     "@types/express": "5.0.6",
     "@types/node": "24.13.5",
@@ -79,6 +93,7 @@
     "apache-arrow": "21.1.0",
     "eslint": "10.10.0",
     "knip": "6.36.0",
+    "playwright-core": "1.63.0",
     "prettier": "3.9.7",
     "typescript": "5.9.3",
     "typescript-eslint": "8.70.0"

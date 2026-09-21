@@ -1,0 +1,150 @@
+<div class="page-heading">
+  <div>
+    <h1 tabindex="-1">Configuration</h1>
+    <p class="page-description">
+      Inspect the registered system and the limits its controls actually
+      enforce.
+    </p>
+  </div>
+  <button
+    type="button"
+    class="button secondary"
+    (click)="ws.refresh()"
+    [disabled]="ws.loading()"
+  >
+    <kit-icon name="refresh" />Refresh configuration
+  </button>
+</div>
+<div class="notice">
+  <strong>Identity is not an editable preference.</strong>
+  <p>
+    Source epoch, pipeline identity and receiver registration are immutable
+    here. Connections, credentials and proxy routes require controlled
+    configuration and restart.
+  </p>
+</div>
+@if(!ws.configurationFresh() && ws.configuration()){
+<p class="notice warning" role="status">
+  Configuration is last-known, not a fresh receiver observation.
+</p>
+} @if(ws.configuration();as c){
+<section class="panel">
+  <h2>Registered identity</h2>
+  <dl class="definition-list">
+    <div>
+      <dt>Source epoch</dt>
+      <dd><code>{{value(c['source_epoch'])}}</code></dd>
+    </div>
+    <div>
+      <dt>Pipeline instance</dt>
+      <dd><code>{{value(c['pipeline_id'])}}</code></dd>
+    </div>
+  </dl>
+</section>
+<div class="two-column">
+  @for(sink of ['elasticsearch','rabbitmq'];track sink){
+  <section class="panel">
+    <div class="section-heading">
+      <h2>{{sink==='elasticsearch'?'Elasticsearch':'RabbitMQ'}}</h2>
+      <kit-badge [state]="record(record(c['receivers'])[sink])['mode']" />
+    </div>
+    <dl class="definition-list">
+      <div>
+        <dt>Destination</dt>
+        <dd>
+          <code
+            >{{value(record(record(c['receivers'])[sink])['destination_id'])}}</code
+          >
+        </dd>
+      </div>
+      <div>
+        <dt>Generation</dt>
+        <dd>
+          <code
+            >{{value(record(record(c['receivers'])[sink])['generation'])}}</code
+          >
+        </dd>
+      </div>
+      <div>
+        <dt>
+          {{sink==='elasticsearch'?'Index identity':'Registration identity'}}
+        </dt>
+        <dd>
+          <code
+            >{{value(record(record(c['receivers'])[sink])[sink==='elasticsearch'?'index_uuid':'registration_id'])}}</code
+          >
+        </dd>
+      </div>
+    </dl>
+    <details>
+      <summary>Receiver metadata</summary>
+      <pre>{{jsonText(record(c['receivers'])[sink])}}</pre>
+    </details>
+  </section>
+  }
+</div>
+<section class="panel">
+  <h2>Enforced API limits</h2>
+  <dl class="limits-grid">
+    @for(limit of limits;track limit.key){
+    <div>
+      <dt>{{limit.name}}</dt>
+      <dd>{{count(record(c['limits'])[limit.key])}}</dd>
+    </div>
+    }
+  </dl>
+  <p class="help-text">
+    These describe the existing backend contract. This interface does not invent
+    a save operation for immutable limits.
+  </p>
+</section>
+<section class="panel">
+  <h2>Browser observation</h2>
+  <div class="setting-row">
+    <div>
+      <h3>Automatic refresh</h3>
+      <p>
+        Refresh visible overview observations approximately every five seconds
+        with no overlapping cycle. Hidden tabs pause automatic work.
+      </p>
+    </div>
+    <button
+      type="button"
+      class="button secondary"
+      [attr.aria-pressed]="ws.automatic()"
+      (click)="ws.toggle()"
+    >
+      {{ws.automatic()?'Pause refresh':'Resume refresh'}}
+    </button>
+  </div>
+  <div class="setting-row">
+    <div>
+      <h3>Operator access</h3>
+      <p>
+        The token stays in this page's memory only. Reloading or disconnecting
+        clears it. Server authorization is checked on every mutation.
+      </p>
+    </div>
+    <kit-badge [state]="ws.api.operator()?'token configured':'read only'" />
+  </div>
+  <div class="setting-row">
+    <div>
+      <h3>Consumer quarantine replay</h3>
+      <p>
+        Not supported by this contract. Invalid retained deliveries cannot be
+        force-published through the interface.
+      </p>
+    </div>
+    <span class="badge neutral">Inspection only</span>
+  </div>
+</section>
+}@else{
+<section class="panel empty-state">
+  <kit-icon name="configuration" />
+  <h2>Configuration unavailable</h2>
+  <p>
+    Connect the local API and refresh. No receiver identity or configuration is
+    substituted.
+  </p>
+</section>
+}

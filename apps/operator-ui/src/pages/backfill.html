@@ -1,0 +1,216 @@
+<div class="page-heading">
+  <div>
+    <h1 tabindex="-1">Backfill</h1>
+    <p class="page-description">
+      A resumable scan, a fixed completion boundary, and independent delivery.
+    </p>
+  </div>
+  <button type="button" class="button secondary" (click)="latest()">
+    <kit-icon name="refresh" />Show latest run
+  </button>
+</div>
+<div class="two-column control-row">
+  <section class="panel">
+    <h2>Start a run</h2>
+    <form class="inline-form" (submit)="start($event)">
+      <div class="field">
+        <label for="range-count">Scan ranges</label
+        ><input
+          id="range-count"
+          name="ranges"
+          type="number"
+          min="1"
+          max="16"
+          value="4"
+          required
+        /><small>1–16 ranges. This does not change worker concurrency.</small>
+      </div>
+      <button type="submit" class="button" [disabled]="!api.operator()">
+        Start backfill
+      </button>
+    </form>
+    @if(!api.operator()){
+    <p class="help-text">Connect operator access to start a run.</p>
+    }
+  </section>
+  <section class="panel">
+    <h2>Inspect a known run</h2>
+    <form class="inline-form" (submit)="select($event)">
+      <div class="field grow">
+        <label for="run-id">Run UUID</label
+        ><input
+          id="run-id"
+          name="run"
+          type="text"
+          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+          required
+          maxlength="36"
+          autocomplete="off"
+        /><small
+          >The API exposes a latest run and explicit run lookup, not a full run
+          list.</small
+        >
+      </div>
+      <button type="submit" class="button secondary" [disabled]="loading()">
+        {{loading()?'Loading…':'Inspect run'}}
+      </button>
+    </form>
+  </section>
+</div>
+@if(error()){
+<div class="notice danger" role="alert">{{error()}}</div>
+} @if(run();as r){
+<section class="panel">
+  <div class="section-heading">
+    <div>
+      <span class="field-label"
+        >{{selected()?'Selected run · manual observation':'Latest observed
+        run'}}</span
+      >
+      <h2 class="mono break-all">{{value(r['run_id'])}}</h2>
+    </div>
+    <div class="inline-state">
+      <kit-badge [state]="r['blocked']?'blocked':r['phase']" /><button
+        type="button"
+        class="button secondary"
+        (click)="pause(r['desired_paused']!==true)"
+        [disabled]="!api.operator()||r['completed_at']!==null"
+      >
+        {{r['desired_paused']?'Resume backfill':'Request pause'}}
+      </button>
+    </div>
+  </div>
+  @if(r['blocked']){
+  <div class="notice danger">
+    <strong>Progress is blocked</strong>
+    <p>
+      {{label(r['blocked_reason'])}}. Inspect the range evidence below; do not
+      reset the checkpoint to skip it.
+    </p>
+  </div>
+  }
+  <div class="metric-grid three">
+    <article class="metric">
+      <span class="field-label">Scan observations</span
+      ><strong class="metric-number">{{count(r['scan_observations'])}}</strong
+      ><small>Not a receiver completion count</small>
+    </article>
+    <article class="metric">
+      <span class="field-label">Required events</span
+      ><strong class="metric-number"
+        >{{r['required_sealed']?count(record(r['counts'])['required']):'Not
+        sealed'}}</strong
+      ><small
+        >{{r['required_sealed']?'Finite run membership':'No reliable final
+        denominator yet'}}</small
+      >
+    </article>
+    <article class="metric">
+      <span class="field-label">Admission</span
+      ><strong class="metric-number metric-word"
+        >{{r['effective_paused']?'Paused':r['desired_paused']?'Pausing':'Not
+        paused'}}</strong
+      ><small>In-flight pages may finish before pausing</small>
+    </article>
+  </div>
+  <dl class="definition-list horizontal">
+    <div>
+      <dt>Created</dt>
+      <dd>{{timestamp(r['created_at'])}}</dd>
+    </div>
+    <div>
+      <dt>Membership sealed</dt>
+      <dd>{{timestamp(r['sealed_at'])}}</dd>
+    </div>
+    <div>
+      <dt>Historical completion</dt>
+      <dd>{{timestamp(r['completed_at'])}}</dd>
+    </div>
+  </dl>
+  <p class="help-text">
+    A completed-with-errors outcome remains historical even when later repairs
+    improve its obligations.
+  </p>
+</section>
+<section class="panel">
+  <div class="section-heading">
+    <h2>Range checkpoints</h2>
+    <span class="muted small">Exact source keys, not percentage estimates</span>
+  </div>
+  <div
+    class="table-scroll"
+    role="region"
+    aria-label="Backfill range checkpoints"
+    tabindex="0"
+  >
+    <table>
+      <thead>
+        <tr>
+          <th>Range</th>
+          <th>State</th>
+          <th>Lower key</th>
+          <th>Checkpoint</th>
+          <th>Upper key</th>
+          <th>Evidence</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for(range of records(r['ranges']);track value(range['range_no'])){
+        <tr>
+          <th scope="row">{{value(range['range_no'])}}</th>
+          <td><kit-badge [state]="range['state']" /></td>
+          <td class="mono">{{value(range['lower_key'])}}</td>
+          <td class="mono">{{value(range['checkpoint'])}}</td>
+          <td class="mono">{{value(range['upper_key'])}}</td>
+          <td>
+            {{range['reason']?label(range['reason']):'No block recorded'}}
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
+<section class="panel">
+  <h2>Required delivery state</h2>
+  <div class="metric-grid three">
+    <article class="metric">
+      <span class="field-label">Elasticsearch satisfied</span
+      ><strong class="metric-number"
+        >{{count(record(r['counts'])['es_satisfied'])}}</strong
+      ><small
+        >{{count(record(r['counts'])['es_pending'])}} pending ·
+        {{count(record(r['counts'])['es_errors'])}} errors</small
+      >
+    </article>
+    <article class="metric">
+      <span class="field-label">Broker confirmed</span
+      ><strong class="metric-number"
+        >{{count(record(r['counts'])['rabbit_satisfied'])}}</strong
+      ><small>{{count(record(r['counts'])['rabbit_pending'])}} pending</small>
+    </article>
+    <article class="metric">
+      <span class="field-label">Consumer processed</span
+      ><strong class="metric-number"
+        >{{count(record(r['counts'])['consumer_processed'])}}</strong
+      ><small
+        >{{count(record(r['counts'])['consumer_pending'])}} pending ·
+        {{count(record(r['counts'])['consumer_errors'])}} errors</small
+      >
+    </article>
+  </div>
+  <details>
+    <summary>Inspect the bounded run observation</summary>
+    <pre>{{jsonText(r)}}</pre>
+  </details>
+</section>
+}@else{
+<section class="panel empty-state">
+  <kit-icon name="backfill" />
+  <h2>No run observation yet</h2>
+  <p>
+    Connect the API, inspect a known run, or start a run when the registered
+    source is ready.
+  </p>
+</section>
+}

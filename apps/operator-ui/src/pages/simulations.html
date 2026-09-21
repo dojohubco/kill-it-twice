@@ -1,0 +1,166 @@
+<div class="page-heading">
+  <div>
+    <h1 tabindex="-1">Simulations</h1>
+    <p class="page-description">
+      Exercise real local failure paths without hiding durable work.
+    </p>
+  </div>
+  <button
+    type="button"
+    class="button secondary"
+    (click)="load()"
+    [disabled]="loading()"
+  >
+    <kit-icon name="refresh" />Refresh controls
+  </button>
+</div>
+<div class="notice warning">
+  <strong>These controls change the local system.</strong>
+  <p>
+    No command runs when this page opens. Every write requires operator access
+    and an explicit confirmation. Refresh the observations after an action.
+  </p>
+</div>
+@if(error()){
+<p class="notice danger" role="alert">
+  {{error()}} Existing observations, if shown, are last-known.
+</p>
+}
+<section class="panel">
+  <div class="section-heading">
+    <h2>Receiver connections</h2>
+    <span class="muted small"
+      >{{loading()?'Loading…':'Configured routes only'}}</span
+    >
+  </div>
+  <div class="two-column">
+    @for(sink of ['elasticsearch','rabbitmq'];track sink){
+    <article class="connection-control">
+      <div class="section-heading">
+        <h3>{{sink==='elasticsearch'?'Elasticsearch':'RabbitMQ'}}</h3>
+        <kit-badge
+          [state]="error()?'unknown':record(result()?.[sink])['state']"
+        />
+      </div>
+      <p class="muted">
+        Disconnecting the route does not delete queued or staged work.
+      </p>
+      <div class="button-group">
+        <button
+          type="button"
+          class="button secondary"
+          (click)="network(sink==='elasticsearch'?'elasticsearch':'rabbitmq','connected')"
+          [disabled]="!api.operator()"
+        >
+          Reconnect</button
+        ><button
+          type="button"
+          class="button danger-outline"
+          (click)="network(sink==='elasticsearch'?'elasticsearch':'rabbitmq','disconnected')"
+          [disabled]="!api.operator()"
+        >
+          Disconnect
+        </button>
+      </div>
+    </article>
+    }
+  </div>
+  @if(!api.operator()){
+  <p class="help-text">Connect operator access to change a route.</p>
+  }
+</section>
+<section class="panel">
+  <div class="section-heading">
+    <div>
+      <h2>Source fixture commands</h2>
+      <p class="muted small">
+        Sixteen named fixtures; no arbitrary payload or SQL execution.
+      </p>
+    </div>
+  </div>
+  <form (submit)="source($event)">
+    <div class="form-grid">
+      <div class="field">
+        <label for="sim-fixture">Fixture</label
+        ><select id="sim-fixture" name="fixture" (change)="choose($event)">
+          @for(fixture of fixtures;track fixture){
+          <option [value]="fixture">{{fixture}}</option>
+          }
+        </select>
+      </div>
+      <div class="field">
+        <label for="sim-operation">Operation</label
+        ><select id="sim-operation" name="operation">
+          <option value="create">Create</option>
+          <option value="update">Update</option>
+          <option value="delete">Delete</option>
+          <option value="restore">Restore</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="sim-value">Loyalty points</label
+        ><input
+          id="sim-value"
+          name="value"
+          type="number"
+          min="0"
+          max="1000000"
+          value="42"
+          required
+        />
+      </div>
+    </div>
+    <p class="help-text">
+      Create the fixture before updating, corrupting, deleting or restoring it.
+      Deletion uses a retained tombstone.
+    </p>
+    <div class="button-group">
+      <button type="submit" class="button" [disabled]="!api.operator()">
+        Review source command</button
+      ><button
+        type="button"
+        class="button danger-outline"
+        (click)="corrupt()"
+        [disabled]="!api.operator()"
+      >
+        Create corrupt revision…
+      </button>
+    </div>
+  </form>
+</section>
+<section class="panel">
+  <h2>Observed fixtures</h2>
+  <div
+    class="table-scroll"
+    role="region"
+    aria-label="Named source fixtures"
+    tabindex="0"
+  >
+    <table>
+      <thead>
+        <tr>
+          <th>Fixture</th>
+          <th>Entity ID</th>
+          <th>Source version</th>
+          <th>State</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for(f of records(result()?.['fixtures']);track value(f['name'])){
+        <tr>
+          <th scope="row">{{value(f['name'])}}</th>
+          <td class="mono">{{value(f['entity_id'])}}</td>
+          <td class="mono">{{value(f['entity_version'])}}</td>
+          <td><kit-badge [state]="f['is_deleted']?'tombstone':'current'" /></td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  @if(!records(result()?.['fixtures']).length){
+  <p class="empty-inline">
+    {{error()?'Fixture state is unknown.':'No named fixtures have been observed.
+    Create one to begin an explicit simulation.'}}
+  </p>
+  }
+</section>

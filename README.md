@@ -1,6 +1,41 @@
-# Kill It Twice — controlled source, capture and Elasticsearch through M3
+# Kill It Twice
 
-This repository implements controlled source commands, immutable canonical staging, bounded capture/acknowledgement and durable Elasticsearch delivery with real services, restricted credentials and actual process/network faults. M3 preserves exact source content while delivering a separate versioned search projection. RabbitMQ delivery, consumer execution, backfill and UI remain absent; G1–G5 remain **NOT IMPLEMENTED**. Read [SPEC v1](SPEC.md), [M3 scope](docs/milestones/M3.md), [delivery decision](docs/adr/010-elasticsearch-projection-delivery.md), and [local M3 evidence](docs/evidence/M3.md). Earlier milestone reports retain their original scope and results.
+Failure-tolerant replication from a controlled PostgreSQL source to Elasticsearch and RabbitMQ, with an independent transactional consumer and a local operator interface.
+
+## Current implementation
+
+The repository contains protected source baselines/activation, versioned transactional outbox capture, immutable pipeline staging, independent receiver obligations, resumable backfill with a finite completion fence, consumer inbox/effects/projection, audited Elasticsearch recovery, and operational snapshots. The Angular workspace uses the restricted HTTP control API; replication does not run inside the browser.
+
+The guarantee is at-least-once transport with monotonic projections and deduplicated defined consumer database effects under retained-storage/trusted-runtime assumptions. A source ACK means staged; a publisher confirm means broker acceptance; a consumer receipt means a committed consumer transaction. None is end-to-end exactly-once.
+
+**Full assignment acceptance is still incomplete.** `make verify` deliberately reports G1–G5 NOT IMPLEMENTED and exits nonzero. Small-fixture results do not establish two-million-row capacity or production deployment. Read [SPEC](SPEC.md), [ADRs](docs/adr/), [operations](docs/operations.md), [interface design](docs/ui-design.md), and [dated evidence](docs/evidence/). The M6 isolated passes and changed-root capture failure are distinguished in [their report](docs/evidence/M6-isolated-gates.md).
+
+## Operator workspace
+
+```sh
+npm ci --no-audit --no-fund
+npm run build:api
+CONTROL_CONFIG_FILE=/absolute/private/control.json npm run control:api
+# In another terminal:
+npm run ui:dev
+```
+
+The development interface binds to `127.0.0.1:4200` and proxies relative API requests to the existing loopback API at port 3000. Supply private configuration for an already initialized source/pipeline/consumer and registered receivers. The interface does not invent credentials, provision infrastructure, or substitute fake live data. Without the API it displays unavailable state. `compose.m6.yaml` packages only the control API against supplied configuration, not an automatic full-stack bootstrap.
+
+Six views cover overview, backfill, searchable records/details, failures/replay, named fixture/network simulations, and read-only configuration. Default access is read-only. The operator token is retained only in page memory and sent for explicit confirmed mutations. An ambiguous retry retains its request key. Accepted commands are not labeled completed replication.
+
+```sh
+make verify-ui          # Quality, Angular build and complete browser fixture inventory
+npm run test:ui:live     # Actual UI reads against an isolated real-service operational fixture
+```
+
+Browser verification uses an already provisioned Chromium/Chrome executable, or `UI_CHROMIUM_PATH`. No system dependency is installed by verification. HTTP fixtures remain exclusively in tests. Separate live checks perform actual read-only API/receiver observations. Automated accessibility checks are not a full screen-reader or physical-device audit.
+
+All nine installed interface skills remain under `.agents/skills/`, with source fingerprints and [upstream notices](.agents/README.md). Imported skill text is excluded from formatting, not application source or first-party documentation.
+
+## Environment and historical engineering notes
+
+The detailed module notes below were recorded at their introduction milestones. Statements about then-unimplemented components describe those historical scopes, not the current inventory above. Dated evidence and Git history preserve actual failures and corrections; older results are not retrospectively relabeled.
 
 Prerequisites: Linux x64, Node **24.19.0**, npm **12.0.2**, Docker with Compose, Git, make and tar. Node's native runner executes TypeScript; TypeScript **5.9.3** checks it separately. Keep one root lockfile and exact package pins.
 

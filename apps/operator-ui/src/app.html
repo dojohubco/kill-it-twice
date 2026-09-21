@@ -1,0 +1,156 @@
+<a class="skip-link" href="#main-content">Skip to content</a>
+<div class="workspace-shell">
+  <aside class="sidebar" [class.open]="menu()">
+    <a routerLink="/overview" class="brand" aria-label="Kill It Twice overview"
+      ><span class="brand-mark" aria-hidden="true">k<span>²</span></span
+      ><span>Kill It Twice<small>Replication workspace</small></span></a
+    >
+    <span class="nav-label">WORKSPACE</span>
+    <nav aria-label="Workspace">
+      @for(link of links;track link.path){<a
+        [routerLink]="link.path"
+        routerLinkActive="selected"
+        ariaCurrentWhenActive="page"
+        ><kit-icon [name]="link.icon" /><span>{{link.title}}</span></a
+      >}
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="local-indicator">
+        <span class="status-dot neutral" aria-hidden="true"></span> Local
+        environment
+      </div>
+      <p>At-least-once transport.<br />Independent receiver outcomes.</p>
+      <a href="/api/v1/openapi.json" target="_blank" rel="noopener"
+        >API schema <span class="sr-only">(opens in a new tab)</span
+        ><kit-icon name="arrow"
+      /></a>
+    </div>
+  </aside>
+  <div class="workspace-main">
+    <header class="topbar">
+      <div class="topbar-leading">
+        <button
+          type="button"
+          class="icon-button menu-button"
+          aria-label="Toggle workspace navigation"
+          [attr.aria-expanded]="menu()"
+          (click)="toggleMenu()"
+        >
+          <kit-icon name="menu" /></button
+        ><span class="breadcrumb"
+          >Workspace <span aria-hidden="true">/</span>
+          <strong>Operations</strong></span
+        >
+      </div>
+      <div class="topbar-actions">
+        <button
+          type="button"
+          class="text-button auto-refresh"
+          (click)="workspace.toggle()"
+          [attr.aria-pressed]="workspace.automatic()"
+          [attr.aria-label]="workspace.automatic()?'Automatic refresh on':'Automatic refresh off'"
+        >
+          <span
+            class="status-dot"
+            [class.success]="workspace.automatic()"
+            aria-hidden="true"
+          ></span
+          ><span class="refresh-text"
+            >{{workspace.automatic()?'Auto-refresh on':'Auto-refresh
+            off'}}</span
+          ><span class="refresh-short" aria-hidden="true"
+            >{{workspace.automatic()?'On':'Off'}}</span
+          ></button
+        ><button
+          type="button"
+          class="button secondary compact"
+          (click)="access()"
+        >
+          <kit-icon name="lock" />{{api.operator()?'Disconnect
+          operator':'Connect operator'}}
+        </button>
+      </div>
+    </header>
+    <main id="main-content" tabindex="-1">
+      @if(workspace.error()){
+      <div class="notice warning connection-banner" role="status">
+        <strong
+          >{{workspace.snapshot()?'Live updates are unavailable':'Connect the
+          operational API'}}</strong
+        >
+        <p>
+          {{workspace.snapshot()?'Showing the last observation, not current
+          health. Refresh after the service recovers.':'Start the local control
+          API and refresh. No operational data is being substituted.'}}
+        </p>
+        <button
+          type="button"
+          class="text-button"
+          (click)="workspace.refresh()"
+          [disabled]="workspace.loading()"
+        >
+          {{workspace.loading()?'Checking…':'Retry connection'}}
+        </button>
+      </div>
+      }
+      <router-outlet />
+    </main>
+    <footer class="workspace-footer">
+      <span
+        >{{api.operator()?'Operator token held in memory':'Read-only
+        mode'}}</span
+      ><span>Last response: {{timestamp(workspace.receivedAt())}}</span>
+    </footer>
+  </div>
+</div>
+<p class="sr-only" role="status" aria-live="polite">{{announcement()}}</p>
+<dialog
+  #accessDialog
+  class="confirm-dialog"
+  aria-labelledby="access-title"
+  (keydown)="dialogKeyboard($event)"
+  aria-describedby="access-description"
+  (cancel)="closeAccess()"
+>
+  <div class="dialog-heading">
+    <span class="dialog-symbol"><kit-icon name="lock" /></span
+    ><button
+      type="button"
+      class="icon-button"
+      aria-label="Close operator access"
+      (click)="closeAccess()"
+    >
+      <kit-icon name="close" />
+    </button>
+  </div>
+  <h2 id="access-title">Connect operator access</h2>
+  <p id="access-description" class="muted">
+    Use the run-local token from the private control configuration. It stays
+    only in memory and is cleared when this page closes or reloads.
+  </p>
+  <form (submit)="submitAccess($event)">
+    <label for="operator-token">Operator token</label
+    ><input
+      id="operator-token"
+      name="token"
+      type="password"
+      autocomplete="off"
+      spellcheck="false"
+      required
+      minlength="32"
+      maxlength="1024"
+      [attr.aria-invalid]="accessError()?true:null"
+      aria-describedby="token-hint access-error"
+    /><small id="token-hint"
+      >The server authorizes each action. Setting a token is not a verified
+      sign-in.</small
+    >
+    <p id="access-error" class="error-text" role="alert">{{accessError()}}</p>
+    <footer class="dialog-actions">
+      <button type="button" class="button secondary" (click)="closeAccess()">
+        Cancel</button
+      ><button type="submit" class="button">Use token</button>
+    </footer>
+  </form>
+</dialog>
+<kit-action-dialog />

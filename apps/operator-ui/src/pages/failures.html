@@ -1,0 +1,193 @@
+<div class="page-heading">
+  <div>
+    <h1 tabindex="-1">Failures</h1>
+    <p class="page-description">
+      Inspect current failures without losing their history or another
+      receiver's success.
+    </p>
+  </div>
+  <button
+    type="button"
+    class="button secondary"
+    (click)="load()"
+    [disabled]="loading()"
+  >
+    <kit-icon name="refresh" />Refresh failures
+  </button>
+</div>
+<div class="notice">
+  <strong>History is not an open-failure count.</strong>
+  <p>
+    A current ES failure can also have a historical entry below. Consumer
+    quarantine and blocked source work are inspectable but are not replayable
+    here.
+  </p>
+</div>
+@if(error()){
+<div class="notice danger" role="alert">
+  {{error()}}@if(result()){
+  <p>Any retained rows below are from the last successful request.</p>
+  }
+</div>
+}
+<section class="panel table-panel" [attr.aria-busy]="loading()">
+  <div class="section-heading">
+    <h2>Failure evidence</h2>
+    <span class="muted small"
+      >{{loading()?'Loading…':timestamp(result()?.['observed_at'])}}</span
+    >
+  </div>
+  <div
+    class="table-scroll"
+    tabindex="0"
+    role="region"
+    aria-label="Failure evidence records"
+  >
+    <table>
+      <thead>
+        <tr>
+          <th>Source</th>
+          <th>Identity</th>
+          <th>Classification</th>
+          <th>State</th>
+          <th><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for(item of records(result()?.['items']);track value(item['key'])){
+        <tr>
+          <th scope="row">{{label(item['type'])}}</th>
+          <td class="mono identifier-cell">
+            {{value(item['event_id'],value(item['claimed_event_id'],value(item['run_id'],value(item['quarantine_id']))))}}
+          </td>
+          <td>{{label(item['classification'])}}</td>
+          <td><kit-badge [state]="item['state']" /></td>
+          <td>
+            <button
+              type="button"
+              class="text-button"
+              (click)="inspect(item)"
+              [attr.aria-label]="'Inspect failure '+value(item['key'])"
+            >
+              Inspect <kit-icon name="arrow" />
+            </button>
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  @if(!loading()&&!records(result()?.['items']).length){
+  <div class="empty-state">
+    <kit-icon name="check" />
+    <h3>
+      {{error()?'Failure evidence is unavailable':'No failure records in this
+      page'}}
+    </h3>
+    <p>
+      {{error()?'Restore the dependency and refresh; unavailable is not an empty
+      queue.':'This is a bounded observation, not proof that every worker is
+      active.'}}
+    </p>
+  </div>
+  }
+  <div class="pagination">
+    <span class="muted small">Page {{pageNo()}} · up to 25 records</span>
+    <div class="button-group">
+      <button
+        type="button"
+        class="button secondary compact"
+        (click)="previous()"
+        [disabled]="loading()||pageNo()===1"
+      >
+        Previous</button
+      ><button
+        type="button"
+        class="button secondary compact"
+        (click)="next()"
+        [disabled]="loading()||!result()?.['next_cursor']||pageNo()>=101"
+      >
+        Next
+      </button>
+    </div>
+  </div>
+</section>
+@if(selected();as item){
+<section class="panel">
+  <div class="section-heading">
+    <div>
+      <span class="field-label">Selected evidence</span>
+      <h2 id="failure-detail-title" tabindex="-1">
+        {{label(item['classification'])}}
+      </h2>
+    </div>
+    <button
+      type="button"
+      class="icon-button"
+      aria-label="Close failure detail"
+      (click)="selected.set(null)"
+    >
+      <kit-icon name="close" />
+    </button>
+  </div>
+  <p>{{value(item['context'])}}</p>
+  <dl class="definition-list">
+    <div>
+      <dt>Identity</dt>
+      <dd><code>{{value(item['event_id'],value(item['key']))}}</code></dd>
+    </div>
+    <div>
+      <dt>Recorded</dt>
+      <dd>{{timestamp(item['recorded_at'])}}</dd>
+    </div>
+    <div>
+      <dt>Current disposition</dt>
+      <dd><kit-badge [state]="item['state']" /></dd>
+    </div>
+  </dl>
+  @if(item['replayable']===true){
+  <form class="inline-form" (submit)="replay($event)">
+    <div class="field grow">
+      <label for="replay-reason">Reason for replay</label
+      ><input
+        id="replay-reason"
+        name="reason"
+        maxlength="128"
+        required
+        placeholder="What was checked or repaired?"
+      /><small
+        >Replay retains the original bytes and audit evidence. The server
+        rechecks the selected attempt.</small
+      >
+    </div>
+    <button type="submit" class="button" [disabled]="!api.operator()">
+      Review replay
+    </button>
+  </form>
+  @if(!api.operator()){
+  <p class="help-text">Connect operator access to request a replay.</p>
+  }} @else{
+  <p class="notice warning">
+    Replay is not available for this record: {{label(item['replay_reason'])}}.
+    No force-recovery action is exposed.
+  </p>
+  } @if(item['event_id']){<button
+    type="button"
+    class="button secondary"
+    (click)="details()"
+  >
+    Load bounded event evidence</button
+  >}@if(evidenceError()){
+  <p class="notice danger" role="alert">{{evidenceError()}}</p>
+  }@if(evidence();as e){
+  <details open>
+    <summary>Canonical metadata and recent attempt evidence</summary>
+    <pre>{{jsonText(e)}}</pre>
+  </details>
+  }
+  <details>
+    <summary>Failure metadata</summary>
+    <pre>{{jsonText(item)}}</pre>
+  </details>
+</section>
+}

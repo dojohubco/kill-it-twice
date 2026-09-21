@@ -1,3 +1,4 @@
+import { OperationalMonitor } from '../../src/operations/monitor.ts';
 import 'reflect-metadata';
 import { exactJsonReplacer } from '../../src/operations/serialization.ts';
 import { Module, Controller, Get, Inject, Req } from '@nestjs/common';
@@ -44,6 +45,10 @@ export async function createControlApi(
       controllers: [ControlController, MetricsController, SchemaController],
       providers: [
         { provide: OperationsService, useValue: new OperationsService(config) },
+        {
+          provide: OperationalMonitor,
+          useValue: new OperationalMonitor(config),
+        },
         { provide: SETTINGS, useValue: { token: config.token, ...settings } },
         { provide: SCHEMA, useValue: schema },
       ],
