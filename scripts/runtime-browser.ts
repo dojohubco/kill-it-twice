@@ -40,7 +40,15 @@ await withCleanup(
     await page
       .getByRole('heading', { name: 'Overview', exact: true })
       .waitFor();
-    await page.getByText(expected, { exact: true }).first().waitFor();
+    const displayedCount = expected.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const stagedCount = page
+      .locator('article.metric')
+      .filter({ has: page.getByText('Staged events', { exact: true }) })
+      .locator('.metric-number');
+    await stagedCount
+      .filter({ hasText: new RegExp('^\\s*' + displayedCount + '\\s*$') })
+      .waitFor();
+    assert.equal((await stagedCount.innerText()).trim(), displayedCount);
     assert.equal(new URL(page.url()).pathname, '/overview');
     assert.ok((await page.title()).length > 0);
     const styles = await page
