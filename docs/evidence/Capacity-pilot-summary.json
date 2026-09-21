@@ -1,0 +1,81 @@
+{
+  "scope": "Pre-optimization 8192-baseline capacity pilot; counters measure progress, not independent correctness",
+  "project": "kit-final-20260921195312-415a0b27",
+  "count": 8192,
+  "head": "6766a77bd01b6cf0439fbd16a619083d483c1d87",
+  "status": "MEASURED_PARTIAL",
+  "tested_application": "545b2c8dc8772da8f77c0c726eab20c42075dc38",
+  "documentation_only_changes": [
+    "AGENTS.md",
+    "README.md",
+    "docs/capacity-notes.md",
+    "docs/evidence/Integrated-runtime-summary.json",
+    "docs/evidence/Integrated-runtime.md"
+  ],
+  "started_at": "2026-09-21T19:53:12.879228+00:00",
+  "finished_at": "2026-09-21T19:56:30.775269+00:00",
+  "seed_and_activation_seconds": 27.012925893010106,
+  "last_sample": {
+    "at": "2026-09-21T19:56:16.243674+00:00",
+    "elapsed_after_seed": 117.08509788103402,
+    "staged": "3424",
+    "deliveries": [
+      {
+        "sink": "elasticsearch",
+        "count": "204",
+        "state": "pending",
+        "oldest_at": "2026-09-21 19:54:39.136744+00"
+      },
+      {
+        "sink": "rabbitmq",
+        "count": "3392",
+        "state": "satisfied",
+        "oldest_at": "2026-09-21 19:54:19.702822+00"
+      },
+      {
+        "sink": "rabbitmq",
+        "count": "32",
+        "state": "pending",
+        "oldest_at": "2026-09-21 19:56:14.844169+00"
+      },
+      {
+        "sink": "elasticsearch",
+        "count": "457",
+        "state": "leased",
+        "oldest_at": "2026-09-21 19:54:37.347387+00"
+      },
+      {
+        "sink": "elasticsearch",
+        "count": "2763",
+        "state": "satisfied",
+        "oldest_at": "2026-09-21 19:54:19.702393+00"
+      }
+    ],
+    "observations": [
+      {
+        "count": "680",
+        "state": "processed"
+      },
+      {
+        "count": "2744",
+        "state": "pending"
+      }
+    ],
+    "consumer": {
+      "effects": "0",
+      "processed": "3392",
+      "quarantine": "0",
+      "observed_at": "2026-09-21 19:56:15.768644+00"
+    },
+    "backfill_phase": "scanning"
+  },
+  "cleanup": {
+    "status": "PASS",
+    "errors": []
+  },
+  "qualification": "No fault gates or independent full-state reconciliation ran in this pilot. A finite observation window is not a claimed timeout-free scale result.",
+  "manifest_sha256": "cafc92f8b8bcef85ebf458176253a6e35fe9cabab38a97dd29cd0c9960ae9259",
+  "independent_full_reconciliation": "NOT RUN",
+  "two_million_profile": "NOT RUN",
+  "script_sha256": "5e84ac30c784a9a917320ddf5e897e36b2e04dad551b1b47eac36b9ef332d328"
+}

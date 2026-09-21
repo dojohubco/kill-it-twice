@@ -21,3 +21,13 @@ Use separate run-owned source/state/receiver resources and capture exact code, r
 For the final scale run, record seed/activation separately from scan/staging and sink/consumer drain; monitor actual process RSS/high-water marks and receiver/database storage. Reconcile exact identities, versions, payloads, tombstones and effects from bounded exports using disk-backed state. Logical throughput excludes repeated attempts and duplicates. If a stage is blocked, the recorded result is incomplete rather than extrapolated to completion.
 
 Single-node services and retained local storage remain assumptions. Host power loss, independent database restoration, administrator replacement and unlimited backlog are not covered by small functional tests or resource limits.
+
+## First intermediate observation — 2026-09-21
+
+An isolated pre-optimization pilot used the exact accepted application image at `545b2c8dc8772da8f77c0c726eab20c42075dc38` and 8,192 genuine baselines. Root `6766a77` adds only documentation relative to that image. The source was initially empty, and explicit seed/activation/scheduling completed in 27.013 seconds. Workers then ran normally for a fixed 120-second observation window; no fault wrapper, extra worker, batch-size change or schema optimization was enabled.
+
+The last fresh snapshot at 117.085 seconds after seed recorded 3,424 staged events, 2,763 satisfied ES obligations, 3,392 broker-confirmed events, 3,392 consumer inbox records and only 680 validated pipeline consumer observations. There were zero mutation effects and zero quarantine records, as expected for baseline-only data. Backfill was still scanning. These component observations are not one atomic global snapshot and are not full-state reconciliation.
+
+The recorded outcome is **MEASURED_PARTIAL**, not correctness PASS, timeout-free completion or two-million-row acceptance. All run-owned resources were removed after observation. The experiment confirms that baseline copying and receipt-observation throughput need work before a full-size run; blindly multiplying a count or ignoring lag would be misleading. The host also retained its existing demo and unrelated workloads, so this is not an uncontended hardware benchmark.
+
+The original report, timed commands, samples, actual image identity, read-only source query plan and cleanup are retained in `artifacts/final/kit-final-20260921195312-415a0b27/`. The exact pilot script is `artifacts/capacity/measure-pilot.py`. A later optimization must be compared with this same declared workload and retain the invariants and independent functional gates, not change the expected counts to fit the outcome.
