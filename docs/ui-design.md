@@ -49,3 +49,7 @@ A screenshot is retained as test evidence, not used as the interface. No stock i
 ## Observation adapter refinement
 
 The existing read-only status route will reuse the already implemented OperationalMonitor, adding its verified consumer identity, last-known observations and server-side throughput samples. The UI must not duplicate that rate/identity logic. This is a thin HTTP adapter, not a new pipeline mutation or scheduler. Existing real operational tests will additionally assert the returned fields before this adapter is accepted.
+
+## Executed verification — 2026-09-21
+
+The plan above preceded implementation. The Angular interface and read-only monitor adapter are now implemented. Executed browser fixtures, the separate actual service observation, code identities, corrections and remaining limitations are recorded in [Operator interface evidence](evidence/Operator-UI.md). This note does not claim full assignment, scale, deployment, screen-reader or physical-device acceptance.

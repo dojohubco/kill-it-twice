@@ -1,0 +1,194 @@
+{
+  "date": "2026-09-21",
+  "ui_tested_code": "299b4ba1790bdbc1817503d41237879e9f8f569a",
+  "live_backend_and_ui_code": "dc98ecd0b898f6a458d67ed464e87c78bce9f246",
+  "live_paths_unchanged_since_that_test": true,
+  "core_source_pipeline_consumer_and_migrations_unchanged": true,
+  "capture": {
+    "scope": "Angular interface and read-only status adapter; fixture browser checks and actual isolated service checks are separate",
+    "started_at": "2026-09-21T16:13:00.975796+00:00",
+    "tested_code": "dc98ecd0b898f6a458d67ed464e87c78bce9f246",
+    "input_sha256": "a8ab7437078d728841383b591230f56dcedc5d3b95fd2e9703d1611af969635f",
+    "status": "PASS",
+    "commands": [
+      {
+        "name": "install",
+        "args": ["npm", "ci", "--no-audit", "--no-fund"],
+        "expected": 0,
+        "started_at": "2026-09-21T16:13:00.983152+00:00",
+        "exit": 0,
+        "finished_at": "2026-09-21T16:13:09.866398+00:00"
+      },
+      {
+        "name": "quality-and-browser",
+        "args": ["make", "verify-ui"],
+        "expected": 0,
+        "started_at": "2026-09-21T16:13:09.880451+00:00",
+        "exit": 0,
+        "finished_at": "2026-09-21T16:14:02.500722+00:00"
+      },
+      {
+        "name": "live-browser-and-operations",
+        "args": ["npm", "run", "test:ui:live"],
+        "expected": 0,
+        "started_at": "2026-09-21T16:14:02.516382+00:00",
+        "exit": 0,
+        "finished_at": "2026-09-21T16:16:52.581375+00:00"
+      },
+      {
+        "name": "populated-upgrade",
+        "args": ["npm", "run", "test:integration:m6", "--", "--upgrade"],
+        "expected": 0,
+        "started_at": "2026-09-21T16:16:52.596894+00:00",
+        "exit": 0,
+        "finished_at": "2026-09-21T16:18:40.385911+00:00"
+      },
+      {
+        "name": "browser-repeat",
+        "args": ["npm", "run", "test:ui"],
+        "expected": 0,
+        "started_at": "2026-09-21T16:18:40.402180+00:00",
+        "exit": 0,
+        "finished_at": "2026-09-21T16:18:52.842502+00:00"
+      },
+      {
+        "name": "full-incomplete",
+        "args": ["make", "verify"],
+        "expected": 2,
+        "started_at": "2026-09-21T16:18:52.855113+00:00",
+        "exit": 2,
+        "finished_at": "2026-09-21T16:18:52.871124+00:00"
+      }
+    ],
+    "remote_ci": "NOT RUN; no push or dispatch",
+    "finished_at": "2026-09-21T16:18:52.878013+00:00"
+  },
+  "final_visual_gate": {
+    "command": "make verify-ui",
+    "exit": 0,
+    "unit_checks": 64,
+    "browser_cases": [
+      {
+        "id": "U01",
+        "status": "PASS",
+        "pageErrors": []
+      },
+      {
+        "id": "U02",
+        "status": "PASS",
+        "pageErrors": []
+      },
+      {
+        "id": "U03",
+        "status": "PASS",
+        "pageErrors": []
+      },
+      {
+        "id": "U04",
+        "status": "PASS",
+        "pageErrors": []
+      },
+      {
+        "id": "U05",
+        "status": "PASS",
+        "pageErrors": []
+      },
+      {
+        "id": "U06",
+        "status": "PASS",
+        "pageErrors": []
+      },
+      {
+        "id": "U07",
+        "status": "PASS",
+        "pageErrors": []
+      },
+      {
+        "id": "U08",
+        "status": "PASS",
+        "pageErrors": []
+      },
+      {
+        "id": "U09",
+        "status": "PASS",
+        "pageErrors": []
+      },
+      {
+        "id": "U10",
+        "status": "PASS",
+        "pageErrors": []
+      }
+    ],
+    "a11y_pages": [
+      {
+        "page": "overview",
+        "violations": 0
+      },
+      {
+        "page": "backfill",
+        "violations": 0
+      },
+      {
+        "page": "records",
+        "violations": 0
+      },
+      {
+        "page": "failures",
+        "violations": 0
+      },
+      {
+        "page": "simulations",
+        "violations": 0
+      },
+      {
+        "page": "configuration",
+        "violations": 0
+      }
+    ],
+    "artifact_path": "/home/tornike/Documents/Projects/kill-it-twice/artifacts/ui/browser-20260921162136681-9e8b3441",
+    "stdout": "artifacts/ui/final-visual.stdout.log",
+    "stderr": "artifacts/ui/final-visual.stderr.log"
+  },
+  "real_read_only_browser": {
+    "scope": "Actual browser against the real isolated operational API and service fixture, plus unchanged operational requirements",
+    "startedAt": "2026-09-21T16:14:11.128Z",
+    "finishedAt": "2026-09-21T16:16:52.534Z",
+    "exit": 0,
+    "signal": null,
+    "timedOut": false,
+    "outputOverflow": false,
+    "status": "PASS",
+    "manifest": "/home/tornike/Documents/Projects/kill-it-twice/artifacts/m6/m6-20260921161411561-bdcafae3/run.json",
+    "live": {
+      "scope": "Real Angular browser -> local read-only transport -> actual isolated Nest/API/PostgreSQL/Elasticsearch observations; no intercepted data fixtures",
+      "browser": "152.0.7977.82",
+      "staged": "37",
+      "inspected_entity_id": "1",
+      "api_reads": [
+        "/api/v1/status",
+        "/api/v1/config",
+        "/api/v1/entities",
+        "/api/v1/entities/df5fa089-c205-4498-b33f-4582bb352865/1"
+      ],
+      "screenshot": "/home/tornike/Documents/Projects/kill-it-twice/artifacts/m6/m6-20260921161411561-bdcafae3/ui-live-overview.png",
+      "mutations": 0,
+      "page_errors": []
+    },
+    "head": "dc98ecd0b898f6a458d67ed464e87c78bce9f246",
+    "developmental": false
+  },
+  "skills": {
+    "count": 9,
+    "import_unchanged": true,
+    "licenses": "upstream MIT notices added",
+    "formatting": "only vendored skill bytes excluded"
+  },
+  "limits": [
+    "UI action request/unknown-result cases use isolated HTTP fixtures; real operational mutation tests are separate.",
+    "Actual live browser smoke is read-only; no claim of live browser-driven business mutation.",
+    "No physical device or screen-reader session was run.",
+    "Text resize is an explicit 200% computed-font override, not a browser/OS zoom claim.",
+    "No complete G1-G5 or scale acceptance.",
+    "No remote CI run was requested or observed for these local changes."
+  ]
+}
