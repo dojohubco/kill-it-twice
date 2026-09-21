@@ -4,6 +4,7 @@ import datetime
 import json
 from pathlib import Path
 import subprocess
+import shutil
 import sys
 import time
 
@@ -14,6 +15,7 @@ from verification.runtime import Runtime
 parser=argparse.ArgumentParser()
 parser.add_argument('--count',type=int,default=8192)
 parser.add_argument('--window',type=int,default=120)
+parser.add_argument('--reconcile',action='store_true',help='Require convergence within the window and independently compare frozen source/receiver state')
 args=parser.parse_args()
 assert 257<=args.count<=2000000 and 30<=args.window<=7200
 r=Runtime(args.count)
@@ -45,9 +47,23 @@ try:
     sql.write_text("BEGIN READ ONLY; EXPLAIN (ANALYZE,BUFFERS,FORMAT JSON) SELECT count(*) FROM source.baseline_revisions WHERE bootstrap_key=(SELECT bootstrap_key FROM source.bootstrap_manifest) AND chunk_first=1; ROLLBACK;\n")
     r.compose(['exec','-T','source','psql','-X','-A','-t','-v','ON_ERROR_STOP=1','-U','source_admin','-d','source_m1'],'source-chunk-plan',input_file=sql)
     r.report['status']='MEASURED_PARTIAL' if samples[-1]['backfill_phase']!='complete' else 'MEASURED_CONVERGED_NOT_RECONCILED'
+    if args.reconcile and samples[-1]['backfill_phase']=='complete':
+        r.compose(['stop','-t','20','capture','backfill','publisher','consumer','es-worker','observer'],'quiesce-oracle',timeout=180)
+        exported=r.out/'state';exported.mkdir()
+        for name in ('baselines','source','mutations','commands','work','pipeline','consumer','totals','projection','receiver'):
+            log=r.compose(['run','--rm','--no-deps','-T','inspect','node','scripts/runtime/inspect.ts',name],'export-'+name,timeout=3600,maximum=max(64*1024*1024,args.count*8192))
+            shutil.copyfile(log,exported/(name+'.jsonl'))
+        failures=r.inspect('failures')
+        (exported/'failures.jsonl').write_text(''.join(json.dumps(v,separators=(',',':'))+'\n' for v in failures))
+        (r.out/'journal.jsonl').write_text('');(r.out/'rejections.json').write_text('[]')
+        proof=r.run([sys.executable,'-B','tests/final/reconcile.py',str(exported),'--count',str(args.count),'--journal',str(r.out/'journal.jsonl'),'--rejections',str(r.out/'rejections.json')],'independent-oracle',timeout=7200)
+        r.report['reconciliation']=json.loads(proof.read_text());assert r.report['reconciliation']['status']=='PASS'
+        r.report['status']='RECONCILED_COMPLETE'
+
     assert subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()==r.head
     assert subprocess.check_output(['git','status','--porcelain'],cwd=ROOT,text=True)==r.dirty
-    r.report['qualification']='No independent full-state reconciliation ran in this pilot. Progress counters do not establish absence of loss; functional acceptance is separate.'
+    r.report['qualification']='Actual scale/count and reconciliation are explicit. This pilot does not rerun fault gates; a partial measurement is not correctness acceptance.'
+    if args.reconcile and r.report['status']!='RECONCILED_COMPLETE':raise AssertionError('Required capacity convergence/reconciliation not completed in the declared window')
 except BaseException as error:
     r.report['status']='FAIL';r.report['error']={'type':type(error).__name__,'message':str(error)}
 finally:r.cleanup()
