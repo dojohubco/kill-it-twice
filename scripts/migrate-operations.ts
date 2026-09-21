@@ -5,6 +5,7 @@ export async function migrateOperations(
   client: pg.Client,
   store: 'source' | 'pipeline' | 'consumer',
   password: string,
+  includeRecovery = true,
 ) {
   if (!/^[a-f0-9]{48}$/.test(password))
     throw new Error('Invalid private migration credential');
@@ -21,6 +22,17 @@ export async function migrateOperations(
         'utf8',
       ),
     );
+    if (store === 'pipeline' && includeRecovery) {
+      await client.query(
+        await readFile(
+          new URL(
+            '../migrations/pipeline/008-recovery-controls.sql',
+            import.meta.url,
+          ),
+          'utf8',
+        ),
+      );
+    }
     await client.query(
       `ALTER ROLE ${store}_operator LOGIN PASSWORD '${password}'`,
     );

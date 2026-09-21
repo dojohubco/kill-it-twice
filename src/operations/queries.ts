@@ -37,6 +37,7 @@ export const queries = {
   ) f WHERE key COLLATE "C">$1 COLLATE "C" ORDER BY key COLLATE "C" LIMIT $2`,
   },
   consumer: {
+    identity: `SELECT jsonb_build_object('consumer_id',consumer_id,'source_epoch',source_epoch,'pipeline_id',pipeline_id,'registration_id',registration_id) value FROM consumer.identity`,
     snapshot: `SELECT jsonb_build_object('observed_at',clock_timestamp()::text,'processed',(SELECT count(*)::text FROM consumer.processed_events),'effects',(SELECT count(*)::text FROM consumer.mutation_effects),'quarantine',(SELECT count(*)::text FROM consumer.quarantine)) value`,
     failures: `SELECT jsonb_build_object('key','quarantine:'||quarantine_id,'type','consumer_quarantine','quarantine_id',quarantine_id,'claimed_event_id',claimed_id,'recorded_at',recorded_at,'classification',classification,'context','Retained invalid or conflicting delivery; raw bytes withheld','state','quarantined','replayable',false,'replay_reason','quarantine_requires_separate_contract') value FROM consumer.quarantine WHERE ('quarantine:'||quarantine_id) COLLATE "C">$1 COLLATE "C" ORDER BY ('quarantine:'||quarantine_id) COLLATE "C" LIMIT $2`,
   },

@@ -1,3 +1,4 @@
+import { recoveryCaseDefinitions } from '../support/recovery-cases.ts';
 import pg from 'pg';
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -1100,3 +1101,6 @@ void test(name('OP18'), async () => {
     scope: 'backend G5 preparation; no UI or full G5 PASS',
   });
 });
+
+for (const c of recoveryCaseDefinitions(() => ({ db, cfg, deliver })))
+  void test(name(c.id), c.run);

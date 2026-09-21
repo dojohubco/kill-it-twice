@@ -1,5 +1,7 @@
+import { recoveryCases } from './required-recovery-cases.ts';
 // Independent operational requirements committed before production implementation.
 export const operationalCases = [
+  ...recoveryCases.filter((c) => c.file.endsWith('/operations.test.ts')),
   {
     id: 'OP01',
     name: 'OP01 Actual HTTP and generated OpenAPI paths/methods/statuses; UUID/BIGINT/cursor/limit/body validation; deterministic errors, idempotency and secret exclusion.',
@@ -92,4 +94,5 @@ export const operationalUpgradeCases = [
     name: 'OP17 populated M5B migration preserves exact retained evidence',
     file: 'tests/operational/upgrade.test.ts',
   },
+  ...recoveryCases.filter((c) => c.file.endsWith('/upgrade.test.ts')),
 ];

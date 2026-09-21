@@ -56,7 +56,8 @@
     "build:api": "tsc -p apps/control-api/tsconfig.json",
     "control:api": "node artifacts/control-api-build/apps/control-api/main.js",
     "test:integration:m6": "npm run build:api && node scripts/m1.ts m6",
-    "review:m6": "node scripts/review-m4.ts --m6"
+    "review:m6": "node scripts/review-m4.ts --m6",
+    "operations": "node scripts/operations.ts"
   },
   "dependencies": {
     "@elastic/elasticsearch": "9.5.1",

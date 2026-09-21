@@ -1,0 +1,11 @@
+# Operational recovery completion development
+
+Work began at clean 421b31ae04ab953fe83f14f83de0987b882e0bc5 through the authorized remote workstation. That checkout already contained a Nest HTTP adapter; this continuation preserves it and adds no UI or HTTP routes. Scope/ADR/metric documents were committed first at c09167d.
+
+The unchanged quality check and fresh real-service M6 profile passed (17 cases), followed by another passing existing 17-case profile with the additive recovery migration installed. These do not prove the new recovery operations. The first extended dirty-development profile m6-20260921130217972-2cfbfdea retained all original OP passes but failed new RC assertions: request_batch_replay used a SQL alias d that collided with its PL/pgSQL row variable (42702); the invalid-credential fixture did not yet assert the worker's expected thrown failure. Subsequent dependent cases lacked the earlier setup/ready target. Both defects were corrected without removing state, history, fencing or error assertions. The failed native report and cleanup remain in that run directory. This was new-code development, not a baseline data-loss finding.
+
+One earlier type check rejected the inferred return shape of the new generic list method; its explicit bounded record return contract resolves that diagnostic. All other original source/canonical/worker code remains unchanged. No historical commits, failures or execution times were rewritten.
+
+The next dirty run m6-20260921130539039-f5719ace passed all 24 native assertions but the independent acceptance checker rejected the new cases because Node attributed their registration to the helper module rather than the authorized test entry file. Registration was moved into the actual test entry; the helper only returns case implementations. The required-case checker and inventory were not relaxed. This run remains FAIL despite its native passes.
+
+The corrected dirty fresh run m6-20260921130915909-d852f961 passed 24 required cases; the populated operational upgrade m6-20260921131143117-74905735 passed its three required cases. These runs preceded the final bounded cleanup-diagnostic, consumer-identity sampling, direct CLI, and retained-member negative checks. Later final evidence must identify the committed code actually rerun; these developmental passes are not promoted to final acceptance.

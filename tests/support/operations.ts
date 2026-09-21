@@ -19,14 +19,19 @@ export function objects(value: unknown): Record<string, unknown>[] {
   assert.ok(Array.isArray(value));
   return value.map((v: unknown) => record(v));
 }
-export async function migrateAll(s: pg.Client, p: pg.Client, c: pg.Client) {
+export async function migrateAll(
+  s: pg.Client,
+  p: pg.Client,
+  c: pg.Client,
+  includeRecovery = true,
+) {
   const password = randomBytes(24).toString('hex');
   for (const [store, client] of [
     ['source', s],
     ['pipeline', p],
     ['consumer', c],
   ] as const)
-    await migrateOperations(client, store, password);
+    await migrateOperations(client, store, password, includeRecovery);
   return password;
 }
 export async function connections() {

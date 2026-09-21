@@ -12,7 +12,8 @@
     "tests/support/batch-child.ts",
     "tests/support/bootstrap-child.ts",
     "tests/support/backfill-child.ts",
-    "apps/control-api/main.ts"
+    "apps/control-api/main.ts",
+    "tests/support/recovery-child.ts"
   ],
   "project": [
     "src/**/*.ts",

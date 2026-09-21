@@ -1,3 +1,7 @@
+import { readFile } from 'node:fs/promises';
+import { RecoveryService } from '../../src/operations/recovery.ts';
+import type { OperationsConfig } from '../../src/operations/config.ts';
+import { recoveryCases } from '../../scripts/required-recovery-cases.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -17,6 +21,14 @@ import { create, esConfig } from '../support/es.ts';
 import { EsTransport } from '../../src/es/transport.ts';
 import { required, evidence } from '../support/db.ts';
 import { record, string } from '../../src/operations/validation.ts';
+let completedFixture:
+  | {
+      config: OperationsConfig;
+      run: string;
+      oldCounts: unknown;
+      oldHistorical: string;
+    }
+  | undefined;
 const entry = operationalUpgradeCases[0];
 assert.ok(entry);
 await test(entry.name, async (t) => {
@@ -111,7 +123,7 @@ await test(entry.name, async (t) => {
     pipeline: await retained(db.p, pipelineTables),
     consumer: await retained(db.c, consumerTables),
   };
-  const password = await migrateAll(db.s, db.p, db.c);
+  const password = await migrateAll(db.s, db.p, db.c, false);
   assert.deepEqual(
     {
       source: await retained(db.s, sourceTables),
@@ -132,6 +144,25 @@ await test(entry.name, async (t) => {
       )
     ).rows[0]?.['value'],
   );
+  completedFixture = {
+    config: apiConfig(password),
+    run: degraded,
+    oldCounts: (
+      await db.p.query<{ value: unknown }>(
+        'SELECT pipeline.backfill_counts($1) value',
+        [degraded],
+      )
+    ).rows[0]?.value,
+    oldHistorical: string(
+      (
+        await db.p.query<{ value: string }>(
+          'SELECT row_to_json(r)::text value FROM pipeline.backfill_runs r WHERE run_id=$1',
+          [degraded],
+        )
+      ).rows[0]?.value,
+      16384,
+    ),
+  };
   const history = (
     await db.p.query<Record<string, unknown>>(
       'SELECT row_to_json(l)::text value FROM pipeline.es_dead_letters l WHERE event_id=$1',
@@ -215,4 +246,141 @@ await test(entry.name, async (t) => {
     status,
     retainedBefore: before,
   });
+});
+
+const recoveryName = (id: string) => {
+  const e = recoveryCases.find((c) => c.id === id);
+  assert.ok(e);
+  return e.name;
+};
+await test(recoveryName('RC09'), async () => {
+  assert.ok(completedFixture);
+  const db = await connections();
+  try {
+    const tables = [
+      'pipeline.events',
+      'pipeline.es_dead_letters',
+      'pipeline.replay_requests',
+      'pipeline.replay_items',
+      'pipeline.operator_receipts',
+      'pipeline.es_target',
+      'pipeline.rabbit_target',
+      'pipeline.backfill_runs',
+      'pipeline.backfill_members',
+      'pipeline.consumer_observations',
+    ];
+    const before = await retained(db.p, tables);
+    const deliveries = async () =>
+      (
+        await db.p.query<{ value: string }>(
+          "SELECT (to_jsonb(d)-'replay_request_id')::text value FROM pipeline.delivery_intents d ORDER BY event_id,kind",
+        )
+      ).rows;
+    const oldDeliveries = await deliveries();
+    await db.p.query('BEGIN ISOLATION LEVEL READ COMMITTED');
+    try {
+      await db.p.query(
+        await readFile(
+          new URL(
+            '../../migrations/pipeline/008-recovery-controls.sql',
+            import.meta.url,
+          ),
+          'utf8',
+        ),
+      );
+      assert.equal((await db.p.query('COMMIT')).command, 'COMMIT');
+    } catch (error) {
+      await db.p.query('ROLLBACK');
+      throw error;
+    }
+    assert.deepEqual(await retained(db.p, tables), before);
+    assert.deepEqual(await deliveries(), oldDeliveries);
+    assert.equal(
+      (
+        await db.p.query<{ n: string }>(
+          'SELECT count(*)::text n FROM pipeline.delivery_intents WHERE replay_request_id IS NOT NULL',
+        )
+      ).rows[0]?.n,
+      '0',
+    );
+    const overview = await new RecoveryService(
+      completedFixture.config,
+    ).overview();
+    evidence('RC09', {
+      preservedTables: tables,
+      deliveries: oldDeliveries,
+      overview,
+      addition: 'nullable replay correlation only; historical rows retained',
+    });
+  } finally {
+    await db.close();
+  }
+});
+await test(recoveryName('RC05'), async () => {
+  assert.ok(completedFixture);
+  const db = await connections();
+  try {
+    const status = await new RecoveryService(completedFixture.config).run(
+      completedFixture.run,
+    );
+    assert.equal(record(status['historical'])['phase'], 'complete_with_errors');
+    assert.equal(record(status['current_recovery'])['state'], 'satisfied');
+    assert.ok(
+      BigInt(string(record(completedFixture.oldCounts)['es_errors'])) > 0n,
+    );
+    const actual = (
+      await db.p.query<{ value: string }>(
+        'SELECT row_to_json(r)::text value FROM pipeline.backfill_runs r WHERE run_id=$1',
+        [completedFixture.run],
+      )
+    ).rows[0]?.value;
+    assert.equal(actual, completedFixture.oldHistorical);
+    assert.equal(
+      record(record(status['current_recovery'])['counts'])['required'],
+      record(completedFixture.oldCounts)['required'],
+    );
+    let missingEvidence: unknown;
+    await db.p.query('BEGIN');
+    try {
+      // Rollback-only privileged negative fixture: runtime cannot remove immutable membership.
+      await db.p.query(
+        'ALTER TABLE pipeline.backfill_members DISABLE TRIGGER USER',
+      );
+      await db.p.query(
+        'DELETE FROM pipeline.backfill_members WHERE run_id=$1 AND event_id=(SELECT min(event_id) FROM pipeline.backfill_members WHERE run_id=$1)',
+        [completedFixture.run],
+      );
+      missingEvidence = (
+        await db.p.query<{ value: unknown }>(
+          'SELECT pipeline.recovery_run($1) value',
+          [completedFixture.run],
+        )
+      ).rows[0]?.value;
+      assert.equal(
+        record(record(missingEvidence)['current_recovery'])['state'],
+        'integrity_blocked',
+      );
+    } finally {
+      await db.p.query('ROLLBACK');
+    }
+    assert.equal(
+      record(
+        (
+          await new RecoveryService(completedFixture.config).run(
+            completedFixture.run,
+          )
+        )['current_recovery'],
+      )['state'],
+      'satisfied',
+    );
+    evidence('RC05', {
+      historicalBefore: completedFixture.oldHistorical,
+      countsAtFailure: completedFixture.oldCounts,
+      current: status,
+      historyUnchanged: true,
+      missingEvidence,
+    });
+  } finally {
+    await db.close();
+  }
 });

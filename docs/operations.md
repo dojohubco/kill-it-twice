@@ -88,3 +88,50 @@ npm run review:m6 -- bundle <capture-directory>
 ```
 
 verify-m6 runs all 21 accepted prior profiles once plus fresh operations and populated upgrade. Review capture requires clean committed code and runs two complete gates sequentially in independent local checkouts with separate builds and fresh isolated resources; it also records the intentionally nonzero full make verify. Evidence, OpenAPI and metric samples are under ignored artifacts/m6. M6 prepares backend G5 evidence; final UI/scale/full G1-G5 acceptance remains outside scope.
+
+## Direct operational CLI and recovery history
+
+The existing private control configuration is also accepted by the direct CLI. This completion adds no HTTP route or frontend. Keep `CONTROL_CONFIG_FILE` outside tracked source and readable only by its operator; the configuration contains credentials. The actor field is an audit label, not authenticated user identity.
+
+```sh
+CONTROL_CONFIG_FILE=/absolute/private/control.json npm run operations -- snapshot
+CONTROL_CONFIG_FILE=/absolute/private/control.json npm run operations -- follow
+CONTROL_CONFIG_FILE=/absolute/private/control.json npm run operations -- operation REQUEST_UUID
+CONTROL_CONFIG_FILE=/absolute/private/control.json npm run operations -- run RUN_UUID
+```
+
+For the commands below, keep `CONTROL_CONFIG_FILE` exported to that same private path. For list operations, send one bounded JSON object on standard input. Defaults are 50 items; the maximum is 100 and the serialized page ceiling is 256 KiB. Navigation cursors are not completeness watermarks.
+
+```sh
+printf '%s' '{"limit":50}' | npm run operations -- list operations
+printf '%s' '{"limit":50}' | npm run operations -- list failures
+printf '%s' '{"limit":50}' | npm run operations -- failures
+```
+
+The last command merges diagnostic metadata from source, pipeline and consumer quarantine; it never republishes a quarantine body. Use `list attempts` with an `event_id` and optional cursor for bounded ES attempt history.
+
+`replay`, `supersede`, and `verify-target` accept this request shape on standard input:
+
+```json
+{
+  "request_id": "caller-created-uuid",
+  "actor": "local-operator",
+  "reason": "explicit repair reason",
+  "destination_id": "registered-es-destination-uuid",
+  "generation": "1",
+  "selection": [
+    {
+      "event_id": "source-epoch:entity:version",
+      "attempt_id": "current-failure-attempt-uuid"
+    }
+  ]
+}
+```
+
+These are placeholders, not executable fixture identities. Obtain the current failure identity through a bounded failure list. `replay` admits 1..50 selected failures atomically; it only schedules work for the existing ES worker. `supersede` requires exactly one selection and performs read-only validation of an actual strictly higher ledger-backed receiver document before settling the old obligation. `verify-target` requires an empty selection and can resume only the same registered receiver after validation. None changes historical canonical content or another sink's result.
+
+An identical request UUID/body recovers its original operation instead of scheduling again; changed content conflicts. A completed failed verification needs a new deliberate UUID to probe again after repair. Unknown command completion should be inspected/retried by its original UUID. Expired verification ownership cannot settle results. A separately reported cleanup failure is not proof a remote write or local COMMIT failed.
+
+The new snapshot retains a bounded previous good observation separately from unavailable current data, validates consumer identity, and reports fixed-series decimal-string rates. First/reset/unavailable samples do not invent zero throughput. Historical run outcome and current recovery state are separate. See `docs/metric-definitions.md` for denominators and clock semantics.
+
+Legacy single-event API replay remains compatible and now invalidates prior ownership generations while retaining execution links. No existing endpoint has been added or removed in this completion.
