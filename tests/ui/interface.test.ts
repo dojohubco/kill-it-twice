@@ -504,6 +504,19 @@ void test(
         ),
         true,
       );
+      const headings = await page
+        .locator('.pipeline-flow h3')
+        .evaluateAll((nodes) =>
+          nodes.map((el) => ({
+            name: el.textContent,
+            width: el.clientWidth,
+            content: el.scrollWidth,
+          })),
+        );
+      assert.ok(
+        headings.every((h) => h.content <= h.width),
+        JSON.stringify(headings),
+      );
       await page.screenshot({
         path: resolve(output, 'overview-text-200.png'),
         fullPage: true,

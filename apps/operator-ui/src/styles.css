@@ -1410,3 +1410,8 @@ summary {
     font-size: 11px;
   }
 }
+
+/* Preserve the complete component name under text enlargement. */
+.pipeline-flow h3 {
+  overflow-wrap: anywhere;
+}
