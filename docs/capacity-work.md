@@ -23,3 +23,15 @@ No worker pooling, dependency changes, lossless protocol changes, broader permis
 If remaining hot-path history checks dominate, document a second explicit design refinement and evidence before changing them. Every run records actual scale and completion status. A partial intermediate observation does not pass the 2,000,000-row target.
 
 References used for the change: PostgreSQL 18 documentation for multicolumn indexes, EXPLAIN and deferred trigger semantics. Index selection/loop count must be observed on the real server; documentation alone is not a benchmark.
+
+## Second bounded refinement after the repeated pilot
+
+The same 8,192-row/120-second pilot at `42149b5` remained partial: seed/activation 21.557 seconds, 2,736 staged, 2,704 consumed and 1,506 recorded receipts at the final 119.025-second sample. Receipt progress improved relative to the earlier observation, but overall staging did not improve; these are single loaded-host observations, not a claimed universal speedup.
+
+The scanner invokes the full accumulated event/witness/body-validation status twice per page. That reporting work is not needed for page admission: the claim, page and deferred COMMIT checks already enforce current range/batch identity, membership and lease validity, and `backfill_advance` performs the full retained-progress checks before sealing/draining/completion. Add a separate, explicitly marked admission-only snapshot of run/range control fields for the retained runtime. Keep the public/full status API and final completion validation unchanged. The default historical worker entry retains its full status, so old profile requirements do not become smaller by accident.
+
+Baseline deferred validation currently verifies every row in a chunk for every newly inserted row. Preserve per-row validation of its own exact recipe/identity/time/chunk relationship and retain the full chunk-set validator once per inserted chunk. Progress increments must reference exactly the newly committed contiguous chunk under the existing lifecycle lock; full accumulated validation remains at phase boundaries and sealing. Verify all existing data once during upgrade. This is an inductive proof over immutable chunk receipts, not permission to delete integrity checks or trust a client counter.
+
+Raise the explicitly configured retained-runtime receipt lookup to at most 32 events using forward owning-database bounds; historical defaults remain eight. The cap is 2 MiB for expected canonical bodies and at most 4.125 MiB for quarantined raw bodies/metadata before bounded validation. No body/hash comparison, source/consumer identity check, fair scheduling, atomic observation or COMMIT outcome rule is removed. Runtime configuration must select this only after both forward migrations exist.
+
+Require new SQL rejection controls for wrong recipe/membership/progress, exact populated preservation, and all existing functional fault/reconciliation checks on the optimized runtime. If a partial pilot or dependency failure remains, report it rather than extending that observation to a 2M PASS.
