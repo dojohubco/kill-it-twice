@@ -39,7 +39,7 @@ def settled(rejected=0,es=True,timeout=360):
     def accept(s):
         dependencies=s['dependencies'];p=dependencies['pipeline']['data'];c=dependencies['consumer']['data']
         if p['staged']!=str(total) or c['processed']!=str(total) or c['effects']!=str(len(seen)):return False
-        states={(x['kind'],x['state']):int(x['count']) for x in p['deliveries']}
+        states={(x['sink'],x['state']):int(x['count']) for x in p['deliveries']}
         if states.get(('rabbitmq','satisfied'),0)!=total:return False
         if es and (states.get(('elasticsearch','satisfied'),0)!=total-rejected or states.get(('elasticsearch','dead_letter'),0)!=rejected):return False
         if sum(int(x['count']) for x in p['observations'] if x['state']=='processed')!=total:return False
@@ -133,7 +133,7 @@ try:
     r.compose(['stop','-t','20','elasticsearch'],'elasticsearch-stop',timeout=60);outage_start=time.monotonic()
     down=json.loads(r.run(['docker','inspect',es_id],'elasticsearch-stopped').read_text())[0];assert not down['State']['Running']
     changes([request('create',payload={'name':f'Outage change {i}','country':'GE','loyalty_points':i}) for i in range(10)])
-    progressed=settled(es=False);during_states={(v['kind'],v['state']):int(v['count']) for v in progressed['dependencies']['pipeline']['data']['deliveries']}
+    progressed=settled(es=False);during_states={(v['sink'],v['state']):int(v['count']) for v in progressed['dependencies']['pipeline']['data']['deliveries']}
     assert during_states.get(('elasticsearch','satisfied'),0)==options.count+len(seen)-10
     (r.out/'outage-status.json').write_text(json.dumps(progressed,indent=2))
     while time.monotonic()-outage_start<60:time.sleep(min(.25,60-(time.monotonic()-outage_start)))

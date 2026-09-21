@@ -80,7 +80,7 @@ class Runtime:
             try:
                 last=operation()
                 if predicate(last): return last
-            except (OSError,KeyError,ValueError,TypeError) as e: last={'unavailable':type(e).__name__}
+            except (OSError,ValueError) as e: last={'unavailable':type(e).__name__}
             time.sleep(.2)
         (self.out/(label+'-last.json')).write_text(json.dumps(last,indent=2))
         raise AssertionError('Deadline: '+label)
