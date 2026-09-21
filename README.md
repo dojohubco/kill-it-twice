@@ -10,6 +10,35 @@ The guarantee is at-least-once transport with monotonic projections and deduplic
 
 **Full assignment acceptance is still incomplete.** `make verify` deliberately reports G1–G5 NOT IMPLEMENTED and exits nonzero. Small-fixture results do not establish two-million-row capacity or production deployment. Read [SPEC](SPEC.md), [ADRs](docs/adr/), [operations](docs/operations.md), [interface design](docs/ui-design.md), and [dated evidence](docs/evidence/). The M6 isolated passes and changed-root capture failure are distinguished in [their report](docs/evidence/M6-isolated-gates.md).
 
+## Run the complete local application
+
+```sh
+# Requires an already authorized Linux Docker host with vm.max_map_count >= 1048576.
+docker compose up -d --build
+make seed SEED_COUNT=1024
+make runtime-status
+# The default local gateway is http://127.0.0.1:4200/.
+# Change KIT_UI_PORT before starting a separate installation if that port is occupied.
+```
+
+Root Compose builds the API/UI and runs independent capture, backfill, search, publisher, consumer and receipt-observer processes. Initializers provision installation-local credentials; workers receive only their own restricted configuration. Only the gateway is published, on loopback. Data and credentials remain in named volumes across ordinary `docker compose down`/up. Seeding is explicit, resumes the same committed recipe, and rejects a changed count instead of resetting an installation. Activation/scheduled backfill is not receiver completion.
+
+The browser starts read-only. `make operator-token` prints this installation's local operator token; keep it private and paste it into Connect operator when explicit mutations are needed. Do not publish that output. The UI retains it only in page memory. No worker or browser has a Docker socket or administrator credentials.
+
+## Verification status
+
+```sh
+npm ci --no-audit --no-fund
+npm run tools:provision       # Pinned local actionlint; no privileged installation
+make quality                 # Static checks and unit tests
+make verify-runtime          # Cold setup, retained restart and actual UI/receiver reads
+make verify-functional       # Real G1-G5 faults on a declared 1,024-baseline fixture
+```
+
+An already installed Chromium/Chrome is required for the browser checks (`UI_CHROMIUM_PATH` can select it). Missing prerequisites fail explicitly; verification does not install system packages or silently tune the host. Automated runtime/fault checks own unique projects and clean only those resources, not a running demo or unrelated databases.
+
+**Two integrated functional G1-G5 runs passed**, including independent content/effect reconciliation and real browser checks. See [the exact scope and evidence](docs/evidence/Integrated-runtime.md). The fixture has 1,024 baselines and 519 mutations; it does **not** establish million-row capacity. The separate full `make verify` entry remains nonpassing until the final large-data contract is demonstrated. A small functional PASS is not full assignment acceptance.
+
 ## Operator workspace
 
 ```sh

@@ -99,3 +99,9 @@ UI source belongs in `apps/operator-ui/`; response fixtures belong only under te
 ## Integrated runtime continuation
 
 M8 authorizes root Compose packaging, explicit retained seed/activation, independent final gates and measured capacity work described in `docs/milestones/M8.md` and ADR 015. Preserve all accepted domain/migration semantics. Runtime and final verification are separate from historical M6/UI evidence. Use unique project names for automated tests; only the explicitly named local demo may persist. Initializers may provision their own installation; workers receive no administrator credential or Docker socket. Do not report a small fixture as 2M-row capacity or completed G1-G5.
+
+### Integrated functional verification
+
+`make verify-runtime` requires cold retained Compose initialization, source/receiver reconciliation, retained restart and actual browser reads. `make verify-functional` runs quality and real G1-G5 failure scenarios on an explicit 1,024-baseline fixture through `scripts/verify-final.py`. Its private wrappers live in `scripts/verification/` and are selected only by the verifier's owned Compose override; normal workers never activate them. Preserve the independent source recipe/command/rejection oracle and its negative controls.
+
+Two passing functional runs are recorded in `docs/evidence/Integrated-runtime.md`. They do not establish the two-million-row target in `docs/capacity-notes.md`. Keep actual failures, tested-code identities and later documentation identities separate. Do not promote smaller fixture results into full-size acceptance, delete assertions, or add a success fallback for missing browser/service evidence. Root Compose/demo volumes are retained; fault/cleanup commands target only the exact project owned by that invocation.

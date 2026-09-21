@@ -1,0 +1,77 @@
+{
+  "scope": "Two isolated functional G1-G5 runs; 2M capacity NOT RUN",
+  "tested_code": "545b2c8dc8772da8f77c0c726eab20c42075dc38",
+  "gates": ["G1", "G2", "G3", "G4", "G5"],
+  "quality": {
+    "status": "PASS",
+    "unit_cases": 64
+  },
+  "runs": [
+    {
+      "project": "kit-final-20260921192521-49c86bcd",
+      "head": "545b2c8dc8772da8f77c0c726eab20c42075dc38",
+      "input_sha256": "41c3db52dcf84cc6f6323bf379314b3e4977baa13972760bfe7efea8e5d1befb",
+      "started_at": "2026-09-21T19:25:21.627629+00:00",
+      "finished_at": "2026-09-21T19:34:59.992322+00:00",
+      "checkpoint_at_kill": "128",
+      "actual_sigkill_containers": [
+        "56cbbff9a89e1b6a90a4349d4d4593e179a3450adb9be029d10382a88d8e79b1",
+        "5f987c709c3a5b5967e240cef3ec4b319eda916252533b47fafe25c741cc4af1",
+        "f406964020d33687034eebd6b63a723e37590f95aee28cc6ff84c9175a608313"
+      ],
+      "outage_seconds": 61.785041602968704,
+      "outage_attempts": 15,
+      "reconciliation": {
+        "status": "PASS",
+        "scope": "Independent frozen-fixture comparison; execution scale is reported separately",
+        "source_epoch": "42509c3e-aa55-42b1-b16d-d095a4d3c167",
+        "baselines": 1024,
+        "entities": 1539,
+        "historical_events": 1543,
+        "mutation_effects": 519,
+        "expected_rejected_revisions": 3,
+        "oracle": "verifier-owned commands and seed recipe, exact revisions/bytes/relations/values"
+      },
+      "cleanup": {
+        "status": "PASS",
+        "errors": []
+      },
+      "manifest_sha256": "c78bb3663f10bc5c50bdf5b8e6a97699f0e1bf974fab237abcca23ddf7c3431d"
+    },
+    {
+      "project": "kit-final-20260921193546-a245b0f9",
+      "head": "545b2c8dc8772da8f77c0c726eab20c42075dc38",
+      "input_sha256": "41c3db52dcf84cc6f6323bf379314b3e4977baa13972760bfe7efea8e5d1befb",
+      "started_at": "2026-09-21T19:35:46.844927+00:00",
+      "finished_at": "2026-09-21T19:44:47.976828+00:00",
+      "checkpoint_at_kill": "128",
+      "actual_sigkill_containers": [
+        "b4c7652db326575fa59ce2bd1c6405cb415d992e53c725139c2153e7761e2443",
+        "ab8265c4bc0851455a1224da44a2263af2a77d69dc95feaac37300f4a2f48d20",
+        "37b6bb4811d025668927b3b558c55032191e2bdc3c40ec89d450063c45d44175"
+      ],
+      "outage_seconds": 61.37841959099751,
+      "outage_attempts": 15,
+      "reconciliation": {
+        "status": "PASS",
+        "scope": "Independent frozen-fixture comparison; execution scale is reported separately",
+        "source_epoch": "26c1d9ad-c227-409c-9017-2bf36ceead42",
+        "baselines": 1024,
+        "entities": 1539,
+        "historical_events": 1543,
+        "mutation_effects": 519,
+        "expected_rejected_revisions": 3,
+        "oracle": "verifier-owned commands and seed recipe, exact revisions/bytes/relations/values"
+      },
+      "cleanup": {
+        "status": "PASS",
+        "errors": []
+      },
+      "manifest_sha256": "e2e2e78bda82c4d9224ab385bd851ea2dce203b71cf3489aec1b9ad472f012dd"
+    }
+  ],
+  "offline_inspection": {
+    "scope": "Offline inspection of two actual functional runs; not another service execution or two-million-row test",
+    "at": "2026-09-21T19:46:26.739963+00:00"
+  }
+}
