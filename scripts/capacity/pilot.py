@@ -14,6 +14,7 @@ sys.path.insert(0,str(ROOT/'scripts'))
 from verification.runtime import Runtime
 from observations import sample, complete, unavailable
 from resources import ResourceSampler
+from replicas import replica_counts, compose_scales
 
 parser=argparse.ArgumentParser()
 parser.add_argument('--count',type=int,default=8192)
@@ -21,17 +22,19 @@ parser.add_argument('--window',type=int,default=120)
 parser.add_argument('--reconcile',action='store_true',help='Require convergence within the window and independently compare frozen source/receiver state')
 parser.add_argument('--scanners',type=int,default=1,help='One to four actual isolated backfill worker processes')
 parser.add_argument('--page-records',type=int,default=16,help='Explicit 1..64 count ceiling; original 256 KiB wire bound remains')
+parser.add_argument('--sink-workers',type=int,default=1,help='One or two independent ES/publisher/consumer/observer processes per role, only in this test project')
 args=parser.parse_args()
+replicas=replica_counts(args.scanners,args.sink_workers)
 assert 257<=args.count<=2000000 and 30<=args.window<=7200 and 1<=args.scanners<=4 and 1<=args.page_records<=64
 r=Runtime(args.count)
-r.report.update(scope='Bounded capacity observation; counters are not independent reconciliation',mode='capacity-pilot',window_seconds=args.window,scanner_processes=args.scanners,page_records=args.page_records)
+r.report.update(scope='Bounded capacity observation; counters are not independent reconciliation',mode='capacity-pilot',window_seconds=args.window,scanner_processes=args.scanners,page_records=args.page_records,sink_processes_per_role=args.sink_workers,requested_replica_counts=replicas)
 r.env['KIT_IMAGE']='kill-it-twice-runtime:capacity-'+r.head[:12]
 (r.out/'verification.json').write_text(json.dumps({'services':{'backfill':{'environment':{'BACKFILL_PAGE_RECORDS':str(args.page_records)}}}}))
 r.save();print(str(r.out),flush=True)
 resources=None
 try:
     r.run(['node','scripts/runtime-preflight.ts'],'prerequisite')
-    r.compose(['up','-d','--build','--scale','backfill='+str(args.scanners)],'cold-up',timeout=600)
+    r.compose(['up','-d','--build',*compose_scales(args.scanners,args.sink_workers)],'cold-up',timeout=600)
     resources=ResourceSampler(r.project,r.out);resources.start()
     pipeline_id=r.worker_id('pipeline')
     pipeline_config=json.loads(r.run(['docker','inspect',pipeline_id],'pipeline-resource-budget').read_text())[0]['HostConfig']
@@ -39,6 +42,13 @@ try:
     r.report['pipeline_resource_budget']={'shared_memory_bytes':pipeline_config['ShmSize'],'total_memory_limit_bytes':pipeline_config['Memory']}
     actual=r.compose(['ps','-q','backfill'],'scanner-identities').read_text().splitlines();assert len(actual)==args.scanners
     r.report['scanner_container_ids']=actual
+    worker_ids={}
+    for role,expected in replicas.items():
+        identities=r.compose(['ps','-q',role],'replica-ids-'+role).read_text().splitlines();assert len(identities)==expected
+        configurations=json.loads(r.run(['docker','inspect',*identities],'replica-budgets-'+role).read_text())
+        assert all(c['Config']['Labels']['com.docker.compose.project']==r.project and c['Config']['Labels']['com.docker.compose.service']==role and c['HostConfig']['Memory']==268435456 for c in configurations)
+        worker_ids[role]=identities
+    r.report['worker_container_ids']=worker_ids
     address=r.compose(['port','ui','4200'],'gateway').read_text().strip();assert address.startswith('127.0.0.1:');r.url='http://'+address
     before=r.json_command(['run','--rm','--no-deps','-T','inspect'],'initial-empty')
     assert before['source']['entities']=='0'
