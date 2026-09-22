@@ -106,6 +106,7 @@ export const pipelineFiles = [
   'pipeline/012-constraint-backed-counts.sql',
   'pipeline/013-event-navigation.sql',
   'pipeline/014-backfill-page-bounds.sql',
+  'pipeline/015-explicit-due-predicates.sql',
 ] as const;
 export const consumerFiles = [
   'consumer/001-consumer.sql',
