@@ -165,7 +165,8 @@ export class Backfill {
           claimed = null;
         }
       }
-      await ledger.advance(run);
+      if (observation === 'admission') await ledger.advanceIfReady(run);
+      else await ledger.advance(run);
       return {
         workerId: this.workerId,
         ...(pageResult === undefined ? {} : { page: pageResult }),

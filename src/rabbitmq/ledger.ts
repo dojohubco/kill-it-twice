@@ -3,6 +3,7 @@ import {
   type ConnectionConfig,
 } from '../internal/transaction.ts';
 import { field, type Topology } from './metadata.ts';
+import { orderedSinkBatch } from '../internal/sink-batch.ts';
 export interface RabbitTarget extends Topology {
   id: string;
   generation: string;
@@ -24,6 +25,13 @@ export interface WireRecord {
   eventId: string;
   wire: Buffer;
   bytes: string;
+}
+export interface RabbitSettlement {
+  claim: RabbitClaim;
+  outcome: RabbitOutcome;
+  channel: string | null;
+  context: string;
+  delay: number;
 }
 export class RabbitLedger {
   readonly #config: ConnectionConfig;
@@ -212,6 +220,54 @@ export class RabbitLedger {
     return this.#owner().transaction((tx) =>
       tx.admission(t, c, w, o, reason, delay),
     );
+  }
+  async renewMany(
+    t: RabbitTarget,
+    claims: readonly RabbitClaim[],
+    owner: string,
+    lease: number,
+  ) {
+    const group = orderedSinkBatch(
+      claims.map((c) => ({ ...c })),
+      (c) => c.eventId,
+    );
+    return this.#owner().transaction(async (tx) => {
+      const result: { eventId: string; renewed: boolean }[] = [];
+      for (const c of group)
+        result.push({
+          eventId: c.eventId,
+          renewed: await tx.renew(t, c, owner, lease),
+        });
+      return result;
+    });
+  }
+  async settleMany(
+    t: RabbitTarget,
+    owner: string,
+    items: readonly RabbitSettlement[],
+  ) {
+    const group = orderedSinkBatch(
+      items.map((r) => ({ ...r, claim: { ...r.claim } })),
+      (r) => r.claim.eventId,
+    );
+    return this.#owner().transaction(async (tx) => {
+      const result: { eventId: string; status: string }[] = [];
+      for (const r of group) {
+        const status = await tx.settle(
+          t,
+          r.claim,
+          owner,
+          r.outcome,
+          r.channel,
+          r.context,
+          r.delay,
+        );
+        if (status !== 'settled' && status !== 'stale')
+          throw new Error('Invalid publisher settlement result');
+        result.push({ eventId: r.claim.eventId, status });
+      }
+      return result;
+    });
   }
   status(n = 20) {
     return this.#owner().transaction((tx) => tx.status(n));

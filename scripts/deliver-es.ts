@@ -32,7 +32,9 @@ else {
     password: required('ES_PASSWORD'),
     ca: await readFile(required('ES_CA_FILE'), 'utf8'),
   });
-  const delivery = new Delivery(ledger, new EsAdapter(transport));
+  const delivery = new Delivery(ledger, new EsAdapter(transport), {
+    databaseBatchSize: Number(process.env['SINK_DATABASE_BATCH_SIZE'] ?? '1'),
+  });
   const stop = new AbortController();
   for (const signal of ['SIGINT', 'SIGTERM'])
     process.once(signal, () => stop.abort());

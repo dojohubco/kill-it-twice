@@ -3,6 +3,7 @@ import {
   type ConnectionConfig,
 } from '../internal/transaction.ts';
 import { object } from './transport.ts';
+import { orderedSinkBatch } from '../internal/sink-batch.ts';
 import type { Projection } from './projection.ts';
 function text(r: Record<string, unknown>, k: string): string {
   const v = r[k];
@@ -41,6 +42,14 @@ export type Outcome =
   | 'auth'
   | 'configuration'
   | 'integrity';
+export interface EsSettlement {
+  claim: EsClaim;
+  outcome: Outcome;
+  remote: string | null;
+  witness: string | null;
+  context: string;
+  delay: number;
+}
 export class MissingLedgerWitness extends Error {}
 export class EsLedger {
   readonly #config: ConnectionConfig;
@@ -237,6 +246,78 @@ export class EsLedger {
     return this.#owner().transaction((tx) =>
       tx.admission(t, w, probe, anchor, o, reason, delay),
     );
+  }
+  async readBatch(ids: readonly string[]): Promise<Projection[]> {
+    const ordered = orderedSinkBatch(ids, (id) => id, 16);
+    return this.#owner().transaction(async (tx) => {
+      const values: Projection[] = [];
+      let bytes = 0n;
+      for (const id of ordered) {
+        const rows = await tx.read(id);
+        if (rows.length !== 1)
+          throw new MissingLedgerWitness('Missing ledger witness');
+        const r = object(rows[0]);
+        const value = {
+          eventId: text(r, 'event_id'),
+          documentId: text(r, 'document_id'),
+          version: text(r, 'version'),
+          json: r['projection'] === null ? null : text(r, 'projection'),
+          bytes: text(r, 'bytes'),
+        };
+        if (value.eventId !== id)
+          throw new Error('Wrong bounded projection identity');
+        bytes += BigInt(value.bytes) + 256n;
+        if (bytes > 4194304n)
+          throw new RangeError('Bounded projection cache exceeds 4 MiB');
+        values.push(value);
+      }
+      return values;
+    });
+  }
+  async renewMany(
+    t: Target,
+    claims: readonly EsClaim[],
+    owner: string,
+    lease: number,
+  ) {
+    const group = orderedSinkBatch(
+      claims.map((c) => ({ ...c })),
+      (c) => c.eventId,
+    );
+    return this.#owner().transaction(async (tx) => {
+      const result: { eventId: string; renewed: boolean }[] = [];
+      for (const c of group)
+        result.push({
+          eventId: c.eventId,
+          renewed: await tx.renew(t, c, owner, lease),
+        });
+      return result;
+    });
+  }
+  async settleMany(t: Target, owner: string, items: readonly EsSettlement[]) {
+    const group = orderedSinkBatch(
+      items.map((r) => ({ ...r, claim: { ...r.claim } })),
+      (r) => r.claim.eventId,
+    );
+    return this.#owner().transaction(async (tx) => {
+      const result: { eventId: string; status: string }[] = [];
+      for (const r of group) {
+        const status = await tx.settle(
+          t,
+          r.claim,
+          owner,
+          r.outcome,
+          r.remote,
+          r.witness,
+          r.context,
+          r.delay,
+        );
+        if (status !== 'settled' && status !== 'stale')
+          throw new Error('Invalid ES settlement result');
+        result.push({ eventId: r.claim.eventId, status });
+      }
+      return result;
+    });
   }
   status(n = 20) {
     return this.#owner().transaction((tx) => tx.status(n));

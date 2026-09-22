@@ -37,6 +37,11 @@ try {
     const worker = new RabbitDelivery(
       ledger,
       new Publisher(config.connection, config.metadata),
+      {
+        databaseBatchSize: Number(
+          process.env['SINK_DATABASE_BATCH_SIZE'] ?? '1',
+        ),
+      },
     );
     if (mode === 'once')
       await writeCaptureReport(process.stdout, await worker.once());

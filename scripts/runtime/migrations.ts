@@ -100,6 +100,7 @@ export const pipelineFiles = [
   'pipeline/008-recovery-controls.sql',
   'pipeline/009-runtime-discovery.sql',
   'pipeline/010-capacity-polling.sql',
+  'pipeline/011-terminal-admission.sql',
 ] as const;
 export const consumerFiles = [
   'consumer/001-consumer.sql',

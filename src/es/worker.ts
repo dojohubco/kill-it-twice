@@ -1,11 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { retryDelay } from '../capture.ts';
+import { sinkChunks, sinkPollDelay } from '../internal/sink-batch.ts';
+import type { EsSettlement } from './ledger.ts';
 import { EsAdapter, classify, EsFailure } from './adapter.ts';
 import { EsLedger, type EsClaim, type Target, type Outcome } from './ledger.ts';
 import { bulkLine, type Projection } from './projection.ts';
 export interface DeliveryOptions {
   count: number;
+  databaseBatchSize: number;
   leaseMs: number;
   renewalMs: number;
   idleMs: number;
@@ -38,6 +41,7 @@ export class Delivery {
     this.workerId = workerId;
     this.#options = {
       count: 500,
+      databaseBatchSize: 1,
       leaseMs: 30000,
       renewalMs: 5000,
       idleMs: 1000,
@@ -46,6 +50,8 @@ export class Delivery {
     const o = this.#options;
     if (
       !Object.values(o).every(Number.isInteger) ||
+      o.databaseBatchSize < 1 ||
+      o.databaseBatchSize > 32 ||
       o.count < 1 ||
       o.count > 500 ||
       o.leaseMs < 300 ||
@@ -103,17 +109,31 @@ export class Delivery {
           if (abort.signal.aborted) return;
           throw error;
         }
-        for (const c of active.values()) {
+        for (const group of sinkChunks(
+          [...active.values()],
+          this.#options.databaseBatchSize,
+        )) {
           if (abort.signal.aborted) return;
-          if (
-            !(await this.#ledger.renew(
+          if (this.#options.databaseBatchSize > 1) {
+            const renewed = await this.#ledger.renewMany(
               t,
-              c,
+              group,
               this.workerId,
               this.#options.leaseMs,
-            ))
-          )
-            active.delete(c.eventId);
+            );
+            for (const r of renewed) if (!r.renewed) active.delete(r.eventId);
+          } else {
+            for (const c of group)
+              if (
+                !(await this.#ledger.renew(
+                  t,
+                  c,
+                  this.workerId,
+                  this.#options.leaseMs,
+                ))
+              )
+                active.delete(c.eventId);
+          }
         }
       }
     };
@@ -121,35 +141,65 @@ export class Delivery {
       renewalFailure = e;
       active.clear();
     });
-    const settle = async (
-      c: EsClaim,
+    const settleGroup = async (items: readonly EsSettlement[]) => {
+      for (const group of sinkChunks(items, this.#options.databaseBatchSize)) {
+        if (renewalFailure)
+          throw new Error('Lease renewal failed', { cause: renewalFailure });
+        const current = group.filter((r) => active.has(r.claim.eventId));
+        const results: { eventId: string; status: string | undefined }[] = [];
+        if (current.length && this.#options.databaseBatchSize > 1) {
+          results.push(
+            ...(await this.#ledger.settleMany(t, this.workerId, current)),
+          );
+        } else {
+          for (const r of current)
+            results.push({
+              eventId: r.claim.eventId,
+              status: await this.#ledger.settle(
+                t,
+                r.claim,
+                this.workerId,
+                r.outcome,
+                r.remote,
+                r.witness,
+                r.context,
+                r.delay,
+              ),
+            });
+        }
+        for (const r of group) {
+          const status = current.includes(r)
+            ? results.find((v) => v.eventId === r.claim.eventId)?.status
+            : 'stale';
+          if (status !== 'settled' && status !== 'stale')
+            throw new Error('Invalid ES settlement result');
+          active.delete(r.claim.eventId);
+          result.outcomes.push({
+            eventId: r.claim.eventId,
+            generation: r.claim.generation,
+            outcome: r.outcome,
+            status,
+          });
+        }
+      }
+    };
+    const settle = (
+      claim: EsClaim,
       outcome: Outcome,
       remote: string | null,
       witness: string | null,
       context: string,
-    ) => {
-      if (renewalFailure)
-        throw new Error('Lease renewal failed', { cause: renewalFailure });
-      const status = active.has(c.eventId)
-        ? await this.#ledger.settle(
-            t,
-            c,
-            this.workerId,
-            outcome,
-            remote,
-            witness,
-            context,
-            retryDelay(c.generation),
-          )
-        : 'stale';
-      active.delete(c.eventId);
-      result.outcomes.push({
-        eventId: c.eventId,
-        generation: c.generation,
-        outcome,
-        status: status ?? 'invalid',
-      });
-    };
+    ) =>
+      settleGroup([
+        {
+          claim,
+          outcome,
+          remote,
+          witness,
+          context,
+          delay: retryDelay(claim.generation),
+        },
+      ]);
     let primary: unknown;
     let fatal: Error | undefined;
     try {
@@ -176,18 +226,22 @@ export class Delivery {
         // A completely validated response may contain an independently invalid conflict
         // witness. Preserve other confirmed items after the common target postflight.
         await this.#adapter.validate(t);
-        for (const item of resolved) {
-          const c = claims.find((c) => c.eventId === item.projection.eventId);
-          if (!c)
-            throw new EsFailure('integrity', 'Unsubmitted response identity');
-          await settle(
-            c,
-            item.outcome,
-            item.remote,
-            item.witness,
-            `request=${anchor.attemptId}; ${item.context}`,
+        const settlements: EsSettlement[] = resolved.map((item) => {
+          const claim = claims.find(
+            (c) => c.eventId === item.projection.eventId,
           );
-        }
+          if (!claim)
+            throw new EsFailure('integrity', 'Unsubmitted response identity');
+          return {
+            claim,
+            outcome: item.outcome,
+            remote: item.remote,
+            witness: item.witness,
+            context: `request=${anchor.attemptId}; ${item.context}`,
+            delay: retryDelay(claim.generation),
+          };
+        });
+        await settleGroup(settlements);
         if (unresolved.length) {
           const primary =
             unresolved.find(
@@ -209,8 +263,12 @@ export class Delivery {
         batch = [];
         size = 0;
       };
-      for (const c of claims) {
-        if (!active.has(c.eventId)) continue;
+      const cached = new Map<string, Projection>();
+      for (const [index, c] of claims.entries()) {
+        if (!active.has(c.eventId)) {
+          cached.delete(c.eventId);
+          continue;
+        }
         if (BigInt(c.bytes) + 256n > 262144n) {
           await settle(
             c,
@@ -227,7 +285,23 @@ export class Delivery {
           BigInt(size) + BigInt(c.bytes) + 256n > 4n * 1024n * 1024n
         )
           await send();
-        const p = await this.#ledger.read(c.eventId);
+        if (this.#options.databaseBatchSize > 1 && !cached.has(c.eventId)) {
+          const ids = claims
+            .slice(index, index + 16)
+            .filter(
+              (v) => active.has(v.eventId) && BigInt(v.bytes) + 256n <= 262144n,
+            )
+            .map((v) => v.eventId);
+          for (const value of await this.#ledger.readBatch(ids))
+            cached.set(value.eventId, value);
+        }
+        const p =
+          this.#options.databaseBatchSize > 1
+            ? cached.get(c.eventId)
+            : await this.#ledger.read(c.eventId);
+        if (!p)
+          throw new EsFailure('integrity', 'Missing bounded projection read');
+        cached.delete(c.eventId);
         const line = bulkLine(p);
         if (BigInt(p.bytes) !== BigInt(c.bytes))
           throw new EsFailure('integrity', 'Immutable projection size changed');
@@ -301,10 +375,19 @@ export class Delivery {
     report: (r: DeliveryResult) => Promise<void>,
   ) {
     while (!signal.aborted) {
-      await report(await this.once());
+      const value = await this.once();
+      await report(value);
       if (signal.aborted) return;
       try {
-        await delay(this.#options.idleMs, undefined, { signal });
+        await delay(
+          sinkPollDelay(
+            value.claimed,
+            this.#options.databaseBatchSize,
+            this.#options.idleMs,
+          ),
+          undefined,
+          { signal },
+        );
       } catch (e) {
         if (signal.aborted) return;
         throw e;

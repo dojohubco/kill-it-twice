@@ -34,6 +34,7 @@ interface Work {
   ): Promise<boolean>;
   attach(run: string, fence: Record<string, unknown>): Promise<void>;
   advance(run: string): Promise<Record<string, unknown>>;
+  advanceIfReady(run: string): Promise<void>;
   pause(run: string, paused: boolean): Promise<void>;
   status(run: string): Promise<ReturnType<typeof status>>;
   poll(run: string): Promise<ReturnType<typeof status>>;
@@ -152,6 +153,11 @@ export class BackfillLedger {
               uuid(run),
             ]),
           ),
+        advanceIfReady: async (run: string) => {
+          await query('SELECT pipeline.backfill_advance_if_ready($1) value', [
+            uuid(run),
+          ]);
+        },
         pause: async (run: string, paused: boolean) => {
           await query('SELECT pipeline.backfill_pause($1,$2) value', [
             uuid(run),
@@ -196,6 +202,9 @@ export class BackfillLedger {
   }
   advance(run: string) {
     return this.transaction((tx) => tx.advance(run));
+  }
+  advanceIfReady(run: string) {
+    return this.transaction((tx) => tx.advanceIfReady(run));
   }
   pause(run: string, paused: boolean) {
     return this.transaction((tx) => tx.pause(run, paused));

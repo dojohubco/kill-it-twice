@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { retryDelay } from '../capture.ts';
+import { sinkChunks, sinkPollDelay } from '../internal/sink-batch.ts';
 import {
   RabbitLedger,
   type RabbitClaim,
@@ -11,6 +12,7 @@ import { amqpFailure } from './session.ts';
 import { BrokerFailure } from './metadata.ts';
 export interface RabbitOptions {
   count: number;
+  databaseBatchSize: number;
   leaseMs: number;
   renewalMs: number;
   idleMs: number;
@@ -32,6 +34,7 @@ export class RabbitDelivery {
     this.workerId = workerId;
     this.#options = {
       count: 128,
+      databaseBatchSize: 1,
       leaseMs: 30000,
       renewalMs: 5000,
       idleMs: 1000,
@@ -40,6 +43,8 @@ export class RabbitDelivery {
     const o = this.#options;
     if (
       !Object.values(o).every(Number.isInteger) ||
+      o.databaseBatchSize < 1 ||
+      o.databaseBatchSize > 32 ||
       o.count < 1 ||
       o.count > 128 ||
       o.leaseMs < 300 ||
@@ -99,17 +104,31 @@ export class RabbitDelivery {
           if (abort.signal.aborted) return;
           throw error;
         }
-        for (const c of active.values()) {
+        for (const group of sinkChunks(
+          [...active.values()],
+          this.#options.databaseBatchSize,
+        )) {
           if (abort.signal.aborted) return;
-          if (
-            !(await this.#ledger.renew(
+          if (this.#options.databaseBatchSize > 1) {
+            const renewed = await this.#ledger.renewMany(
               t,
-              c,
+              group,
               this.workerId,
               this.#options.leaseMs,
-            ))
-          )
-            active.delete(c.eventId);
+            );
+            for (const r of renewed) if (!r.renewed) active.delete(r.eventId);
+          } else {
+            for (const c of group)
+              if (
+                !(await this.#ledger.renew(
+                  t,
+                  c,
+                  this.workerId,
+                  this.#options.leaseMs,
+                ))
+              )
+                active.delete(c.eventId);
+          }
         }
       }
     })().catch((error: unknown) => {
@@ -119,36 +138,67 @@ export class RabbitDelivery {
     let health:
       'healthy' | 'transient' | 'auth' | 'configuration' | 'integrity' =
       'healthy';
-    const settle = async (c: RabbitClaim, r: PublicationResult) => {
-      if (renewalFailure)
-        throw new Error('Publisher lease renewal failed', {
-          cause: renewalFailure,
-        });
-      const status = active.has(c.eventId)
-        ? await this.#ledger.settle(
-            t,
-            c,
-            this.workerId,
-            r.outcome,
-            r.channelId || null,
-            r.context,
-            retryDelay(c.generation),
+    const settleGroup = async (
+      items: readonly { claim: RabbitClaim; result: PublicationResult }[],
+    ) => {
+      for (const group of sinkChunks(items, this.#options.databaseBatchSize)) {
+        if (renewalFailure)
+          throw new Error('Publisher lease renewal failed', {
+            cause: renewalFailure,
+          });
+        const current = group.filter((x) => active.has(x.claim.eventId));
+        const statuses: { eventId: string; status: string | undefined }[] = [];
+        if (current.length && this.#options.databaseBatchSize > 1) {
+          statuses.push(
+            ...(await this.#ledger.settleMany(
+              t,
+              this.workerId,
+              current.map(({ claim, result: r }) => ({
+                claim,
+                outcome: r.outcome,
+                channel: r.channelId || null,
+                context: r.context,
+                delay: retryDelay(claim.generation),
+              })),
+            )),
+          );
+        } else {
+          for (const { claim: c, result: r } of current)
+            statuses.push({
+              eventId: c.eventId,
+              status: await this.#ledger.settle(
+                t,
+                c,
+                this.workerId,
+                r.outcome,
+                r.channelId || null,
+                r.context,
+                retryDelay(c.generation),
+              ),
+            });
+        }
+        for (const item of group) {
+          const c = item.claim,
+            r = item.result;
+          const status = current.includes(item)
+            ? statuses.find((s) => s.eventId === c.eventId)?.status
+            : 'stale';
+          if (status !== 'settled' && status !== 'stale')
+            throw new Error('Invalid publisher settlement');
+          active.delete(c.eventId);
+          outcomes.push({
+            eventId: c.eventId,
+            generation: c.generation,
+            outcome: r.outcome,
+            status,
+          });
+          if (
+            r.outcome !== 'confirmed' &&
+            (health === 'healthy' || health === 'transient')
           )
-        : 'stale';
-      active.delete(c.eventId);
-      if (status !== 'settled' && status !== 'stale')
-        throw new Error('Invalid publisher settlement');
-      outcomes.push({
-        eventId: c.eventId,
-        generation: c.generation,
-        outcome: r.outcome,
-        status,
-      });
-      if (
-        r.outcome !== 'confirmed' &&
-        (health === 'healthy' || health === 'transient')
-      )
-        health = r.outcome;
+            health = r.outcome;
+        }
+      }
     };
     try {
       const batches: RabbitClaim[][] = [];
@@ -219,11 +269,12 @@ export class RabbitDelivery {
             returned: false,
           }));
         }
-        for (const c of group) {
-          const r = results.find((r) => r.attemptId === c.attemptId);
-          if (!r) throw new Error('Missing correlated result');
-          await settle(c, r);
-        }
+        const settlements = group.map((claim) => {
+          const result = results.find((r) => r.attemptId === claim.attemptId);
+          if (!result) throw new Error('Missing correlated result');
+          return { claim, result };
+        });
+        await settleGroup(settlements);
       }
       const anchor = claims[0];
       if (!anchor) throw new Error('Missing admission anchor');
@@ -253,9 +304,18 @@ export class RabbitDelivery {
     ) => Promise<void>,
   ) {
     while (!signal.aborted) {
-      await report(await this.once());
+      const value = await this.once();
+      await report(value);
       try {
-        await delay(this.#options.idleMs, undefined, { signal });
+        await delay(
+          sinkPollDelay(
+            value.claimed,
+            this.#options.databaseBatchSize,
+            this.#options.idleMs,
+          ),
+          undefined,
+          { signal },
+        );
       } catch (error) {
         if (!signal.aborted) throw error;
       }
