@@ -13,9 +13,11 @@ from verification.runtime import Runtime, ROOT, now, sha
 
 arguments=argparse.ArgumentParser()
 arguments.add_argument('--count',type=int,default=1024)
+arguments.add_argument('--page-records',type=int,default=16,help='Explicit 1..64 backfill record ceiling with unchanged byte bounds')
 options=arguments.parse_args()
-assert 257 <= options.count <= 2000000
+assert 257 <= options.count <= 2000000 and 1<=options.page_records<=64
 r=Runtime(options.count)
+r.report["page_records"]=options.page_records
 workers=['capture','backfill','es-worker','publisher','consumer','observer']
 journal=r.out/'journal.jsonl';journal.write_text('')
 rejections=r.out/'rejections.json';rejections.write_text('[]')
@@ -70,6 +72,7 @@ services={}
 for role in ('backfill','consumer','publisher','es-worker'):
     if role!='backfill':r.control(role)
     services[role]={'restart':'no','command':['node','scripts/verification/fault-worker.ts',role],'volumes':[str(r.out)+':/verification:rw,z']}
+services['backfill']['environment']={'BACKFILL_PAGE_RECORDS':str(options.page_records)}
 (r.out/'verification.json').write_text(json.dumps({'services':services},indent=2))
 files=subprocess.check_output(['git','ls-files','--cached','--others','--exclude-standard','-z'],cwd=ROOT).decode().split('\0')
 inputs=[{'path':p,'sha256':sha(ROOT/p)} for p in sorted(set(filter(None,files))) if (ROOT/p).is_file()]

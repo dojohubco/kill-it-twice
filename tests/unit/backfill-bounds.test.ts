@@ -66,3 +66,21 @@ void test('source and atomic ledger reject invalid page ceilings before opening 
     64,
   );
 });
+
+void test('functional and capacity launchers expose explicit page sizing without starting services', async () => {
+  const { execFile } = await import('node:child_process');
+  const { promisify } = await import('node:util');
+  for (const file of ['scripts/verify-final.py', 'scripts/capacity/pilot.py']) {
+    const help = await promisify(execFile)('python3', ['-B', file, '--help'], {
+      timeout: 5000,
+      maxBuffer: 65536,
+    });
+    assert.match(help.stdout, /--page-records/);
+    await assert.rejects(
+      promisify(execFile)('python3', ['-B', file, '--page-records', '65'], {
+        timeout: 5000,
+        maxBuffer: 65536,
+      }),
+    );
+  }
+});

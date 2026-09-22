@@ -7,6 +7,7 @@ import { mock } from 'node:test';
 import { stringify } from 'lossless-json';
 import type { ConsumeMessage } from 'amqplib';
 import { BackfillLedger } from '../../src/backfill/ledger.ts';
+import { runtimePageRecords } from '../../src/backfill/bounds.ts';
 import { ConsumerDatabase } from '../../src/rabbitmq/consumer-db.ts';
 import { Publisher } from '../../src/rabbitmq/publisher.ts';
 import { AmqpSession } from '../../src/rabbitmq/session.ts';
@@ -76,7 +77,11 @@ if (role === 'backfill') {
         await boundary(
           'backfill.before_page_commit',
           { request, result },
-          request.claim.range > 0 && BigInt(request.claim.checkpoint) >= 32n,
+          request.claim.range > 0 &&
+            BigInt(request.claim.checkpoint) >=
+              BigInt(
+                2 * runtimePageRecords(process.env['BACKFILL_PAGE_RECORDS']),
+              ),
         );
         return result;
       });
