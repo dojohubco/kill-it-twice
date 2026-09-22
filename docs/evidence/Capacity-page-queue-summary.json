@@ -1,0 +1,294 @@
+{
+  "scope": "Explicit bounded-page and selector upgrades; actual G1-G5 functional and 8192/131072 capacity evidence, not 2M acceptance",
+  "page_code": "ff7e115d6d39b2ad04da58e54b001fb6525c6c33",
+  "selector_code": "9c63b8bd95bb001307a6bbc78bacee2112a190e3",
+  "page_transaction_proof": {
+    "status": "PASS",
+    "scope": "Actual bounded page transaction, populated function upgrade and prefix checks; not a scale benchmark",
+    "upgrades": [
+      {
+        "domain": "source",
+        "unchanged_tables": 13,
+        "rows_sha256": "a07b57f3b65cad96ea6c9454d916910038a5a211623be9f24e50076e72bb6f6b",
+        "unchanged_function": [
+          {
+            "oid": 16795,
+            "proowner": 16397,
+            "proacl": "{source_owner=X/source_owner,source_backfill=X/source_owner}",
+            "proconfig": ["search_path=pg_catalog, pg_temp"],
+            "prosecdef": true,
+            "provolatile": "s"
+          }
+        ]
+      },
+      {
+        "domain": "pipeline",
+        "unchanged_tables": 24,
+        "rows_sha256": "b1d0a02a6f7c861f39444eeb54ba9587055a0166500d95ad3b69306a0730f03d",
+        "unchanged_function": [
+          {
+            "oid": 17046,
+            "proowner": 16397,
+            "proacl": "{pipeline_owner=X/pipeline_owner,pipeline_backfill=X/pipeline_owner}",
+            "proconfig": ["search_path=pg_catalog, pg_temp"],
+            "prosecdef": true,
+            "provolatile": "v"
+          }
+        ]
+      }
+    ],
+    "old_page_records": 16,
+    "old_batch_id": "64d603e2-328f-4797-a009-b2af89cc8118",
+    "page_records": 64,
+    "wire_bytes": 95336,
+    "committed_transaction": "804",
+    "batch_id": "084336ac-e975-4af2-a093-3955d069b58c",
+    "replay_same_content": true,
+    "controlled_rollback": true,
+    "rejected": [
+      "source-65",
+      "source-runtime-ddl",
+      "pipeline-65",
+      "pipeline-runtime-ddl"
+    ],
+    "byte_prefix": 5,
+    "byte_tail": 1,
+    "command_ids": [
+      "aab42b25-5fd8-4d0c-aa49-306d1b31bd06",
+      "15bfa2f3-3812-402c-a683-99a43fb5c0dc",
+      "2941d6e7-4005-4818-9035-cc4bdbb5f57c",
+      "e51e237c-38fe-4019-b1a3-30442d59d759",
+      "e7885e19-c822-4483-a29b-dd901e264387",
+      "61820a7d-7bcd-43c5-a91b-860edb49baa4"
+    ]
+  },
+  "page_runs": [
+    {
+      "label": "functional-page64",
+      "project": "kit-final-20260922162032-7ab7394f",
+      "head": "ff7e115d6d39b2ad04da58e54b001fb6525c6c33",
+      "status": "PASS",
+      "manifest_sha256": "fe369767a0a90bc999186d3faa828a674dc2b9cbc92a39b9848b1d94542e0231",
+      "started_at": "2026-09-22T16:20:32.183031+00:00",
+      "finished_at": "2026-09-22T16:26:09.142000+00:00",
+      "reconciliation": {
+        "status": "PASS",
+        "scope": "Independent frozen-fixture comparison; execution scale is reported separately",
+        "source_epoch": "8fea7921-be17-4cf9-a85a-41626724c385",
+        "baselines": 1024,
+        "entities": 1539,
+        "historical_events": 1543,
+        "mutation_effects": 519,
+        "expected_rejected_revisions": 3,
+        "oracle": "verifier-owned commands and seed recipe, exact revisions/bytes/relations/values"
+      },
+      "cleanup": {
+        "status": "PASS",
+        "errors": []
+      }
+    },
+    {
+      "label": "8192-page16",
+      "project": "kit-final-20260922162609-33207e83",
+      "head": "ff7e115d6d39b2ad04da58e54b001fb6525c6c33",
+      "status": "RECONCILED_COMPLETE",
+      "manifest_sha256": "a04e95b2f7469fa8ac22069b0a0bf1d8afe9f9f8ba13447e51ba5442010afaa0",
+      "started_at": "2026-09-22T16:26:09.371577+00:00",
+      "finished_at": "2026-09-22T16:29:26.464758+00:00",
+      "page_records": 16,
+      "scanners": 1,
+      "seed_seconds": 7.41994633799186,
+      "completion_observed_seconds": 104.11518390499987,
+      "reconciliation": {
+        "status": "PASS",
+        "scope": "Independent frozen-fixture comparison; execution scale is reported separately",
+        "source_epoch": "263a8c20-e4ba-442b-84d9-4ce63411b597",
+        "baselines": 8192,
+        "entities": 8192,
+        "historical_events": 8192,
+        "mutation_effects": 0,
+        "expected_rejected_revisions": 0,
+        "oracle": "verifier-owned commands and seed recipe, exact revisions/bytes/relations/values"
+      },
+      "cleanup": {
+        "status": "PASS",
+        "errors": []
+      }
+    },
+    {
+      "label": "8192-page64",
+      "project": "kit-final-20260922162926-947027ae",
+      "head": "ff7e115d6d39b2ad04da58e54b001fb6525c6c33",
+      "status": "RECONCILED_COMPLETE",
+      "manifest_sha256": "306d20f4707992a01c196c5943432a09b81658e8b65a5b9ad83420fd2cb422ee",
+      "started_at": "2026-09-22T16:29:26.737887+00:00",
+      "finished_at": "2026-09-22T16:32:12.440392+00:00",
+      "page_records": 64,
+      "scanners": 1,
+      "seed_seconds": 7.269103777012788,
+      "completion_observed_seconds": 73.97269210999366,
+      "reconciliation": {
+        "status": "PASS",
+        "scope": "Independent frozen-fixture comparison; execution scale is reported separately",
+        "source_epoch": "bdc588ea-ba5a-4047-b840-bd9126bc227d",
+        "baselines": 8192,
+        "entities": 8192,
+        "historical_events": 8192,
+        "mutation_effects": 0,
+        "expected_rejected_revisions": 0,
+        "oracle": "verifier-owned commands and seed recipe, exact revisions/bytes/relations/values"
+      },
+      "cleanup": {
+        "status": "PASS",
+        "errors": []
+      }
+    },
+    {
+      "label": "131072-page64",
+      "project": "kit-final-20260922163212-dcc4b585",
+      "head": "ff7e115d6d39b2ad04da58e54b001fb6525c6c33",
+      "status": "RECONCILED_COMPLETE",
+      "manifest_sha256": "ee7bf6db3ddc8f7be8a3e6ab928e412d3a0c55230e9208b5caffce876c83168c",
+      "started_at": "2026-09-22T16:32:12.581554+00:00",
+      "finished_at": "2026-09-22T16:59:03.477032+00:00",
+      "page_records": 64,
+      "scanners": 4,
+      "seed_seconds": 97.01874453498749,
+      "completion_observed_seconds": 1175.3909699450014,
+      "reconciliation": {
+        "status": "PASS",
+        "scope": "Independent frozen-fixture comparison; execution scale is reported separately",
+        "source_epoch": "70c5e54f-48e0-4b24-988d-938791b446cc",
+        "baselines": 131072,
+        "entities": 131072,
+        "historical_events": 131072,
+        "mutation_effects": 0,
+        "expected_rejected_revisions": 0,
+        "oracle": "verifier-owned commands and seed recipe, exact revisions/bytes/relations/values"
+      },
+      "cleanup": {
+        "status": "PASS",
+        "errors": []
+      }
+    }
+  ],
+  "selector_proof": {
+    "project": "kit-final-20260922170716-3739381b",
+    "manifest_sha256": "8c3e8ef5f7d31e6a392bfbb8588d232013b789b19f37ed537769b1b8f4b48073",
+    "claims": [
+      {
+        "kind": "es",
+        "selected": 128,
+        "ordered_membership_sha256": "c40effb6c88bd079b544b2b30ba55e9d8054932c51887807970dfaf3aecf43db",
+        "before_plan": {
+          "file": "012-es-old-selection-plan.stdout.log",
+          "sha256": "c187d66b7939c1165f7b48d6a60cf48108f53e61d3678322f13d1dfb982c02cc",
+          "execution_ms": 5.791,
+          "explicit_predicate": false
+        },
+        "after_plan": {
+          "file": "020-es-explicit-selection-plan.stdout.log",
+          "sha256": "97da90fc2c93bb93b174656da29046d2aabb89931f9f80064a280c34092c6699",
+          "execution_ms": 0.209,
+          "explicit_predicate": true
+        }
+      },
+      {
+        "kind": "rabbit",
+        "selected": 128,
+        "ordered_membership_sha256": "c40effb6c88bd079b544b2b30ba55e9d8054932c51887807970dfaf3aecf43db",
+        "before_plan": {
+          "file": "013-rabbit-old-selection-plan.stdout.log",
+          "sha256": "f9a63d013cadc273bca8988acfb1a0bcd6f9c6542fa928ba01770241e7a11383",
+          "execution_ms": 7.635,
+          "explicit_predicate": false
+        },
+        "after_plan": {
+          "file": "023-rabbit-explicit-selection-plan.stdout.log",
+          "sha256": "dad7fff1452f51d986b2b61099dec6b433895bcf90ce455c4cac780fa14cde25",
+          "execution_ms": 0.236,
+          "explicit_predicate": true
+        }
+      }
+    ],
+    "truth_table": {
+      "cases": 54,
+      "differences": 0
+    },
+    "reconciliation": {
+      "status": "PASS",
+      "scope": "Independent frozen-fixture comparison; execution scale is reported separately",
+      "source_epoch": "772068d5-5e61-42df-b034-37f924143ee5",
+      "baselines": 4096,
+      "entities": 4096,
+      "historical_events": 4096,
+      "mutation_effects": 0,
+      "expected_rejected_revisions": 0,
+      "oracle": "verifier-owned commands and seed recipe, exact revisions/bytes/relations/values"
+    }
+  },
+  "selector_runs": [
+    {
+      "project": "kit-final-20260922171100-a82353db",
+      "head": "9c63b8bd95bb001307a6bbc78bacee2112a190e3",
+      "status": "PASS",
+      "manifest_sha256": "ca50101e791d4d83cec4731ae12d568ffce4e62a3f7b24eafe000eaeacb39579",
+      "started_at": "2026-09-22T17:11:00.261789+00:00",
+      "finished_at": "2026-09-22T17:17:18.286954+00:00",
+      "page_records": 64,
+      "seed_seconds": null,
+      "completion_sample_seconds": null,
+      "reconciliation": {
+        "status": "PASS",
+        "scope": "Independent frozen-fixture comparison; execution scale is reported separately",
+        "source_epoch": "b8b808ef-2d37-4347-995b-23b9861a84cf",
+        "baselines": 1024,
+        "entities": 1539,
+        "historical_events": 1543,
+        "mutation_effects": 519,
+        "expected_rejected_revisions": 3,
+        "oracle": "verifier-owned commands and seed recipe, exact revisions/bytes/relations/values"
+      },
+      "cleanup": {
+        "status": "PASS",
+        "errors": []
+      }
+    },
+    {
+      "project": "kit-final-20260922171718-38a41894",
+      "head": "9c63b8bd95bb001307a6bbc78bacee2112a190e3",
+      "status": "RECONCILED_COMPLETE",
+      "manifest_sha256": "556b8b7f60e4f699eddd69d06412554618987ed0d3e88b3091b10ac7630d9e48",
+      "started_at": "2026-09-22T17:17:18.553810+00:00",
+      "finished_at": "2026-09-22T17:35:44.312502+00:00",
+      "page_records": 64,
+      "seed_seconds": 95.76560530497227,
+      "completion_sample_seconds": 659.8352396300179,
+      "reconciliation": {
+        "status": "PASS",
+        "scope": "Independent frozen-fixture comparison; execution scale is reported separately",
+        "source_epoch": "5ddc0a78-9a1b-4d52-98f4-a40eec6a40d6",
+        "baselines": 131072,
+        "entities": 131072,
+        "historical_events": 131072,
+        "mutation_effects": 0,
+        "expected_rejected_revisions": 0,
+        "oracle": "verifier-owned commands and seed recipe, exact revisions/bytes/relations/values"
+      },
+      "cleanup": {
+        "status": "PASS",
+        "errors": []
+      }
+    }
+  ],
+  "retained_failure": {
+    "project": "kit-final-20260922160840-c13fbd1a",
+    "status": "FAIL",
+    "reason": "Chromium screenshot protocol error; underlying compositor cause not established; unchanged-code full repeat passed",
+    "manifest_sha256": "581206cda6867de53b046288764d31e51da342d708c1e721791aca07e58a2cf2"
+  },
+  "two_million_profile": "NOT RUN",
+  "raw_evidence_directory": "artifacts/capacity/continuation-20260922T1542",
+  "latest_unavailable_pipeline_observations": 40,
+  "latest_observations": 91
+}
