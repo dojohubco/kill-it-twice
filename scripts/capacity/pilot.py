@@ -2,6 +2,7 @@
 import argparse
 import datetime
 import json
+import os
 from pathlib import Path
 import subprocess
 import shutil
@@ -12,6 +13,7 @@ ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'scripts'))
 from verification.runtime import Runtime
 from observations import sample, complete, unavailable
+from resources import ResourceSampler
 
 parser=argparse.ArgumentParser()
 parser.add_argument('--count',type=int,default=8192)
@@ -25,19 +27,24 @@ r.report.update(scope='Bounded capacity observation; counters are not independen
 r.env['KIT_IMAGE']='kill-it-twice-runtime:capacity-'+r.head[:12]
 (r.out/'verification.json').write_text('{"services":{}}')
 r.save();print(str(r.out),flush=True)
+resources=None
 try:
     r.run(['node','scripts/runtime-preflight.ts'],'prerequisite')
     r.compose(['up','-d','--build','--scale','backfill='+str(args.scanners)],'cold-up',timeout=600)
+    resources=ResourceSampler(r.project,r.out);resources.start()
     actual=r.compose(['ps','-q','backfill'],'scanner-identities').read_text().splitlines();assert len(actual)==args.scanners
     r.report['scanner_container_ids']=actual
     address=r.compose(['port','ui','4200'],'gateway').read_text().strip();assert address.startswith('127.0.0.1:');r.url='http://'+address
     before=r.json_command(['run','--rm','--no-deps','-T','inspect'],'initial-empty')
     assert before['source']['entities']=='0'
+    r.report['storage_initial']=r.json_command(['run','--rm','--no-deps','-T','inspect','node','scripts/capacity/storage.ts'],'initial-storage')
     start=time.monotonic()
     r.compose(['run','--rm','--no-deps','-T','seed','node','scripts/runtime/seed.ts',str(args.count)],'seed',timeout=3600)
     r.report['seed_and_activation_seconds']=time.monotonic()-start;r.save()
     samples=[];start=time.monotonic();deadline=start+args.window
     while time.monotonic()<deadline:
+        assert not resources.errors,'Resource measurement failed'
+        assert shutil.disk_usage(ROOT).free>=10*1024**3,'Stop before exhausting local storage reserve'
         try:
             value=r.status()
             raw=json.dumps({'at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'data':value},separators=(',',':'))+'\n'
@@ -57,13 +64,14 @@ try:
     sql=r.out/'source-plan.sql'
     sql.write_text("BEGIN READ ONLY; EXPLAIN (ANALYZE,BUFFERS,FORMAT JSON) SELECT count(*) FROM source.baseline_revisions WHERE bootstrap_key=(SELECT bootstrap_key FROM source.bootstrap_manifest) AND chunk_first=1; ROLLBACK;\n")
     r.compose(['exec','-T','source','psql','-X','-A','-t','-v','ON_ERROR_STOP=1','-U','source_admin','-d','source_m1'],'source-chunk-plan',input_file=sql)
+    r.report['storage_observed']=r.json_command(['run','--rm','--no-deps','-T','inspect','node','scripts/capacity/storage.ts'],'observed-storage')
     r.report['status']='MEASURED_PARTIAL' if samples[-1]['backfill_phase']!='complete' else 'MEASURED_CONVERGED_NOT_RECONCILED'
     if args.reconcile and samples[-1]['backfill_phase']=='complete':
         r.compose(['stop','-t','20','capture','backfill','publisher','consumer','es-worker','observer'],'quiesce-oracle',timeout=180)
         exported=r.out/'state';exported.mkdir()
         for name in ('baselines','source','mutations','commands','work','pipeline','consumer','totals','projection','receiver'):
             log=r.compose(['run','--rm','--no-deps','-T','inspect','node','scripts/runtime/inspect.ts',name],'export-'+name,timeout=3600,maximum=max(64*1024*1024,args.count*8192))
-            shutil.copyfile(log,exported/(name+'.jsonl'))
+            os.link(log,exported/(name+'.jsonl'))  # Two evidence paths, one immutable local export inode.
         failures=r.inspect('failures')
         (exported/'failures.jsonl').write_text(''.join(json.dumps(v,separators=(',',':'))+'\n' for v in failures))
         (r.out/'journal.jsonl').write_text('');(r.out/'rejections.json').write_text('[]')
@@ -77,6 +85,13 @@ try:
     if args.reconcile and r.report['status']!='RECONCILED_COMPLETE':raise AssertionError('Required capacity convergence/reconciliation not completed in the declared window')
 except BaseException as error:
     r.report['status']='FAIL';r.report['error']={'type':type(error).__name__,'message':str(error)}
-finally:r.cleanup()
+finally:
+    if resources is not None:
+        try:
+            r.report['resources']=resources.finish()
+            if r.report['resources']['status']=='FAIL':r.report['status']='FAIL'
+        except BaseException as measurement_error:
+            r.report['status']='FAIL';r.report['measurement_error']={'type':type(measurement_error).__name__,'message':str(measurement_error)}
+    r.cleanup()
 print(r.report['status']+': '+str(r.out/'run.json'),flush=True)
 sys.exit(1 if r.report['status']=='FAIL' else 0)
