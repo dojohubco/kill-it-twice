@@ -24,7 +24,8 @@
     "scripts/verification/commands.ts",
     "scripts/verification/inspect.ts",
     "scripts/capacity/receipt-proof.ts",
-    "scripts/capacity/sink-proof.ts"
+    "scripts/capacity/sink-proof.ts",
+    "scripts/capacity/count-proof.ts"
   ],
   "project": [
     "src/**/*.ts",

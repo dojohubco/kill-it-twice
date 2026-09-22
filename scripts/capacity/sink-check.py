@@ -19,10 +19,14 @@ try:
     r.compose(['run','--rm','--no-deps','-T','seed','node','scripts/runtime/seed.ts','257'],'seed',timeout=300)
     before=r.wait(r.status,lambda s:s['dependencies']['pipeline']['data']['staged']=='257','staged-without-sinks',timeout=180)
     assert before['backfill']['phase']=='draining'
+    pending_counts=r.json_command(['run','--rm','--no-deps','-T','inspect','node','scripts/capacity/count-proof.ts'],'pending-count-equivalence')
+    assert pending_counts['status']=='PASS'
     proof=r.json_command(['run','--rm','--no-deps','-T','inspect','node','scripts/capacity/sink-proof.ts'],'real-sink-proof')
     assert proof['status']=='PASS' and proof['elasticsearch']['actual_applied']==proof['rabbitmq']['actual_confirmed']==32
     r.start('es-worker');r.start('publisher');r.wait(r.status,lambda s:s['backfill']['phase']=='complete','sink-drain',timeout=180)
     r.compose(['stop','-t','20','capture','backfill','publisher','consumer','es-worker','observer'],'quiesce',timeout=180)
+    settled_counts=r.json_command(['run','--rm','--no-deps','-T','inspect','node','scripts/capacity/count-proof.ts'],'settled-count-equivalence')
+    assert settled_counts['status']=='PASS'
     exported=r.out/'state';exported.mkdir()
     for name in ('baselines','source','mutations','commands','work','pipeline','consumer','totals','projection','receiver'):
         log=r.compose(['run','--rm','--no-deps','-T','inspect','node','scripts/runtime/inspect.ts',name],'export-'+name)
@@ -31,7 +35,7 @@ try:
     oracle=r.run([sys.executable,'-B','tests/final/reconcile.py',str(exported),'--count','257','--journal',str(r.out/'journal.jsonl'),'--rejections',str(r.out/'rejections.json')],'independent-oracle')
     reconciliation=json.loads(oracle.read_text());assert reconciliation['status']=='PASS'
     assert not subprocess.check_output(['git','status','--porcelain'],cwd=ROOT,text=True)
-    r.report.update(status='PASS',transaction_proof=proof,reconciliation=reconciliation)
+    r.report.update(status='PASS',transaction_proof=proof,count_proofs={'pending':pending_counts,'settled':settled_counts},reconciliation=reconciliation)
 except BaseException as error:
     r.report['status']='FAIL';r.report['error']={'type':type(error).__name__,'message':str(error)}
 finally:r.cleanup()

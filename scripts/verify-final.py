@@ -169,6 +169,10 @@ try:
     browser_result=json.loads(browser.read_text());assert browser_result['mutations']==0 and browser_result['interceptedResponses']==0 and not browser_result['pageErrors']
     r.gate('G5',{'snapshot':'g5-status.json','metrics':'g5-metrics.prom','browser':browser_result,'declared_open_dlq':3,'source_pending':0,'backfill_phase':'complete'})
     r.compose(['stop','-t','20',*workers],'quiesce-final',timeout=180)
+    if options.count <= 4096:
+        count_proof=r.json_command(['run','--rm','--no-deps','-T','inspect','node','scripts/capacity/count-proof.ts'],'declared-failure-count-equivalence')
+        assert count_proof['status']=='PASS'
+        r.report['count_constraint_proof']=count_proof
     exported=r.out/'final-state';export_all(exported)
     oracle_result=json.loads(oracle(exported).read_text());r.report['reconciliation']=oracle_result;r.save()
     negative_results=[]
