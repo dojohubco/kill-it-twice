@@ -285,6 +285,11 @@ export class Delivery {
           BigInt(size) + BigInt(c.bytes) + 256n > 4n * 1024n * 1024n
         )
           await send();
+        // An awaited earlier bulk may outlive this later claim's ownership.
+        if (!active.has(c.eventId)) {
+          cached.delete(c.eventId);
+          continue;
+        }
         if (this.#options.databaseBatchSize > 1 && !cached.has(c.eventId)) {
           const ids = claims
             .slice(index, index + 16)
