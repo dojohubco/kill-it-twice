@@ -88,6 +88,7 @@ export const sourceFiles = [
   '008-source-operations.sql',
   '009-source-validation-indexes.sql',
   '010-source-chunk-validation.sql',
+  '011-baseline-navigation.sql',
 ] as const;
 export const pipelineFiles = [
   'pipeline/001-staging.sql',
@@ -102,10 +103,12 @@ export const pipelineFiles = [
   'pipeline/010-capacity-polling.sql',
   'pipeline/011-terminal-admission.sql',
   'pipeline/012-constraint-backed-counts.sql',
+  'pipeline/013-event-navigation.sql',
 ] as const;
 export const consumerFiles = [
   'consumer/001-consumer.sql',
   'consumer/002-batch-byte-accounting.sql',
   'consumer/003-operations.sql',
   'consumer/004-bounded-receipt-reads.sql',
+  'consumer/005-event-navigation.sql',
 ] as const;
