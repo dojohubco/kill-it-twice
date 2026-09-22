@@ -1,6 +1,6 @@
 """Synthetic contract fixtures only; not hosted-kernel or service evidence."""
 from pathlib import Path
-import copy,sys,unittest
+import copy,sys,unittest,subprocess
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'scripts/capacity'))
 from observations import sample,complete,unavailable
 
@@ -12,6 +12,12 @@ def snapshot():
       'consumer':section({'processed':'32768','effects':'0','quarantine':'0'})}}
 
 class ObservationContract(unittest.TestCase):
+    def test_cli_admits_explicit_scanner_option_without_starting_services(self):
+        script=Path(__file__).resolve().parents[2]/'scripts/capacity/pilot.py'
+        help_result=subprocess.run([sys.executable,'-B',str(script),'--help'],capture_output=True,text=True,timeout=5)
+        self.assertEqual(help_result.returncode,0);self.assertIn('--scanners',help_result.stdout)
+        invalid=subprocess.run([sys.executable,'-B',str(script),'--scanners','0'],capture_output=True,text=True,timeout=5)
+        self.assertNotEqual(invalid.returncode,0);self.assertNotIn('kit-final-',invalid.stdout)
     def test_exact_completion(self):
         value=sample(snapshot(),1)
         self.assertTrue(complete(value,32768))

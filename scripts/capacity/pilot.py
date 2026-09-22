@@ -17,10 +17,11 @@ parser=argparse.ArgumentParser()
 parser.add_argument('--count',type=int,default=8192)
 parser.add_argument('--window',type=int,default=120)
 parser.add_argument('--reconcile',action='store_true',help='Require convergence within the window and independently compare frozen source/receiver state')
+parser.add_argument('--scanners',type=int,default=1,help='One to four actual isolated backfill worker processes')
 args=parser.parse_args()
 assert 257<=args.count<=2000000 and 30<=args.window<=7200 and 1<=args.scanners<=4
 r=Runtime(args.count)
-r.report.update(scope='Bounded capacity observation; counters are not independent reconciliation',mode='capacity-pilot',window_seconds=args.window)
+r.report.update(scope='Bounded capacity observation; counters are not independent reconciliation',mode='capacity-pilot',window_seconds=args.window,scanner_processes=args.scanners)
 r.env['KIT_IMAGE']='kill-it-twice-runtime:capacity-'+r.head[:12]
 (r.out/'verification.json').write_text('{"services":{}}')
 r.save();print(str(r.out),flush=True)

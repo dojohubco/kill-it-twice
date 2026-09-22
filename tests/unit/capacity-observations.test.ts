@@ -9,6 +9,6 @@ void test('capacity sampler distinguishes fresh, stale, unavailable and malforme
     ['-B', 'tests/capacity/observations_test.py'],
     { timeout: 5000, maxBuffer: 65536 },
   );
-  assert.match(result.stderr, /Ran 6 tests/);
+  assert.match(result.stderr, /Ran 7 tests/);
   assert.match(result.stderr, /\bOK\b/);
 });
