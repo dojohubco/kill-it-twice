@@ -114,4 +114,5 @@ export const consumerFiles = [
   'consumer/003-operations.sql',
   'consumer/004-bounded-receipt-reads.sql',
   'consumer/005-event-navigation.sql',
+  'consumer/006-projection-navigation.sql',
 ] as const;
