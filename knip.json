@@ -26,7 +26,8 @@
     "scripts/capacity/receipt-proof.ts",
     "scripts/capacity/sink-proof.ts",
     "scripts/capacity/count-proof.ts",
-    "scripts/capacity/storage.ts"
+    "scripts/capacity/storage.ts",
+    "scripts/capacity/page-proof.ts"
   ],
   "project": [
     "src/**/*.ts",

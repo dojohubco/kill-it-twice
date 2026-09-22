@@ -4,6 +4,7 @@ import {
 } from '../internal/transaction.ts';
 import { canonicalEvent, codec, uuid } from '../envelope.ts';
 import { limits } from '../limits.ts';
+import { backfillPageRecords } from './bounds.ts';
 import { object, text, key, flag, type Binding, type Page } from './types.ts';
 interface Work {
   identity(): Promise<Record<string, unknown>>;
@@ -12,7 +13,12 @@ interface Work {
 }
 export class BackfillSource {
   readonly #owner: TransactionOwner<Work>;
-  constructor(config: ConnectionConfig, binding: Binding) {
+  constructor(
+    config: ConnectionConfig,
+    binding: Binding,
+    records: number = limits.records,
+  ) {
+    records = backfillPageRecords(records);
     uuid(binding.sourceEpoch);
     uuid(binding.pipelineId);
     this.#owner = new TransactionOwner(config, (client, operation) => {
@@ -49,12 +55,12 @@ export class BackfillSource {
               binding.pipelineId,
               key(after),
               key(end),
-              limits.records,
+              records,
               run === undefined ? null : uuid(run),
             ],
           );
           const raw = r['items'];
-          if (!Array.isArray(raw) || raw.length > limits.records)
+          if (!Array.isArray(raw) || raw.length > records)
             throw new Error('Invalid source page count');
           const keys: string[] = [];
           let previous = BigInt(after),

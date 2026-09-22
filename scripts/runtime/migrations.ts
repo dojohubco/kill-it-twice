@@ -89,6 +89,7 @@ export const sourceFiles = [
   '009-source-validation-indexes.sql',
   '010-source-chunk-validation.sql',
   '011-baseline-navigation.sql',
+  '012-backfill-page-bounds.sql',
 ] as const;
 export const pipelineFiles = [
   'pipeline/001-staging.sql',
@@ -104,6 +105,7 @@ export const pipelineFiles = [
   'pipeline/011-terminal-admission.sql',
   'pipeline/012-constraint-backed-counts.sql',
   'pipeline/013-event-navigation.sql',
+  'pipeline/014-backfill-page-bounds.sql',
 ] as const;
 export const consumerFiles = [
   'consumer/001-consumer.sql',

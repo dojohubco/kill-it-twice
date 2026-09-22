@@ -1,18 +1,22 @@
 import { setTimeout as delay } from 'node:timers/promises';
+import { runtimePageRecords } from '../../src/backfill/bounds.ts';
 import { Backfill, BackfillFailure } from '../../src/backfill/worker.ts';
 import { writeCaptureReport } from '../../src/internal/capture-report.ts';
 import { connection, required } from './environment.ts';
 import { database, safeFailure } from './private.ts';
 const stop = new AbortController();
 for (const s of ['SIGINT', 'SIGTERM']) process.once(s, () => stop.abort());
-const worker = new Backfill({
-  source: connection('source_backfill'),
-  pipeline: connection('pipeline_backfill'),
-  binding: {
-    sourceEpoch: required('SOURCE_EPOCH'),
-    pipelineId: required('PIPELINE_ID'),
+const worker = new Backfill(
+  {
+    source: connection('source_backfill'),
+    pipeline: connection('pipeline_backfill'),
+    binding: {
+      sourceEpoch: required('SOURCE_EPOCH'),
+      pipelineId: required('PIPELINE_ID'),
+    },
   },
-});
+  { pageRecords: runtimePageRecords(process.env['BACKFILL_PAGE_RECORDS']) },
+);
 const zero = '00000000-0000-0000-0000-000000000000';
 let at = '-infinity',
   id = zero;

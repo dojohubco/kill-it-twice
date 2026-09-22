@@ -4,6 +4,7 @@ import {
 } from '../internal/transaction.ts';
 import { validateEvent, uuid } from '../envelope.ts';
 import { limits } from '../limits.ts';
+import { backfillPageRecords } from './bounds.ts';
 import {
   object,
   claim,
@@ -41,7 +42,8 @@ interface Work {
 }
 export class BackfillLedger {
   readonly #owner: TransactionOwner<Work>;
-  constructor(config: ConnectionConfig) {
+  constructor(config: ConnectionConfig, records: number = limits.records) {
+    records = backfillPageRecords(records);
     this.#owner = new TransactionOwner(config, (client, operation) => {
       let used = false;
       const query = (sql: string, args: unknown[]) =>
@@ -83,7 +85,7 @@ export class BackfillLedger {
           const { claim: c, page: p } = request;
           if (
             p.blocked ||
-            p.events.length > limits.records ||
+            p.events.length > records ||
             p.events.length !== p.keys.length
           )
             throw new Error('Invalid admitted backfill page');

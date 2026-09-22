@@ -7,6 +7,7 @@ import {
 } from '../internal/transaction.ts';
 import { retryDelay } from '../capture.ts';
 import { uuid } from '../envelope.ts';
+import { backfillPageRecords } from './bounds.ts';
 import { BackfillSource } from './source.ts';
 import { BackfillLedger } from './ledger.ts';
 import type { Binding, Claim, Status } from './types.ts';
@@ -19,6 +20,7 @@ export interface BackfillOptions {
   leaseMs: number;
   renewalMs: number;
   idleMs: number;
+  pageRecords: number;
 }
 export class BackfillFailure extends Error {
   readonly primary: unknown;
@@ -51,9 +53,11 @@ export class Backfill {
       leaseMs: 30000,
       renewalMs: 5000,
       idleMs: 1000,
+      pageRecords: 16,
       ...options,
     });
     const o = this.options;
+    backfillPageRecords(o.pageRecords);
     if (
       !Object.values(o).every(Number.isInteger) ||
       o.leaseMs < 300 ||
@@ -66,13 +70,20 @@ export class Backfill {
       throw new Error('Invalid bounded backfill configuration');
   }
   #ledger(label = 'control') {
-    return new BackfillLedger({
-      ...this.#config.pipeline,
-      application_name: `${this.#config.pipeline.application_name}:${label}`,
-    });
+    return new BackfillLedger(
+      {
+        ...this.#config.pipeline,
+        application_name: `${this.#config.pipeline.application_name}:${label}`,
+      },
+      this.options.pageRecords,
+    );
   }
   #source() {
-    return new BackfillSource(this.#config.source, this.#config.binding);
+    return new BackfillSource(
+      this.#config.source,
+      this.#config.binding,
+      this.options.pageRecords,
+    );
   }
   async start(run: string, ranges = 4) {
     const observation = await this.#source().identity();
