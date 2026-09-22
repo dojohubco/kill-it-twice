@@ -79,3 +79,13 @@ Add exactly three non-unique navigation indexes: source baseline `entity_id`, pi
 Then run the existing real functional fault gate and a larger explicitly bounded capacity fixture with independent reconciliation. Record stage durations, actual worker/process memory limits and observed resource use. The final two-million-row target remains unrun until its own retained evidence proves completion; individual-query speedups and smaller totals cannot substitute for it.
 
 Authoritative behavior references: PostgreSQL 18, [indexes and collations](https://www.postgresql.org/docs/18/indexes-collations.html), [multicolumn indexes](https://www.postgresql.org/docs/18/indexes-multicolumn.html), [CREATE INDEX](https://www.postgresql.org/docs/18/sql-createindex.html) and [EXPLAIN](https://www.postgresql.org/docs/18/using-explain.html). Planner choice and preservation are checked on the pinned server, not inferred solely from documentation.
+
+## Pipeline shared-memory provisioning — 2026-09-22
+
+The first indexed 131,072-row attempt used Docker's observed default 64-MiB `/dev/shm` inside a pipeline container still limited to 1 GiB total memory. Normal backfill status and a separate real read-only comparison raised PostgreSQL errors that dynamic shared-memory segments could not be resized (`No space left on device`). The source and receiver workers continued processing; the unavailable status was not a completed capacity result. The run was explicitly interrupted through its owned cleanup after preserving actual container IDs, limits, status samples and error logs.
+
+Provision a 256-MiB shared-memory filesystem for the pipeline PostgreSQL container only, inside its unchanged 1-GiB container memory ceiling. This is a Compose service resource setting, not host sysctl tuning, a mount of host IPC, a PostgreSQL durability reduction or permission expansion. Record actual `HostConfig.ShmSize` with each capacity sample and require the configured bound before seeding. No success is inferred until the same workload completes with independent reconciliation; query deadlines and data checks remain unchanged.
+
+A diagnostic read-only no-parallel/JIT comparison took over ten seconds and did not justify disabling those features in production. It changed no persistent setting. Avoid blindly changing plans or raising statement deadlines: the next run tests the identified shared-memory prerequisite first.
+
+References: Docker Compose [service shm_size](https://docs.docker.com/reference/compose-file/services/#shm_size) and PostgreSQL 18 [dynamic shared memory/resource settings](https://www.postgresql.org/docs/18/runtime-config-resource.html). Resource samples and actual server errors remain the evidence, not these documentation links alone.
