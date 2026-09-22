@@ -32,6 +32,10 @@ try:
     r.run(['node','scripts/runtime-preflight.ts'],'prerequisite')
     r.compose(['up','-d','--build','--scale','backfill='+str(args.scanners)],'cold-up',timeout=600)
     resources=ResourceSampler(r.project,r.out);resources.start()
+    pipeline_id=r.worker_id('pipeline')
+    pipeline_config=json.loads(r.run(['docker','inspect',pipeline_id],'pipeline-resource-budget').read_text())[0]['HostConfig']
+    assert pipeline_config['ShmSize']==268435456 and pipeline_config['Memory']==1073741824
+    r.report['pipeline_resource_budget']={'shared_memory_bytes':pipeline_config['ShmSize'],'total_memory_limit_bytes':pipeline_config['Memory']}
     actual=r.compose(['ps','-q','backfill'],'scanner-identities').read_text().splitlines();assert len(actual)==args.scanners
     r.report['scanner_container_ids']=actual
     address=r.compose(['port','ui','4200'],'gateway').read_text().strip();assert address.startswith('127.0.0.1:');r.url='http://'+address
@@ -77,6 +81,8 @@ try:
         (r.out/'journal.jsonl').write_text('');(r.out/'rejections.json').write_text('[]')
         proof=r.run([sys.executable,'-B','tests/final/reconcile.py',str(exported),'--count',str(args.count),'--journal',str(r.out/'journal.jsonl'),'--rejections',str(r.out/'rejections.json')],'independent-oracle',timeout=7200)
         r.report['reconciliation']=json.loads(proof.read_text());assert r.report['reconciliation']['status']=='PASS'
+        r.report['storage_reconciled']=r.json_command(['run','--rm','--no-deps','-T','inspect','node','scripts/capacity/storage.ts'],'post-refresh-storage')
+        assert r.report['storage_reconciled']['elasticsearch']['lucene_documents']==str(args.count)
         r.report['status']='RECONCILED_COMPLETE'
 
     assert subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()==r.head

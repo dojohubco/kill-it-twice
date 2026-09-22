@@ -35,7 +35,7 @@ class ResourceSampler:
         for container in containers:
             labels=container['Config']['Labels'];assert labels['com.docker.compose.project']==self.project
             identity=container['Id'];pid=container['State']['Pid'];role=labels['com.docker.compose.service']
-            row={'container_id':identity,'role':role,'pid':pid,'limit_bytes':container['HostConfig']['Memory'],'cpu_usage_usec':None,'memory_current_bytes':None,'memory_peak_bytes':None,'process_rss_bytes':None,'process_rss_high_water_bytes':None}
+            row={'container_id':identity,'role':role,'pid':pid,'limit_bytes':container['HostConfig']['Memory'],'shared_memory_limit_bytes':container['HostConfig']['ShmSize'],'cpu_usage_usec':None,'memory_current_bytes':None,'memory_peak_bytes':None,'process_rss_bytes':None,'process_rss_high_water_bytes':None}
             try:
                 status=memory_fields(Path(f'/proc/{pid}/status').read_text());row['process_rss_bytes']=status.get('VmRSS');row['process_rss_high_water_bytes']=status.get('VmHWM')
                 lines=Path(f'/proc/{pid}/cgroup').read_text().splitlines();groups=[line[3:] for line in lines if line.startswith('0::')]
@@ -46,7 +46,7 @@ class ResourceSampler:
                     cpu=dict(line.split() for line in (group/'cpu.stat').read_text().splitlines());row['cpu_usage_usec']=int(cpu['usage_usec'])
             except FileNotFoundError:row['process_exited_during_observation']=True
             rows.append(row)
-            prior=self.peak.setdefault(identity,{'role':role,'limit_bytes':row['limit_bytes']})
+            prior=self.peak.setdefault(identity,{'role':role,'limit_bytes':row['limit_bytes'],'shared_memory_limit_bytes':row['shared_memory_limit_bytes']})
             for field in ['cpu_usage_usec','memory_peak_bytes','process_rss_high_water_bytes']:
                 if row[field] is not None:prior[field]=max(prior.get(field,0),row[field])
         entry={'at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'host_memory':memory_fields(Path('/proc/meminfo').read_text()),'disk_free_bytes':shutil.disk_usage(self.directory).free,'containers':rows}

@@ -73,6 +73,7 @@ services:
     depends_on: { provision: { condition: service_completed_successfully } }
     command: [postgres, -c, log_min_error_statement=panic]
     mem_limit: 1g
+    shm_size: 256m
     healthcheck:
       test:
         [CMD-SHELL, 'pg_isready -h 127.0.0.1 -U pipeline_admin -d pipeline_m2b']

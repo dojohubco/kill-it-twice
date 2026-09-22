@@ -49,6 +49,31 @@ if (mode === 'compose') {
         CONTROL_CONFIG_FILE: '/nonsecret-quality-fixture/control.json',
       },
     );
+  const runtime = object(
+    JSON.parse(
+      await checked('docker', [
+        'compose',
+        '-f',
+        'compose.yaml',
+        '-p',
+        'quality-runtime-budget',
+        'config',
+        '--format',
+        'json',
+      ]),
+    ),
+  );
+  const pipeline = object(object(runtime['services'])['pipeline']);
+  assert.equal(
+    pipeline['mem_limit'],
+    '1073741824',
+    'Pipeline total-memory budget changed',
+  );
+  assert.equal(
+    pipeline['shm_size'],
+    '268435456',
+    'Pipeline shared-memory budget changed',
+  );
   for (const file of ['infra/runtime/provision.sh', 'infra/runtime/realm.sh'])
     await checked('bash', ['-n', file]);
 } else if (mode === 'workflow') {
