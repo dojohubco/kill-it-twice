@@ -71,7 +71,7 @@ async function expectRollback(
   };
 }
 try {
-  const ca = await readFile('/es/server.crt', 'utf8');
+  const ca = await readFile('/private/server.crt', 'utf8');
   const es = new EsLedger(sql('pipeline_es', await password('pipeline_es')));
   const transport = new EsTransport({
     node: 'https://toxiproxy:8666',
