@@ -80,7 +80,10 @@ if (role === 'backfill') {
           request.claim.range > 0 &&
             BigInt(request.claim.checkpoint) >=
               BigInt(
-                2 * runtimePageRecords(process.env['BACKFILL_PAGE_RECORDS']),
+                Math.max(
+                  32,
+                  2 * runtimePageRecords(process.env['BACKFILL_PAGE_RECORDS']),
+                ),
               ),
         );
         return result;

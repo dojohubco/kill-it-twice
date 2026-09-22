@@ -84,3 +84,27 @@ void test('functional and capacity launchers expose explicit page sizing without
     );
   }
 });
+
+void test('tiny functional fixtures cannot silently skip the required retained page boundaries', async () => {
+  const { execFile } = await import('node:child_process');
+  const { promisify } = await import('node:util');
+  await assert.rejects(
+    promisify(execFile)(
+      'python3',
+      [
+        '-B',
+        'scripts/verify-final.py',
+        '--count',
+        '257',
+        '--page-records',
+        '64',
+      ],
+      { timeout: 5000, maxBuffer: 65536 },
+    ),
+    (error: unknown) =>
+      error instanceof Error &&
+      'stderr' in error &&
+      typeof error.stderr === 'string' &&
+      error.stderr.includes('requires room for two retained pages'),
+  );
+});

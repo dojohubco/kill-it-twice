@@ -16,6 +16,8 @@ arguments.add_argument('--count',type=int,default=1024)
 arguments.add_argument('--page-records',type=int,default=16,help='Explicit 1..64 backfill record ceiling with unchanged byte bounds')
 options=arguments.parse_args()
 assert 257 <= options.count <= 2000000 and 1<=options.page_records<=64
+minimum_pages=max(2,(32+options.page_records-1)//options.page_records)+2
+assert options.count//4>=minimum_pages*options.page_records, 'The functional fixture requires room for two retained pages and both observed page boundaries'
 r=Runtime(options.count)
 r.report["page_records"]=options.page_records
 workers=['capture','backfill','es-worker','publisher','consumer','observer']
