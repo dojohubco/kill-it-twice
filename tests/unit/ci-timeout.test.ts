@@ -2,6 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ciTimeout } from '../../scripts/ci-timeout.ts';
 await test('complete gate deadlines include M4.1 M5A and M5B without broadening arbitrary commands', () => {
+  assert.equal(ciTimeout('make', ['verify']), 25200000);
+  assert.equal(ciTimeout('make', ['verify-functional']), 2400000);
+  assert.equal(ciTimeout('make', ['verify-runtime']), 1800000);
+  assert.equal(ciTimeout('make', ['verify-ui']), 1200000);
   for (const gate of ['verify-m3', 'verify-m4', 'verify-m4-1'])
     assert.equal(ciTimeout('make', [gate]), 3000000);
   assert.equal(ciTimeout('make', ['verify-m5a']), 3600000);

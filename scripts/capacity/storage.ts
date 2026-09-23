@@ -12,6 +12,17 @@ import {
 import { withCleanup } from '../support.ts';
 try {
   const databases: Record<string, unknown>[] = [];
+  const payload = await database(
+    await adminConfig('source'),
+    async (client) => {
+      await client.query('BEGIN READ ONLY');
+      return (
+        await client.query<Record<string, unknown>>(
+          `SELECT count(*)::text AS entities,sum(octet_length(payload::text))::text AS total_bytes,min(octet_length(payload::text))::text AS minimum_bytes,max(octet_length(payload::text))::text AS maximum_bytes,avg(octet_length(payload::text))::text AS average_bytes FROM source.baseline_revisions`,
+        )
+      ).rows[0];
+    },
+  );
   for (const store of ['source', 'pipeline', 'consumer'] as const) {
     databases.push(
       await database(await adminConfig(store), async (client) => {
@@ -72,6 +83,7 @@ try {
   const output = stringify({
     observed_at: new Date().toISOString(),
     databases,
+    baseline_payload: payload,
     elasticsearch: receiver,
   });
   assert.ok(output && Buffer.byteLength(output) <= 262144);

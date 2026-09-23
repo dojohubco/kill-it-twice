@@ -14,7 +14,7 @@ async function checked(executable: string, args: string[], env = process.env) {
       !result.timedOut &&
       !result.outputOverflow &&
       result.cleanupErrors.length === 0,
-    `${executable} failed: ${result.stderr}`,
+    `${executable} failed: ${result.stderr}\n${result.stdout}`,
   );
   console.log(result.stdout.trim());
   return result.stdout.trim();

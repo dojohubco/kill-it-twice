@@ -46,7 +46,7 @@ try {
         return {
           event: (
             await c.query<Record<string, unknown>>(
-              'SELECT event_id,content_sha256,staged_at::text FROM pipeline.events WHERE event_id=$1',
+              "SELECT event_id,content_sha256,encode(body_bytes,'hex') AS body_bytes,staged_at::text FROM pipeline.events WHERE event_id=$1",
               [key],
             )
           ).rows,

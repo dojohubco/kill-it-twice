@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import resource
 import subprocess
 import time
 import urllib.request
@@ -25,37 +26,56 @@ class Runtime:
         self.env = dict(os.environ, KIT_UI_PORT='0', KIT_IMAGE='kill-it-twice-runtime:final-' + self.head[:12])
         self.compose_args = ['docker', 'compose', '-f', str(ROOT/'compose.yaml'), '-f', str(self.out/'verification.json'), '-p', self.project]
         self.sequence = 0
+        self.health_check = lambda: None
         self.report = dict(scope='Integrated real fault gates at an explicit finite fixture; not unrun scale evidence', project=self.project, count=count, head=self.head, developmental=bool(self.dirty), started_at=now(), status='RUNNING', gates=[], commands=[], cleanup=None)
         self.save()
     def save(self): (self.out/'run.json').write_text(json.dumps(self.report, indent=2)+'\n')
-    def run(self, args, label, timeout=120, expected=(0,), input_file=None, maximum=64*1024*1024):
+    def run(self, args, label, timeout=120, expected=(0,), input_file=None, maximum=64*1024*1024, graceful=0):
         self.sequence += 1
         prefix = self.out / f'{self.sequence:03d}-{label}'
         stdout, stderr = prefix.with_suffix('.stdout.log'), prefix.with_suffix('.stderr.log')
         record = dict(args=args, label=label, started_at=now(), stdout=stdout.name, stderr=stderr.name)
         source = input_file.open('rb') if input_file else subprocess.DEVNULL
+        usage_before=resource.getrusage(resource.RUSAGE_CHILDREN)
+        peak_rss=0
         timed_out = overflow = False
         process = None
+        failure = None
         try:
             with stdout.open('wb') as out, stderr.open('wb') as err:
                 process = subprocess.Popen(args, cwd=ROOT, env=self.env, stdin=source, stdout=out, stderr=err, start_new_session=True)
                 deadline = time.monotonic()+timeout
                 while process.poll() is None:
+                    self.health_check()
+                    try:
+                        for line in Path(f'/proc/{process.pid}/status').read_text().splitlines():
+                            if line.startswith('VmHWM:'):peak_rss=max(peak_rss,int(line.split()[1])*1024)
+                    except FileNotFoundError:pass
                     timed_out = time.monotonic() >= deadline
                     overflow = os.fstat(out.fileno()).st_size + os.fstat(err.fileno()).st_size > maximum
                     if timed_out or overflow:
-                        os.killpg(process.pid, signal.SIGKILL); process.wait(timeout=10); break
+                        if graceful:
+                            process.terminate()
+                            try: process.wait(timeout=graceful)
+                            except subprocess.TimeoutExpired: pass
+                        if process.poll() is None:
+                            os.killpg(process.pid, signal.SIGKILL); process.wait(timeout=10)
+                        break
                     time.sleep(.05)
                 overflow |= os.fstat(out.fileno()).st_size + os.fstat(err.fileno()).st_size > maximum
                 record.update(exit=process.returncode, timed_out=timed_out, output_overflow=overflow)
-        except BaseException:
+        except BaseException as error:
+            failure=error
             if process and process.poll() is None:
                 os.killpg(process.pid, signal.SIGKILL); process.wait(timeout=10)
-            raise
+            record.update(exit=process.returncode if process else None,timed_out=timed_out,output_overflow=overflow,interrupted={'type':type(error).__name__,'message':str(error)})
         finally:
             if input_file: source.close()
+        usage_after=resource.getrusage(resource.RUSAGE_CHILDREN)
+        record.update(process_peak_rss_bytes=peak_rss,cpu_user_seconds=usage_after.ru_utime-usage_before.ru_utime,cpu_system_seconds=usage_after.ru_stime-usage_before.ru_stime)
         record.update(stdout_sha256=sha(stdout), stderr_sha256=sha(stderr), finished_at=now())
         self.report['commands'].append(record); self.save()
+        if failure is not None:raise failure
         assert record['exit'] in expected and not timed_out and not overflow, record
         return stdout
     def compose(self, args, label, **options): return self.run(self.compose_args+args, label, **options)
@@ -74,14 +94,15 @@ class Runtime:
             data=response.read(limit+1); assert len(data)<=limit
             return data.decode('utf8')
     def status(self): return json.loads(self.http('/api/v1/status'))['data']
-    def wait(self, operation, predicate, label, timeout=240):
+    def wait(self, operation, predicate, label, timeout=240, interval=.2):
         deadline=time.monotonic()+timeout; last=None
         while time.monotonic()<deadline:
+            self.health_check()
             try:
                 last=operation()
                 if predicate(last): return last
             except (OSError,ValueError) as e: last={'unavailable':type(e).__name__}
-            time.sleep(.2)
+            time.sleep(interval)
         (self.out/(label+'-last.json')).write_text(json.dumps(last,indent=2))
         raise AssertionError('Deadline: '+label)
     def control(self, role, boundary='', record=False):

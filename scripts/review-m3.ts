@@ -84,7 +84,6 @@ if (mode === 'capture') {
       ['npm-ci', 'npm', ['ci', '--no-audit', '--no-fund'], 0],
       ['verify-m3-first', 'make', ['verify-m3'], 0],
       ['verify-m3-repeat', 'make', ['verify-m3'], 0],
-      ['full-verify', 'make', ['verify'], 2],
     ] as const) {
       const startedAt = new Date().toISOString();
       const r = await command(

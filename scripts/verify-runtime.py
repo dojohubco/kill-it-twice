@@ -18,7 +18,7 @@ OUT.mkdir(parents=True)
 HEAD = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
 DIRTY = subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True)
 COUNT = 257
-ENV = dict(os.environ, KIT_UI_PORT='0', KIT_IMAGE='kill-it-twice-runtime:verify-' + HEAD[:12])
+ENV = dict(os.environ, COMPOSE_PROJECT_NAME=PROJECT, KIT_UI_PORT='0', KIT_IMAGE='kill-it-twice-runtime:verify-' + HEAD[:12])
 COMPOSE = ['docker', 'compose', '-f', str(ROOT / 'compose.yaml'), '-p', PROJECT]
 report = dict(scope='Bounded retained runtime smoke, not final gates or capacity', project=PROJECT,
     started_at=datetime.datetime.now(datetime.timezone.utc).isoformat(), head=HEAD, developmental=bool(DIRTY),
@@ -153,7 +153,7 @@ try:
         for ports in bindings.values():
             for binding in ports or []: assert binding['HostIp'] == '127.0.0.1' and service == 'ui'
     case('R01', dict(gateway=url, initial=before, containers=len(ids)))
-    compose(['run', '--rm', '--no-deps', '-T', 'seed', 'node', 'scripts/runtime/seed.ts', str(COUNT)], 'seed', timeout=240)
+    run(['make','seed','SEED_COUNT='+str(COUNT)], 'published-make-seed', timeout=240)
     first = settled(url, COUNT, 0)
     original_baselines = compose(['run', '--rm', '--no-deps', '-T', 'inspect', 'node', 'scripts/runtime/inspect.ts', 'baselines'], 'baseline-before-repeat')
     compose(['run', '--rm', '--no-deps', '-T', 'seed', 'node', 'scripts/runtime/seed.ts', str(COUNT)], 'same-seed', timeout=60)
@@ -219,7 +219,10 @@ try:
         run([sys.executable, 'tests/runtime/reconcile.py', str(copy), '--count', str(COUNT), '--journal', str(OUT / 'journal.jsonl')], 'oracle-negative-' + mode, expected=(1,))
         negatives.append(mode)
     case('R06', dict(independent_oracles='before and after retained restart', negative_controls=negatives, capacity='NOT RUN'))
-    assert [c['id'] for c in report['cases']] == ['R01', 'R02', 'R03', 'R04', 'R05', 'R06']
+    compose(['start','capture','es-worker','publisher','consumer','observer'],'start-operator-fixture-workers')
+    controls=run(['node','scripts/runtime-operator-browser.ts',url,str(OUT),PROJECT],'real-operator-controls',timeout=360)
+    case('R07',json.loads(controls.read_text()))
+    assert [c['id'] for c in report['cases']] == ['R01', 'R02', 'R03', 'R04', 'R05', 'R06','R07']
     assert subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip() == HEAD
     assert subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True) == DIRTY
     for item in inputs: assert hashlib.sha256((ROOT / item['path']).read_bytes()).hexdigest() == item['sha256'], item['path']

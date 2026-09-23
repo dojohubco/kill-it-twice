@@ -13,13 +13,12 @@ verify-m1: quality
 	@echo 'M1/M1.1 ONLY: fresh source acceptance; G1-G5 remain NOT IMPLEMENTED'
 	npm run test:integration:m1
 
+VERIFY_COUNT ?= 1000000
 verify:
-	@echo 'G1 NOT IMPLEMENTED'
-	@echo 'G2 NOT IMPLEMENTED'
-	@echo 'G3 NOT IMPLEMENTED'
-	@echo 'G4 NOT IMPLEMENTED'
-	@echo 'G5 NOT IMPLEMENTED'
-	@exit 1
+	python3 -B scripts/verify-submission.py --count $(VERIFY_COUNT)
+
+.PHONY: verify-fast
+verify-fast: verify-functional
 
 .PHONY: verify-m2a
 verify-m2a: quality

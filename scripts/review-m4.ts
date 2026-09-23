@@ -190,13 +190,11 @@ if (mode === 'capture') {
         });
         await rm(join(checkout, '.tools'), { recursive: true, force: true });
       }
-      await execute('full-verify', 'make', ['verify'], 2);
     } else {
       for (const [name, executable, commandArgs, expected] of [
         ['npm-ci', 'npm', ['ci', '--no-audit', '--no-fund'], 0],
         [`${gate}-first`, 'make', [gate], 0],
         [`${gate}-repeat`, 'make', [gate], 0],
-        ['full-verify', 'make', ['verify'], 2],
       ] as const)
         await execute(name, executable, commandArgs, expected);
     }

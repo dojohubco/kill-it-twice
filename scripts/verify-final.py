@@ -5,6 +5,9 @@ import json
 import os
 from pathlib import Path
 import shutil
+import signal
+from capacity.resources import ResourceSampler, memory_fields
+from capacity.replicas import compose_scales
 import subprocess
 import sys
 import time
@@ -20,6 +23,38 @@ minimum_pages=max(2,(32+options.page_records-1)//options.page_records)+2
 assert options.count//4>=minimum_pages*options.page_records, 'The functional fixture requires room for two retained pages and both observed page boundaries'
 r=Runtime(options.count)
 r.report["page_records"]=options.page_records
+large=options.count>=1000000
+resources=None
+started=time.monotonic()
+overall_deadline=started+(19800 if large else 2400)
+phase='prerequisites'
+r.report['required_cases']=['G1','G2','G3','G4','G5','reconciliation','negative-controls','resources','cleanup']
+r.report['budgets_seconds']={'total':19800 if large else 2400,'seed':7200,'large_drain':10800,'incremental_settle':360,'export_each':3600,'oracle_each':7200,'barrier':24,'cleanup':180}
+disk_paths=[ROOT]
+next_health=0
+def health():
+    global next_health
+    if time.monotonic()<next_health:return
+    next_health=time.monotonic()+1
+    assert time.monotonic()<overall_deadline,'Overall final verification deadline'
+    assert all(shutil.disk_usage(path).free>=10*1024**3 for path in disk_paths),'Evidence or Docker disk reserve below 10 GiB'
+    assert memory_fields(Path('/proc/meminfo').read_text())['MemAvailable']>=(2 if large else 1)*1024**3,'Host available memory below declared reserve'
+    if resources is not None:assert not resources.errors,'Resource sampling failed'
+r.health_check=health
+signal.signal(signal.SIGTERM,lambda *_: (_ for _ in ()).throw(KeyboardInterrupt('Verifier termination requested')))
+def set_phase(name):
+    global phase
+    phase=name;r.report['phase']=phase;r.save();print('PHASE '+name,flush=True)
+def scale(scanners,sinks):
+    r.compose(['up','-d','--no-build','--no-recreate',*compose_scales(scanners,sinks),*workers],'bounded-worker-replicas',timeout=180)
+    r.report.setdefault('replica_changes',[]).append({'phase':phase,'scanners':scanners,'sinks':sinks,'at':now()})
+    for role in workers:
+        ids=r.compose(['ps','-q',role],'budget-'+role).read_text().split()
+        expected=scanners if role=='backfill' else 1 if role=='capture' else sinks
+        assert len(ids)==expected
+        values=json.loads(r.run(['docker','inspect',*ids],'limits-'+role).read_text())
+        assert all(x['HostConfig']['Memory']==268435456 for x in values)
+
 workers=['capture','backfill','es-worker','publisher','consumer','observer']
 journal=r.out/'journal.jsonl';journal.write_text('')
 rejections=r.out/'rejections.json';rejections.write_text('[]')
@@ -41,14 +76,23 @@ def changes(items):
 def settled(rejected=0,es=True,timeout=360):
     total=options.count+len(seen)
     def accept(s):
-        dependencies=s['dependencies'];p=dependencies['pipeline']['data'];c=dependencies['consumer']['data']
+        dependencies=s['dependencies']
+        if any(dependencies[name]['freshness']!='fresh' or not isinstance(dependencies[name]['data'],dict) for name in ('source','pipeline','consumer')):return False
+        if not isinstance(s['backfill'],dict):return False
+        p=dependencies['pipeline']['data'];c=dependencies['consumer']['data']
         if p['staged']!=str(total) or c['processed']!=str(total) or c['effects']!=str(len(seen)):return False
         states={(x['sink'],x['state']):int(x['count']) for x in p['deliveries']}
         if states.get(('rabbitmq','satisfied'),0)!=total:return False
         if es and (states.get(('elasticsearch','satisfied'),0)!=total-rejected or states.get(('elasticsearch','dead_letter'),0)!=rejected):return False
         if sum(int(x['count']) for x in p['observations'] if x['state']=='processed')!=total:return False
         return dependencies['source']['data']['counts']['acknowledged']==str(len(seen)) and s['backfill']['phase']=='complete'
-    return r.wait(r.status,accept,'settle',timeout)
+    def observation():
+        value=r.status()
+        path=r.out/'status-observations.jsonl'
+        assert not path.exists() or path.stat().st_size<64*1024**2
+        with path.open('a') as stream:stream.write(json.dumps({'at':now(),'data':value},separators=(',',':'))+'\n')
+        return value
+    return r.wait(observation,accept,'settle-'+phase,timeout,interval=5 if large else 1)
 
 def event_key(reply):
     e=reply['result'];return f"{e['source_epoch']}:{e['entity_id']}:{e['entity_version']}"
@@ -63,7 +107,7 @@ def export_all(destination):
     destination.mkdir()
     for name in ('baselines','source','mutations','commands','work','pipeline','consumer','totals','projection','receiver'):
         log=r.compose(['run','--rm','--no-deps','-T','inspect','node','scripts/runtime/inspect.ts',name],'export-'+name,timeout=3600,maximum=max(64*1024*1024,options.count*8192))
-        shutil.copyfile(log,destination/(name+'.jsonl'))
+        os.link(log,destination/(name+'.jsonl'))
     values=r.inspect('failures')
     (destination/'failures.jsonl').write_text(''.join(json.dumps(v,separators=(',',':'))+'\n' for v in values))
 def oracle(directory,expected=(0,)):
@@ -81,12 +125,26 @@ inputs=[{'path':p,'sha256':sha(ROOT/p)} for p in sorted(set(filter(None,files)))
 (r.out/'inputs.json').write_text(json.dumps(inputs,indent=2));r.report['input_sha256']=hashlib.sha256(json.dumps(inputs,separators=(',',':')).encode()).hexdigest();r.save()
 print(str(r.out),flush=True)
 try:
+    assert not r.dirty,'Final fault acceptance requires clean committed code'
+    docker_root=Path(subprocess.check_output(['docker','info','--format','{{.DockerRootDir}}'],text=True).strip())
+    assert docker_root.is_absolute()
+    disk_paths.append(docker_root)
+    admission={'docker_disk_free_bytes':shutil.disk_usage(docker_root).free,'available_memory_bytes':memory_fields(Path('/proc/meminfo').read_text())['MemAvailable'],'free_disk_bytes':shutil.disk_usage(ROOT).free}
+    r.report['admission']=admission;r.save()
+    assert admission['available_memory_bytes']>=(8 if large else 4)*1024**3,'Admission requires 8 GiB available memory for large / 4 GiB for development'
+    assert min(admission['free_disk_bytes'],admission['docker_disk_free_bytes'])>=max(10,80*options.count/1000000)*1024**3,'Admission requires 80 GiB free per million entities (10 GiB minimum)'
+    r.run(['git','archive','--format=tar','--output='+str(r.out/'source.tar'),r.head],'source-snapshot')
+    r.report['source_snapshot_sha256']=sha(r.out/'source.tar')
     r.run(['node','scripts/runtime-preflight.ts'],'prerequisite')
     r.compose(['config','--quiet'],'compose-configuration')
     r.compose(['up','-d','--build'],'cold-up',timeout=600)
     port=r.compose(['port','ui','4200'],'gateway').read_text().strip();assert port.startswith('127.0.0.1:');r.url='http://'+port;r.report['gateway']=r.url
+    resources=ResourceSampler(r.project,r.out,interval=15 if large else 5);resources.start()
+    set_phase('G1')
+    seed_start=time.monotonic()
     initial=r.inspect();assert initial['source']['entities']==initial['pipeline']['events']=='0'
     r.compose(['run','--rm','--no-deps','-T','seed','node','scripts/runtime/seed.ts',str(options.count)],'seed',timeout=7200)
+    r.report['seed_and_activation_seconds']=time.monotonic()-seed_start;r.save()
     healthy=r.boundary(token);claim=healthy['data']['request']['claim'];before=r.inspect('backfill')
     old=next(q for q in before if q['run_id']==claim['runId'] and q['range_no']==claim['range'])
     assert old['checkpoint']==claim['checkpoint'] and int(old['checkpoint'])>=32 and int(old['committed_batches'])>=2
@@ -103,9 +161,14 @@ try:
     update=request('update','1',{'name':'Concurrent update','country':'GE','loyalty_points':42})
     changed=changes([update,update,request('delete','2'),request('restore','2',{'name':'Restored','country':'FR','loyalty_points':8}),request('delete','3'),request('create',payload={'name':'Concurrent insert','country':'GE','loyalty_points':9})])
     assert changed[0]['result']==changed[1]['result'] and changed[1]['replayed'] is True
-    r.control('backfill');r.start('backfill');complete=settled(timeout=1800)
+    r.control('backfill');r.start('backfill')
+    if large:scale(4,2)
+    drain_start=time.monotonic();complete=settled(timeout=10800 if large else 1800)
+    r.report['scan_drain_after_fault_seconds']=time.monotonic()-drain_start
+    if large:scale(1,1)
     r.gate('G1',{'healthy':healthy,'healthy_progress':healthy_after,'fault':killed,'checkpoint_before':old,'checkpoint_after_kill':current,'open_sessions':sessions,'completed_run':complete['backfill'],'concurrent_mutations':len(seen)})
 
+    set_phase('G2')
     healthy_token=start_role('consumer','consumer.after_commit.before_ack',True)
     one=changes([request('create',payload={'name':'Healthy consumer control','country':'GE','loyalty_points':1})])[0]
     healthy=r.boundary(healthy_token);key=event_key(one);record=event(key)
@@ -134,6 +197,7 @@ try:
     assert len({x['wire_sha256'] for x in delivered})==1
     r.gate('G2',{'consumer':consumer_evidence,'publisher':{'fault':publication_kill,'event':key,'deliveries':delivered,'one_effect':after['consumer'],'healthy':healthy}})
 
+    set_phase('G3')
     attempts_before=r.inspect('attempts');es_id=r.worker_id('elasticsearch')
     r.compose(['stop','-t','20','elasticsearch'],'elasticsearch-stop',timeout=60);outage_start=time.monotonic()
     down=json.loads(r.run(['docker','inspect',es_id],'elasticsearch-stopped').read_text())[0];assert not down['State']['Running']
@@ -146,6 +210,7 @@ try:
     attempts_after=r.inspect('attempts');attempt_delta=sum(int(x['count']) for x in attempts_after)-sum(int(x['count']) for x in attempts_before);assert 1<=attempt_delta<=150
     duration=time.monotonic()-outage_start;r.start('elasticsearch');recovered=settled(timeout=360)
     r.gate('G3',{'stopped_container':es_id,'down_seconds':duration,'mutations_while_down':10,'broker_consumer_progress':True,'attempt_delta':attempt_delta,'attempt_bound':150,'recovered_observation':recovered['observed_at'] if 'observed_at' in recovered else recovered.get('timestamp')})
+    set_phase('G4')
     r.stop('es-worker')
     batch=[request('create',payload={'name':f'Bulk record {i}','country':'GE','loyalty_points':'not-a-number' if i in (17,233,499) else i}) for i in range(500)]
     declared=[batch[i]['command_id'] for i in (17,233,499)];rejections.write_text(json.dumps(declared,indent=2))
@@ -164,6 +229,7 @@ try:
     request_count=len(responses);time.sleep(2);assert len([x for x in trace('es-worker') if x['type']=='bulk-response'])==request_count
     r.gate('G4',{'operations':500,'actual_applied':497,'actual_mapper_rejections':rejected,'dead_letters':failures,'request_sha256':responses[0]['request_sha256'],'declared_source_command_ids':declared})
 
+    set_phase('G5')
     snapshot=settled(rejected=3);metrics=r.http('/metrics')
     (r.out/'g5-status.json').write_text(json.dumps(snapshot,indent=2));(r.out/'g5-metrics.prom').write_text(metrics)
     assert snapshot['backfill']['phase']=='complete'
@@ -178,8 +244,15 @@ try:
         count_proof=r.json_command(['run','--rm','--no-deps','-T','inspect','node','scripts/capacity/count-proof.ts'],'declared-failure-count-equivalence')
         assert count_proof['status']=='PASS'
         r.report['count_constraint_proof']=count_proof
+    set_phase('reconciliation')
+    r.report['storage']=r.json_command(['run','--rm','--no-deps','-T','inspect','node','scripts/capacity/storage.ts'],'final-storage')
+    payload=r.report['storage']['baseline_payload']
+    assert payload['entities']==str(options.count) and 900<=float(payload['average_bytes'])<=1500
+    if large:assert int(payload['total_bytes'])>3*268435456
+    r.report['worker_memory_limit_bytes']=268435456
     exported=r.out/'final-state';export_all(exported)
     oracle_result=json.loads(oracle(exported).read_text());r.report['reconciliation']=oracle_result;r.save()
+    set_phase('negative-controls')
     negative_results=[]
     for kind in ('missing','extra','payload','version','effect'):
         directory=r.out/('negative-'+kind);directory.mkdir()
@@ -189,6 +262,7 @@ try:
         changed=False;first=None
         with (exported/target).open() as source,(directory/target).open('w') as output:
             for line in source:
+                health()
                 row=json.loads(line);first=first or row
                 if not changed and (kind!='effect' or row['has_effect']):
                     changed=True
@@ -201,7 +275,15 @@ try:
             if kind=='extra':
                 assert first is not None;first['document_id']+='-unexpected';output.write(json.dumps(first)+'\n')
         assert changed
-        oracle(directory,expected=(1,));negative_results.append(kind)
+        negative_log=oracle(directory,expected=(1,))
+        # A failed process alone is insufficient: require an actual oracle assertion.
+        error_log=negative_log.with_name(negative_log.name.replace('stdout','stderr')).read_text()
+        assert 'AssertionError' in error_log and 'OperationalError' not in error_log
+        scratch=directory/'oracle.sqlite'
+        negative_results.append({'kind':kind,'scratch_bytes':scratch.stat().st_size,'scratch_sha256':sha(scratch),'result_log':negative_log.name})
+        scratch.unlink()  # Only this completed negative case's reconstructible disk-backed scratch.
+        journal_file=directory/'oracle.sqlite-journal'
+        if journal_file.exists():journal_file.unlink()
     r.report['negative_controls']=negative_results
     assert [g['id'] for g in r.report['gates']]==['G1','G2','G3','G4','G5']
     assert subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()==r.head
@@ -210,8 +292,18 @@ try:
     r.report['status']='PASS'
     r.report['scale']={'requested_baselines':options.count,'two_million_profile':'EXECUTED' if options.count==2000000 else 'NOT RUN','performance_claim':'No extrapolation from this fixture'}
 except BaseException as error:
-    r.report['status']='FAIL';r.report['error']={'type':type(error).__name__,'message':str(error)}
+    r.report['status']='FAIL';r.report['error']={'phase':phase,'type':type(error).__name__,'message':str(error)}
 finally:
+    r.health_check=lambda: None  # Resource failure must not disable owned cleanup.
+    if resources is not None:
+        try:
+            r.report['resources']=resources.finish()
+            if resources.errors:r.report['status']='FAIL'
+        except BaseException as error:
+            r.report['status']='FAIL';r.report['measurement_error']={'type':type(error).__name__,'message':str(error)}
+    observed={g['id']:g['status'] for g in r.report['gates']}
+    r.report['gate_report']={g:observed.get(g,'FAIL' if g==phase else 'NOT RUN') for g in ('G1','G2','G3','G4','G5')}
     r.cleanup()
+    for gate,result in r.report['gate_report'].items():print(gate+' '+result,flush=True)
 print(r.report['status']+': '+str(r.out/'run.json'),flush=True)
 sys.exit(0 if r.report['status']=='PASS' else 1)
