@@ -1,6 +1,6 @@
 # Final acceptance matrix
 
-Status: **NOT READY**, closure candidate not yet executed. States: IMPLEMENTED means a code path exists; VERIFIED requires inspected matching execution evidence; UNVERIFIED means required current evidence is absent; FAILED means an attempted mandatory check failed. Historical passes have their own SHA and are not substituted for current verification.
+Status: **NOT READY**. The latest full attempt at `f83149b` FAILED during million-row sealing; the narrowly corrected candidate awaits full execution. States: IMPLEMENTED means a code path exists; VERIFIED requires inspected matching execution evidence; UNVERIFIED means required current evidence is absent; FAILED means an attempted mandatory check failed. Historical passes have their own SHA and are not substituted for current verification.
 
 | Original criterion                                                                   | Implementation      | Current acceptance state                            | Entry point / executable command                                                   | Evidence                                                                                            |
 | ------------------------------------------------------------------------------------ | ------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
@@ -15,6 +15,8 @@ Status: **NOT READY**, closure candidate not yet executed. States: IMPLEMENTED m
 | SPEC before code, chronological evolution, AGENTS                                    | IMPLEMENTED         | VERIFIED in local Git                               | `git log --reverse`, `git show 251cb5a`                                            | SPEC first `251cb5a`, harness `7af0818`, implementation `5368de6`; no history rewrite               |
 | README diagram, >=4 ADRs, capacity/exclusions, >=2 actual AI deviations              | IMPLEMENTED         | VERIFIED documentation audit; final results pending | README; ADRs 001-015; capacity notes                                               | Consumer wire accounting `0a375fd` / B02-B08; oracle `d1b3baa` / O01-O06, linked real reproductions |
 | Public repository submission handoff                                                 | IMPLEMENTED locally | UNVERIFIED publication, separately authorized       | Local commit/evidence handoff; no push or upload                                   | No publication authorized; local versus remote commits to be enumerated                             |
+
+The failed full attempt, confirmed 12-second SQL cancellation, unchanged 18.078-second proof, and scoped correction are retained in [closure development evidence](evidence/Acceptance-closure-development.md). The failed attempt is not replaced by the passing 1024-row repeat.
 
 ## Candidate and evidence identity
 

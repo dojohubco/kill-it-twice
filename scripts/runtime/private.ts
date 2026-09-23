@@ -4,7 +4,10 @@ import { dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { record } from '../../src/operations/validation.ts';
-import type { ConnectionConfig } from '../../src/internal/transaction.ts';
+import {
+  TransactionError,
+  type ConnectionConfig,
+} from '../../src/internal/transaction.ts';
 import { withCleanup } from '../support.ts';
 export async function password(role: string): Promise<string> {
   assert.match(role, /^(source|pipeline|consumer|es|rabbit|operator)_[a-z_]+$/);
@@ -86,6 +89,14 @@ export function safeFailure(error: unknown): Record<string, unknown> {
     type: 'runtime_failure',
     error_class: error instanceof Error ? error.name : 'unknown',
     code: typeof code === 'string' && /^[A-Z0-9_]+$/.test(code) ? code : null,
+    ...(error instanceof TransactionError
+      ? {
+          sql_state: error.sqlState ?? null,
+          transaction_outcome: error.outcome,
+          transaction_phase: error.phase,
+          cleanup_error_count: error.cleanupErrors.length,
+        }
+      : {}),
   };
 }
 export async function existing(

@@ -88,7 +88,17 @@ export class Bootstrap {
           return fn();
         });
       const result = async (sql: string, args: unknown[]) => {
-        const rows = (await client.query<{ value: unknown }>(sql, args)).rows;
+        // Sealing revalidates every retained chunk; ordinary chunk/status work
+        // retains the transaction owner's short budget. No proof is skipped.
+        const sealing = sql === 'SELECT source.seal_bootstrap($1,$2) value';
+        if (sealing) await client.query('SET LOCAL statement_timeout=60000');
+        const rows = (
+          await client.query<{ value: unknown }>({
+            text: sql,
+            values: args,
+            ...(sealing ? { query_timeout: 65000 } : {}),
+          })
+        ).rows;
         if (rows.length !== 1) throw new Error('Missing bootstrap result');
         return status(rows[0]?.value);
       };
