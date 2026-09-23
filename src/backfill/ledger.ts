@@ -50,7 +50,17 @@ export class BackfillLedger {
         operation(async () => {
           if (used) throw new Error('One backfill operation per transaction');
           used = true;
-          const r = await client.query<{ value: unknown }>(sql, args);
+          // Only finite phase advancement may run the full terminal proof.
+          const terminalAudit =
+            sql === 'SELECT pipeline.backfill_advance($1) value' ||
+            sql === 'SELECT pipeline.backfill_advance_if_ready($1) value';
+          if (terminalAudit)
+            await client.query('SET LOCAL statement_timeout=180000');
+          const r = await client.query<{ value: unknown }>({
+            text: sql,
+            values: args,
+            ...(terminalAudit ? { query_timeout: 185000 } : {}),
+          });
           if (r.rows.length !== 1) throw new Error('Missing backfill result');
           return r.rows[0]?.value;
         });

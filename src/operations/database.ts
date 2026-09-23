@@ -24,7 +24,15 @@ export class OperationalDatabase {
           operation(async () => {
             await client.query('SET TRANSACTION READ ONLY');
             await client.query('SET LOCAL statement_timeout=2500');
-            const r = await client.query<{ value: unknown }>(sql, args);
+            let selected: string = sql;
+            if (store === 'pipeline' && name === 'backfill') {
+              const capability = await client.query<{ present: boolean }>(
+                "SELECT to_regprocedure('pipeline.backfill_observation(uuid)') IS NOT NULL AS present",
+              );
+              if (capability.rows[0]?.present === true)
+                selected = 'SELECT pipeline.backfill_observation($1) value';
+            }
+            const r = await client.query<{ value: unknown }>(selected, args);
             return r.rows.map((r) => record(r.value));
           }),
       }),

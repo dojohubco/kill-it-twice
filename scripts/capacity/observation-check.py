@@ -1,0 +1,64 @@
+"""Populated observation/progress upgrade; negative controls are rollback-only."""
+import json,subprocess,sys,os
+from pathlib import Path
+ROOT=Path(__file__).resolve().parents[2]
+sys.path.insert(0,str(ROOT/'scripts'))
+from verification.runtime import Runtime,sha
+r=Runtime(4096);r.report.update(mode='observation-proof',base_code='26548e9c07f47efab84c75175145b59f443bd5e2')
+r.env['KIT_IMAGE']='kill-it-twice-runtime:capacity-26548e9c07f4'
+(r.out/'verification.json').write_text('{"services":{}}')
+def sql(text,label,expected=(0,)):
+    file=r.out/(label+'.sql');file.write_text(text+'\n')
+    return r.compose(['exec','-T','pipeline','psql','-X','-q','-A','-t','-v','ON_ERROR_STOP=1','-v','VERBOSITY=verbose','-U','pipeline_admin','-d','pipeline_m2b'],label,input_file=file,expected=expected)
+def snapshot(label):
+    return sql("BEGIN READ ONLY;SELECT row_to_json(x)::text FROM (SELECT * FROM pipeline.backfill_runs ORDER BY run_id)x;SELECT row_to_json(x)::text FROM (SELECT * FROM pipeline.backfill_ranges ORDER BY run_id,range_no)x;SELECT row_to_json(x)::text FROM (SELECT * FROM pipeline.backfill_batches ORDER BY batch_id)x;SELECT row_to_json(x)::text FROM (SELECT * FROM pipeline.backfill_members ORDER BY run_id,event_id COLLATE \"C\")x;SELECT row_to_json(x)::text FROM (SELECT * FROM pipeline.events ORDER BY event_id COLLATE \"C\")x;ROLLBACK;",label)
+original=(ROOT/'migrations/pipeline/006-backfill.sql').read_text()
+start=original.index('CREATE FUNCTION pipeline.backfill_progress_valid(');end=original.index('\n$$;',start)+4
+reference=original[start:end].replace('pipeline.backfill_progress_valid(', 'pg_temp.reference_progress(')
+compare="SELECT jsonb_build_object('old',pg_temp.reference_progress(run_id),'new',pipeline.backfill_progress_valid(run_id),'full',pipeline.backfill_counts(run_id),'observed',pipeline.backfill_observed_counts(run_id)) FROM pipeline.backfill_runs;"
+print(str(r.out),flush=True)
+try:
+    r.run(['node','scripts/runtime-preflight.ts'],'prerequisite')
+    r.run(['docker','image','inspect',r.env['KIT_IMAGE']],'original-image')
+    r.compose(['up','-d','--no-build'],'old-runtime',timeout=300)
+    address=r.compose(['port','ui','4200'],'gateway').read_text().strip();assert address.startswith('127.0.0.1:');r.url='http://'+address
+    assert r.inspect()['source']['entities']=='0'
+    r.compose(['run','--rm','--no-deps','-T','seed','node','scripts/runtime/seed.ts','4096'],'seed',timeout=300)
+    r.wait(r.status,lambda s:isinstance(s.get('backfill'),dict) and s['backfill']['phase']=='complete','before-complete',timeout=400)
+    r.compose(['stop','-t','20','capture','backfill','es-worker','publisher','consumer','observer'],'quiesce',timeout=180)
+    before=snapshot('before')
+    metadata="SELECT jsonb_build_object('oid',oid,'owner',proowner,'acl',proacl,'config',proconfig,'security',prosecdef) FROM pg_proc WHERE oid='pipeline.backfill_progress_valid(uuid)'::regprocedure;"
+    catalog=sql(metadata,'metadata-before')
+    migration=ROOT/'migrations/pipeline/016-observation-and-progress.sql'
+    sql('BEGIN;\n'+migration.read_text()+'\nCOMMIT;','upgrade')
+    assert before.read_bytes()==snapshot('after').read_bytes()
+    assert catalog.read_bytes()==sql(metadata,'metadata-after').read_bytes()
+    checked=[]
+    for label,alter in [
+        ('healthy',''),
+        ('missing_member',"ALTER TABLE pipeline.backfill_members DISABLE TRIGGER USER;DELETE FROM pipeline.backfill_members WHERE ctid=(SELECT ctid FROM pipeline.backfill_members LIMIT 1);"),
+        ('wrong_checkpoint',"ALTER TABLE pipeline.backfill_ranges DISABLE TRIGGER USER;UPDATE pipeline.backfill_ranges SET checkpoint=checkpoint-1 WHERE range_no=1;"),
+        ('wrong_batch_hash',"ALTER TABLE pipeline.backfill_batches DISABLE TRIGGER USER;UPDATE pipeline.backfill_batches SET items=jsonb_set(items,'{0,hash}',to_jsonb(repeat('0',64))) WHERE batch_id=(SELECT batch_id FROM pipeline.backfill_batches WHERE jsonb_array_length(items)>0 LIMIT 1);")]:
+        value=json.loads(sql('BEGIN;\n'+reference+'\n'+alter+'\n'+compare+'\nROLLBACK;',label).read_text())
+        assert value['old']==value['new']==(label=='healthy'),value
+        assert value['observed']['invalid'] is None
+        assert {k:v for k,v in value['full'].items() if k!='invalid'}=={k:v for k,v in value['observed'].items() if k!='invalid'}
+        checked.append({'case':label,**value})
+    assert before.read_bytes()==snapshot('after-negative-controls').read_bytes()
+    observation=json.loads(sql("BEGIN READ ONLY;SET LOCAL ROLE pipeline_operator;SET LOCAL statement_timeout=2500;SELECT pipeline.backfill_observation(run_id) FROM pipeline.backfill_runs;ROLLBACK;",'restricted-observation').read_text())
+    assert observation['evidence_scope']=='durable_state_observation_not_revalidation' and observation['counts']['invalid'] is None and observation['historical_terminal_proof'] is True
+    denied=sql("BEGIN;SET LOCAL ROLE pipeline_operator;ALTER FUNCTION pipeline.backfill_progress_valid(uuid) RENAME TO bypass;ROLLBACK;",'denied',expected=(3,));assert '42501' in denied.with_name(denied.name.replace('stdout','stderr')).read_text()
+    plan=sql('BEGIN READ ONLY;'+reference+"EXPLAIN (ANALYZE,BUFFERS,FORMAT JSON) SELECT pg_temp.reference_progress(run_id) FROM pipeline.backfill_runs;EXPLAIN (ANALYZE,BUFFERS,FORMAT JSON) SELECT pipeline.backfill_progress_valid(run_id) FROM pipeline.backfill_runs;ROLLBACK;",'plans')
+    exported=r.out/'state';exported.mkdir()
+    for name in ('baselines','source','mutations','commands','work','pipeline','consumer','totals','projection','receiver'):
+        log=r.compose(['run','--rm','--no-deps','-T','inspect','node','scripts/runtime/inspect.ts',name],'export-'+name,timeout=300)
+        os.link(log,exported/(name+'.jsonl'))
+    (exported/'failures.jsonl').write_text('');(r.out/'journal.jsonl').write_text('');(r.out/'rejections.json').write_text('[]')
+    proof=r.run([sys.executable,'-B','tests/final/reconcile.py',str(exported),'--count','4096','--journal',str(r.out/'journal.jsonl'),'--rejections',str(r.out/'rejections.json')],'independent-oracle',timeout=300)
+    r.report.update(status='PASS',reconciliation=json.loads(proof.read_text()),comparison=checked,preserved_sha256=sha(before),metadata_sha256=sha(catalog),migration_sha256=sha(migration),plans_file=plan.name,scope='Real populated function preservation, old/new progress equivalence, rollback-only negative controls and exact content reconciliation; no large-scale timing claim')
+    assert subprocess.check_output(['git','status','--porcelain'],cwd=ROOT,text=True)==r.dirty
+    assert subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()==r.head
+except BaseException as error:r.report.update(status='FAIL',error={'type':type(error).__name__,'message':str(error)})
+finally:r.cleanup()
+print(r.report['status']+': '+str(r.out/'run.json'),flush=True)
+sys.exit(0 if r.report['status']=='PASS' else 1)
