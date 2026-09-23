@@ -109,7 +109,8 @@ await withCleanup(
         status: 'PASS',
         flow: 'retained Compose gateway -> Overview -> Records -> exact details',
         browser: browser.version(),
-        browserPath: 'project Playwright; Browser plugin not available',
+        browserPath:
+          'repository Playwright acceptance runner; separate from interactive browser checks',
         interceptedResponses: 0,
         appliedStylesheets: styles,
         expectedStaged: expected,

@@ -112,7 +112,7 @@ async function summary() {
       ).rows[0]?.count,
       deliveries: (
         await c.query<Record<string, unknown>>(
-          'SELECT kind,state,count(*)::text AS count FROM pipeline.delivery_intents GROUP BY kind,state',
+          'SELECT kind,state,count(*)::text AS count FROM pipeline.delivery_intents GROUP BY kind,state ORDER BY kind,state',
         )
       ).rows,
       runs: (

@@ -158,15 +158,18 @@ try:
     killed=r.kill('backfill',hit)
     after=r.inspect('backfill');current=next(q for q in after if q['run_id']==old['run_id'] and q['range_no']==old['range_no'])
     assert (current['checkpoint'],current['last_batch'],current['committed_batches'])==(old['checkpoint'],old['last_batch'],old['committed_batches'])
+    r.control('backfill');r.start('backfill')
+    overlap_before=r.inspect('backfill')
+    assert any(q['state']!='closed' for q in overlap_before if q['range_no']>0)
     update=request('update','1',{'name':'Concurrent update','country':'GE','loyalty_points':42})
     changed=changes([update,update,request('delete','2'),request('restore','2',{'name':'Restored','country':'FR','loyalty_points':8}),request('delete','3'),request('create',payload={'name':'Concurrent insert','country':'GE','loyalty_points':9})])
     assert changed[0]['result']==changed[1]['result'] and changed[1]['replayed'] is True
-    r.control('backfill');r.start('backfill')
+    overlap_after=r.wait(lambda:r.inspect('backfill'),lambda rows:sum(int(q['committed_batches']) for q in rows)>sum(int(q['committed_batches']) for q in overlap_before),'page-progress-during-source-work')
     if large:scale(4,2)
     drain_start=time.monotonic();complete=settled(timeout=10800 if large else 1800)
     r.report['scan_drain_after_fault_seconds']=time.monotonic()-drain_start
     if large:scale(1,1)
-    r.gate('G1',{'healthy':healthy,'healthy_progress':healthy_after,'fault':killed,'checkpoint_before':old,'checkpoint_after_kill':current,'open_sessions':sessions,'completed_run':complete['backfill'],'concurrent_mutations':len(seen)})
+    r.gate('G1',{'healthy':healthy,'healthy_progress':healthy_after,'fault':killed,'checkpoint_before':old,'checkpoint_after_kill':current,'open_sessions':sessions,'completed_run':complete['backfill'],'concurrent_mutations':len(seen),'overlap_before':overlap_before,'overlap_after':overlap_after})
 
     set_phase('G2')
     healthy_token=start_role('consumer','consumer.after_commit.before_ack',True)
