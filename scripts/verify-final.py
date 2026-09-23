@@ -75,6 +75,7 @@ def changes(items):
 
 def settled(rejected=0,es=True,timeout=360):
     total=options.count+len(seen)
+    next_workers=0
     def accept(s):
         dependencies=s['dependencies']
         if any(dependencies[name]['freshness']!='fresh' or not isinstance(dependencies[name]['data'],dict) for name in ('source','pipeline','consumer')):return False
@@ -87,6 +88,17 @@ def settled(rejected=0,es=True,timeout=360):
         if sum(int(x['count']) for x in p['observations'] if x['state']=='processed')!=total:return False
         return dependencies['source']['data']['counts']['acknowledged']==str(len(seen)) and s['backfill']['phase']=='complete'
     def observation():
+        nonlocal next_workers
+        # No worker is intentionally stopped during G1 drain. Fail on a real
+        # worker exit instead of spending the whole large-data drain deadline.
+        if phase=='G1' and time.monotonic()>=next_workers:
+            next_workers=time.monotonic()+30
+            log=r.run(['docker','ps','--all','--filter','label=com.docker.compose.project='+r.project,'--format','{{.Label "com.docker.compose.service"}} {{.State}} {{.ID}}'],'drain-worker-health',timeout=15,maximum=65536)
+            states=[line.split() for line in log.read_text().splitlines()]
+            for role in workers:
+                owned=[row for row in states if row[0]==role]
+                expected=(4 if role=='backfill' else 1 if role=='capture' else 2) if large else 1
+                assert len(owned)==expected and all(row[1]=='running' for row in owned),{'phase':phase,'worker':role,'expected':expected,'observed':owned,'evidence':log.name}
         value=r.status()
         path=r.out/'status-observations.jsonl'
         assert not path.exists() or path.stat().st_size<64*1024**2

@@ -3,9 +3,8 @@ import assert from 'node:assert/strict';
 import { readFile, writeFile, rename, appendFile } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createHash } from 'node:crypto';
-import { mock } from 'node:test';
 import { stringify } from 'lossless-json';
-import type { ConsumeMessage } from 'amqplib';
+import type { Channel, ConfirmChannel, ConsumeMessage } from 'amqplib';
 import { BackfillLedger } from '../../src/backfill/ledger.ts';
 import { runtimePageRecords } from '../../src/backfill/bounds.ts';
 import { ConsumerDatabase } from '../../src/rabbitmq/consumer-db.ts';
@@ -65,126 +64,121 @@ async function boundary(name: string, data: unknown, eligible = true) {
   throw new Error('Private verification barrier deadline');
 }
 if (role === 'backfill') {
-  mock.method(
-    BackfillLedger.prototype,
-    'page',
-    async function (
-      this: BackfillLedger,
-      request: Parameters<BackfillLedger['page']>[0],
-    ) {
-      return this.transaction(async (tx) => {
-        const result = await tx.page(request);
-        await boundary(
-          'backfill.before_page_commit',
-          { request, result },
-          request.claim.range > 0 &&
-            BigInt(request.claim.checkpoint) >=
-              BigInt(
-                Math.max(
-                  32,
-                  2 * runtimePageRecords(process.env['BACKFILL_PAGE_RECORDS']),
-                ),
+  // Dedicated verifier process: direct interception must not retain node:test's
+  // unbounded argument/result history (which would retain the source dataset).
+  BackfillLedger.prototype.page = async function (
+    this: BackfillLedger,
+    request: Parameters<BackfillLedger['page']>[0],
+  ) {
+    return this.transaction(async (tx) => {
+      const result = await tx.page(request);
+      await boundary(
+        'backfill.before_page_commit',
+        { request, result },
+        request.claim.range > 0 &&
+          BigInt(request.claim.checkpoint) >=
+            BigInt(
+              Math.max(
+                32,
+                2 * runtimePageRecords(process.env['BACKFILL_PAGE_RECORDS']),
               ),
-        );
-        return result;
-      });
-    },
-  );
+            ),
+      );
+      return result;
+    });
+  };
 }
 if (role === 'consumer') {
   // eslint-disable-next-line @typescript-eslint/unbound-method -- private wrapper retains the original receiver
   const processBatch = ConsumerDatabase.prototype.process;
-  mock.method(
-    ConsumerDatabase.prototype,
-    'process',
-    async function (
-      this: ConsumerDatabase,
-      ...args: Parameters<ConsumerDatabase['process']>
-    ) {
-      const result = await Reflect.apply(processBatch, this, args);
-      await trace('consumer-commit', {
-        events: args[1].map((e) => e.body.event_id),
-        result,
-      });
-      await boundary('consumer.after_commit.before_ack', {
-        events: args[1].map((e) => e.body.event_id),
-        result,
-      });
-      return result;
-    },
-  );
+  ConsumerDatabase.prototype.process = async function (
+    this: ConsumerDatabase,
+    ...args: Parameters<ConsumerDatabase['process']>
+  ) {
+    const result = await Reflect.apply(processBatch, this, args);
+    await trace('consumer-commit', {
+      events: args[1].map((e) => e.body.event_id),
+      result,
+    });
+    await boundary('consumer.after_commit.before_ack', {
+      events: args[1].map((e) => e.body.event_id),
+      result,
+    });
+    return result;
+  };
   // eslint-disable-next-line @typescript-eslint/unbound-method -- forwarded public channel call, no protocol result is substituted
   const originalChannel = AmqpSession.prototype.channel;
-  mock.method(
-    AmqpSession.prototype,
-    'channel',
-    async function (this: AmqpSession, confirm: false, highWaterMark?: number) {
-      const channel = await Reflect.apply(originalChannel, this, [
-        confirm,
-        highWaterMark,
-      ]);
-      channel.on('delivery', (message: ConsumeMessage) => {
-        const messageId: unknown = message.properties.messageId;
-        assert.equal(typeof messageId, 'string');
-        void trace('consumer-delivery', {
-          channel_id: this.id,
-          redelivered: message.fields.redelivered,
-          message_id: messageId,
-          wire_sha256: createHash('sha256')
-            .update(message.content)
-            .digest('hex'),
-        }).catch(() => {
-          process.exitCode = 1;
-        });
+  async function observedChannel(
+    this: AmqpSession,
+    confirm: true,
+    highWaterMark?: number,
+  ): Promise<ConfirmChannel>;
+  async function observedChannel(
+    this: AmqpSession,
+    confirm: false,
+    highWaterMark?: number,
+  ): Promise<Channel>;
+  async function observedChannel(
+    this: AmqpSession,
+    confirm: boolean,
+    highWaterMark?: number,
+  ): Promise<Channel | ConfirmChannel> {
+    const open = originalChannel.bind(this);
+    const channel = confirm
+      ? await open(true, highWaterMark)
+      : await open(false, highWaterMark);
+    channel.on('delivery', (message: ConsumeMessage) => {
+      const messageId: unknown = message.properties.messageId;
+      assert.equal(typeof messageId, 'string');
+      void trace('consumer-delivery', {
+        channel_id: this.id,
+        redelivered: message.fields.redelivered,
+        message_id: messageId,
+        wire_sha256: createHash('sha256').update(message.content).digest('hex'),
+      }).catch(() => {
+        process.exitCode = 1;
       });
-      return channel;
-    },
-  );
+    });
+    return channel;
+  }
+  AmqpSession.prototype.channel = observedChannel;
 }
 if (role === 'publisher') {
   // eslint-disable-next-line @typescript-eslint/unbound-method -- private observation after actual broker confirmation
   const publish = Publisher.prototype.publish;
-  mock.method(
-    Publisher.prototype,
-    'publish',
-    async function (
-      this: Publisher,
-      ...args: Parameters<Publisher['publish']>
-    ) {
-      const result = await Reflect.apply(publish, this, args);
-      await trace('publisher-result', result);
-      await boundary(
-        'publisher.after_confirm.before_local_commit',
-        result,
-        result.some((r) => r.outcome === 'confirmed'),
-      );
-      return result;
-    },
-  );
+  Publisher.prototype.publish = async function (
+    this: Publisher,
+    ...args: Parameters<Publisher['publish']>
+  ) {
+    const result = await Reflect.apply(publish, this, args);
+    await trace('publisher-result', result);
+    await boundary(
+      'publisher.after_confirm.before_local_commit',
+      result,
+      result.some((r) => r.outcome === 'confirmed'),
+    );
+    return result;
+  };
 }
 if (role === 'es-worker') {
   // eslint-disable-next-line @typescript-eslint/unbound-method -- record the real response after the normal transport returns
   const request = EsTransport.prototype.request;
-  mock.method(
-    EsTransport.prototype,
-    'request',
-    async function (
-      this: EsTransport,
-      ...args: Parameters<EsTransport['request']>
-    ) {
-      const response = await Reflect.apply(request, this, args);
-      if (args[0] === 'POST' && args[1].endsWith('/_bulk')) {
-        assert.equal(typeof args[2], 'string');
-        const body = String(args[2]);
-        await trace('bulk-response', {
-          request_sha256: createHash('sha256').update(body).digest('hex'),
-          operations: body.trimEnd().split('\n').length / 2,
-          response,
-        });
-      }
-      return response;
-    },
-  );
+  EsTransport.prototype.request = async function (
+    this: EsTransport,
+    ...args: Parameters<EsTransport['request']>
+  ) {
+    const response = await Reflect.apply(request, this, args);
+    if (args[0] === 'POST' && args[1].endsWith('/_bulk')) {
+      assert.equal(typeof args[2], 'string');
+      const body = String(args[2]);
+      await trace('bulk-response', {
+        request_sha256: createHash('sha256').update(body).digest('hex'),
+        operations: body.trimEnd().split('\n').length / 2,
+        response,
+      });
+    }
+    return response;
+  };
 }
 // The ordinary runtime still supplies only this worker's restricted role configuration.
 process.argv = [process.execPath, 'verification-worker'];
