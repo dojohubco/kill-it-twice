@@ -1,11 +1,15 @@
 """Populated observation/progress upgrade; negative controls are rollback-only."""
-import json,subprocess,sys,os
+import json,subprocess,sys,os,argparse
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'scripts'))
 from verification.runtime import Runtime,sha
-r=Runtime(4096);r.report.update(mode='observation-proof',base_code='26548e9c07f47efab84c75175145b59f443bd5e2')
-r.env['KIT_IMAGE']='kill-it-twice-runtime:capacity-26548e9c07f4'
+parser=argparse.ArgumentParser()
+parser.add_argument('--metadata-upgrade',action='store_true')
+options=parser.parse_args()
+base='2738166ba3ee952ec68abbf8526b199cdb476276' if options.metadata_upgrade else '26548e9c07f47efab84c75175145b59f443bd5e2'
+r=Runtime(4096);r.report.update(mode='observation-proof',base_code=base)
+r.env['KIT_IMAGE']='kill-it-twice-runtime:final-2738166ba3ee' if options.metadata_upgrade else 'kill-it-twice-runtime:capacity-26548e9c07f4'
 (r.out/'verification.json').write_text('{"services":{}}')
 def sql(text,label,expected=(0,)):
     file=r.out/(label+'.sql');file.write_text(text+'\n')
@@ -35,13 +39,18 @@ try:
     r.compose(['stop','-t','20','capture','backfill','es-worker','publisher','consumer','observer'],'quiesce',timeout=180)
     before=snapshot('before')
     query=json.loads(r.run(['node','--input-type=module','-e',"import {queries} from './src/operations/queries.ts';console.log(JSON.stringify(queries.pipeline.snapshot))"],'operational-query').read_text())
-    operational_before=operational_snapshot(query,'operational-before')
+    prior_query=query
+    if options.metadata_upgrade:
+        prior_module=r.out/'prior-queries.ts'
+        prior_module.write_text(subprocess.check_output(['git','show',base+':src/operations/queries.ts'],cwd=ROOT,text=True))
+        prior_query=json.loads(r.run(['node','--input-type=module','-e',"const {queries}=await import("+json.dumps(prior_module.as_uri())+");console.log(JSON.stringify(queries.pipeline.snapshot))"],'prior-operational-query').read_text())
+    operational_before=operational_snapshot(prior_query,'operational-before')
     metadata="SELECT jsonb_build_object('oid',oid,'owner',proowner,'acl',proacl,'config',proconfig,'security',prosecdef) FROM pg_proc WHERE oid='pipeline.backfill_progress_valid(uuid)'::regprocedure;"
     catalog=sql(metadata,'metadata-before')
-    migration=ROOT/'migrations/pipeline/016-observation-and-progress.sql'
+    migration=ROOT/('migrations/pipeline/018-observation-metadata.sql' if options.metadata_upgrade else 'migrations/pipeline/016-observation-and-progress.sql')
     sql('BEGIN;\n'+migration.read_text()+'\nCOMMIT;','upgrade')
     indexes=ROOT/'migrations/pipeline/017-observation-indexes.sql'
-    sql('BEGIN;\n'+indexes.read_text()+'\nCOMMIT;','observation-index-upgrade')
+    if not options.metadata_upgrade:sql('BEGIN;\n'+indexes.read_text()+'\nCOMMIT;','observation-index-upgrade')
     assert before.read_bytes()==snapshot('after').read_bytes()
     assert operational_before==operational_snapshot(query,'operational-after')
     assert catalog.read_bytes()==sql(metadata,'metadata-after').read_bytes()

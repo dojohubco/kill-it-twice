@@ -117,10 +117,14 @@ for (const installed of [false, true]) {
       assert.ok(!calls.some((c) => c.includes('180000')));
       calls.length = 0;
       await db.read('pipeline', 'snapshot');
+      assert.ok(calls.includes('SET LOCAL jit=off'));
       assert.deepEqual(
         calls.filter((c) => c.startsWith('SET LOCAL statement_timeout=')),
         ['SET LOCAL statement_timeout=2500'],
       );
+      calls.length = 0;
+      await db.read('source', 'snapshot', [id, id]);
+      assert.ok(!calls.includes('SET LOCAL jit=off'));
     } finally {
       query.mock.restore();
       end.mock.restore();

@@ -24,6 +24,14 @@ export class OperationalDatabase {
           operation(async () => {
             await client.query('SET TRANSACTION READ ONLY');
             await client.query('SET LOCAL statement_timeout=2500');
+            if (
+              store === 'pipeline' &&
+              (name === 'snapshot' || name === 'backfill')
+            ) {
+              // Measured JIT compilation alone exceeded the observation deadline.
+              // This changes execution strategy, not SQL results or write budgets.
+              await client.query('SET LOCAL jit=off');
+            }
             let selected: string = sql;
             if (store === 'pipeline' && name === 'backfill') {
               const capability = await client.query<{ present: boolean }>(
