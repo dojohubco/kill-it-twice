@@ -48,7 +48,7 @@ try:
     observation=json.loads(sql("BEGIN READ ONLY;SET LOCAL ROLE pipeline_operator;SET LOCAL statement_timeout=2500;SELECT pipeline.backfill_observation(run_id) FROM pipeline.backfill_runs;ROLLBACK;",'restricted-observation').read_text())
     assert observation['evidence_scope']=='durable_state_observation_not_revalidation' and observation['counts']['invalid'] is None and observation['historical_terminal_proof'] is True
     denied=sql("BEGIN;SET LOCAL ROLE pipeline_operator;ALTER FUNCTION pipeline.backfill_progress_valid(uuid) RENAME TO bypass;ROLLBACK;",'denied',expected=(3,));assert '42501' in denied.with_name(denied.name.replace('stdout','stderr')).read_text()
-    plan=sql('BEGIN READ ONLY;'+reference+"EXPLAIN (ANALYZE,BUFFERS,FORMAT JSON) SELECT pg_temp.reference_progress(run_id) FROM pipeline.backfill_runs;EXPLAIN (ANALYZE,BUFFERS,FORMAT JSON) SELECT pipeline.backfill_progress_valid(run_id) FROM pipeline.backfill_runs;ROLLBACK;",'plans')
+    plan=sql(reference+'BEGIN READ ONLY;'+"EXPLAIN (ANALYZE,BUFFERS,FORMAT JSON) SELECT pg_temp.reference_progress(run_id) FROM pipeline.backfill_runs;EXPLAIN (ANALYZE,BUFFERS,FORMAT JSON) SELECT pipeline.backfill_progress_valid(run_id) FROM pipeline.backfill_runs;ROLLBACK;",'plans')
     exported=r.out/'state';exported.mkdir()
     for name in ('baselines','source','mutations','commands','work','pipeline','consumer','totals','projection','receiver'):
         log=r.compose(['run','--rm','--no-deps','-T','inspect','node','scripts/runtime/inspect.ts',name],'export-'+name,timeout=300)
