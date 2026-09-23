@@ -1,6 +1,6 @@
 # SPEC v1: Kill It Twice
 
-Status: accepted initial direction; implementation evidence pending.
+Status at initial adoption: accepted direction; implementation evidence pending. Current execution status is recorded separately in docs/acceptance-matrix.md.
 Evidence at adoption: no application code, benchmarks, or passing gates.
 
 ## 1. Origin and authority
@@ -187,3 +187,7 @@ The finite required set is observed scan revisions union the sealed mutation fen
 The pre-existing local M6 HTTP adapter is retained; this completion introduces no additional HTTP routes or frontend. Bounded direct domain/CLI operations add atomic ES replay selection (1..50), immutable request/item-to-attempt evidence, explicitly verified higher-version supersession, and fenced same-target verification/resume. Canonical events, source ACKs, other-sink outcomes and historical completed-run membership/outcome/time remain unchanged. A current recovery view is separately named; missing progress/obligation evidence cannot become a satisfied denominator.
 
 Independent component observations retain timestamped last-known values separately from unavailable current data. Fixed-series useful rates use exact counter deltas, validated instance identity and monotonic sampling; warming/reset/unavailable are not fabricated zeroes. Source-recorded age is not commit lag. Query cost and full-scale behavior remain unmeasured. The actual new execution evidence belongs in the M6 completion report, not this prospective contract.
+
+### Final acceptance dataset decision, 2026-09-23
+
+Prospectively revise the default acceptance profile to 1,000,000 distinct baseline entities using the existing approximately 1-KiB recipe and retained 256-MiB worker limits, plus the declared concurrent mutation/failure workload. The original assignment requires demonstrably nontrivial bounded-memory replication, not exactly 2M rows. Preserve the earlier 2,000,000 plan and its optional explicitly selected profile; no smaller run proves either full profile. `make verify` now executes the actual selected workload and fails on missing evidence, failed reconciliation or cleanup. The closure note records resources, finite deadlines and stopping conditions before implementation. All invariants I1-I10 remain unchanged.

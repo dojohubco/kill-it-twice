@@ -1,6 +1,6 @@
 # Integrated fault-gate contract
 
-Status: implementation/verification in progress; no result is implied by this design. The retained runtime smoke is distinct from these faults and from the planned scale profile.
+Status: executable through `make verify`; current results are recorded in acceptance-matrix.md, not implied by this design. The retained runtime smoke is distinct from these faults and from the planned scale profile.
 
 ## One installation, real workers
 
@@ -24,4 +24,27 @@ Each private fault barrier also supports explicit healthy release. Missing evide
 
 Expected baseline recipe and mutation requests/rejection declarations are written before execution. The Python/SQLite oracle does not import production normalization or completion logic. It compares exact source revisions, original command results, canonical bytes/hash, source ACKs, all sink/consumer relationships, mutation effects/aggregates, current receiver values/versions and tombstones. Receiver rejection exclusions come only from the verifier's declared workload, never from the worker's observed dead-letter set.
 
-An explicit bounded functional fixture is not the required million-row capacity evidence. Functional output names its actual count and memory assumptions. The full-size invocation must be separately executed and measured before claiming assignment-wide scale acceptance; unrun or failed capacity stays nonpassing. The documented two-million-row target is not inferred from smaller tests.
+An explicit bounded functional fixture is not the required million-row capacity evidence. Functional output names its actual count and memory assumptions. The full-size invocation must be separately executed and measured before claiming assignment-wide scale acceptance; unrun or failed capacity stays nonpassing. The prospective default is 1,000,000 entities; 2,000,000 is an explicitly selected optional profile. Neither is inferred from smaller tests.
+
+## Current deadline and resource audit
+
+The final launcher admits only clean committed input. It records a source archive, input hashes, configuration, per-command CPU/peak process RSS and per-container cgroup/process measurements. It checks 8 GiB available memory and 80 GiB free evidence/Docker storage per million rows before launch; a continuous 2 GiB memory and 10 GiB disk reserve guards seed, drain, exports and oracles. Each negative oracle scratch file is removed only after its failed assertion and checksum are recorded; all source exports remain.
+
+| Operation                              | Finite budget                                         | Reason / unchanged boundary                                                                                              |
+| -------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Cold Compose build/setup               | 600 s                                                 | Existing cold image/service budget.                                                                                      |
+| Seed/activation                        | 7200 s                                                | Existing bounded seed allowance; recorded separately.                                                                    |
+| Large G1 backfill/drain                | 10800 s                                               | 262144 measured completion about 26 minutes; 1M linear estimate about 100 minutes plus margin, not a claimed benchmark.  |
+| Later 519 small incremental operations | 360 s settle / 300 s command cohort                   | Dataset does not enlarge these cohorts.                                                                                  |
+| Fault barrier                          | 24 s inner / 180 s arrival                            | Kept inside ordinary 30-second ownership lease; never raised for scale.                                                  |
+| ES outage                              | at least 60 measured seconds                          | Real stopped container observed twice; 150-attempt ceiling unchanged.                                                    |
+| Export                                 | 3600 s per collection, max(64 MiB, count*8192) stdout | Bounded 32-row keyset reads, 256-KiB rows, 5-second output callbacks, 30/35-second admin SQL/client deadlines unchanged. |
+| Independent oracle                     | 7200 s each                                           | Exact disk-backed comparisons; SQLite cache 4 MiB, temp storage FILE.                                                    |
+| Browser                                | 90 s reads / 360 s operator flow                      | Missing browser/screenshots and failed assertions remain nonzero.                                                        |
+| Full fault child                       | 19800 s                                               | Enclosing monotonic deadline; no indefinite waiting.                                                                     |
+| Cleanup                                | 180 s plus explicit remaining-resource checks         | Health/admission failure cannot disable cleanup.                                                                         |
+| CI wrapper / optional job              | 7 h / 8 h                                             | Includes quality/UI/runtime phases and termination cleanup; no hosted execution claimed.                                 |
+
+Ordinary worker server/client deadlines, sink leases, remote ambiguity and per-event/byte bounds are unchanged. Only the already accepted terminal-audit operation has 180/185-second SQL/client limits. Short status reads cannot claim full integrity revalidation. The large scan uses four scanners/two sinks only after the observed single-scanner crash, then returns to one for G2/G4. Each worker still has 256 MiB.
+
+The separate 257-baseline root runtime check now invokes the published `make seed` and real UI start/pause/resume, configured network disconnect/reconnect, source create/corrupt/update, and current-attempt ES replay. It verifies unchanged canonical bytes, broker outcome and consumer effect across replay. This UI-control fixture is explicitly distinct from faults at full scale.

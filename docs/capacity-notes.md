@@ -1,5 +1,15 @@
 # Capacity notes
 
+## Current acceptance target, 2026-09-23
+
+The prospective default is **1,000,000 distinct approximately 1-KiB baselines**, with the existing concurrent mutation and real failure workload, 256-MiB worker limits and exact disk-backed reconciliation. `make verify` executes this profile; `make verify VERIFY_COUNT=2000000` explicitly selects the optional 2M profile. **Neither full profile has yet completed at the closure candidate.** The change is a recorded prospective decision, not a relabeling of earlier results.
+
+The inherited sequence at `93eac82` completed 262144 genuine baselines with exact source/receiver reconciliation and cleanup. [Inspected results and resource/storage measurements](evidence/Observation-terminal.md) distinguish the populated corruption proof, 1024 fault test and 262144 baseline-only run. They do not establish faults at one million rows. Current final results belong in [the acceptance matrix](acceptance-matrix.md).
+
+## Historical planning and measurements
+
+The sections below preserve the earlier 2M plan and then-current limitations. The current default above supersedes that target prospectively. Historical placeholder statements describe the earlier entry point, which closure replaces.
+
 ## Evidence status
 
 **The 2,000,000-entity profile has not run.** The integrated fault fixture contains 1,024 roughly-1-KiB baselines plus 519 declared mutations. Its elapsed time includes cold image/service initialization, deliberate crashes, an explicit 60-second outage, paused workers, small polling defaults, exports, negative controls and cleanup. Dividing records by that whole duration would not be a meaningful throughput benchmark.

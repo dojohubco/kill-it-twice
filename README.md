@@ -1,186 +1,122 @@
 # Kill It Twice
 
-Failure-tolerant replication from a controlled PostgreSQL source to Elasticsearch and RabbitMQ, with an independent transactional consumer and a local operator interface.
+A retained local replication application: PostgreSQL source and outbox, resumable backfill plus incremental capture, Elasticsearch search, RabbitMQ stream, independent consumer effects, and an Angular operator UI.
 
-## Current implementation
+**Final acceptance is pending.** The real `make verify` now executes the selected million-entity workload; only a completed report with independent reconciliation and cleanup establishes a pass. See the [acceptance matrix](docs/acceptance-matrix.md) and [closure decision](docs/acceptance-closure.md). Historical small passes are not current full-scale acceptance.
 
-The repository contains protected source baselines/activation, versioned transactional outbox capture, immutable pipeline staging, independent receiver obligations, resumable backfill with a finite completion fence, consumer inbox/effects/projection, audited Elasticsearch recovery, and operational snapshots. The Angular workspace uses the restricted HTTP control API; replication does not run inside the browser.
+## Prerequisites and quick start
 
-The guarantee is at-least-once transport with monotonic projections and deduplicated defined consumer database effects under retained-storage/trusted-runtime assumptions. A source ACK means staged; a publisher confirm means broker acceptance; a consumer receipt means a committed consumer transaction. None is end-to-end exactly-once.
-
-**Full assignment acceptance is still incomplete.** `make verify` deliberately reports G1–G5 NOT IMPLEMENTED and exits nonzero. Small-fixture results do not establish two-million-row capacity or production deployment. Read [SPEC](SPEC.md), [ADRs](docs/adr/), [operations](docs/operations.md), [interface design](docs/ui-design.md), and [dated evidence](docs/evidence/). The M6 isolated passes and changed-root capture failure are distinguished in [their report](docs/evidence/M6-isolated-gates.md).
-
-## Run the complete local application
+Linux x64 with a local Docker daemon, Compose, Git, make, Python 3 with SQLite, Node **24.19.0**, npm **12.0.2**, and an installed Chromium/Chrome. `UI_CHROMIUM_PATH` selects an existing browser. The Docker host needs `vm.max_map_count >= 1048576`; checks do not change the host or install system packages. Full acceptance requires at least 8 GiB available memory and 80 GiB free on both evidence and Docker storage filesystems; it retains a 2 GiB memory / 10 GiB disk safety reserve. The existing shared-host observations are not dedicated-hardware benchmarks.
 
 ```sh
-# Requires an already authorized Linux Docker host with vm.max_map_count >= 1048576.
+npm ci --no-audit --no-fund
+npm run tools:provision          # pinned local actionlint, no privileged install
+npm run runtime:preflight
+# Select a distinct name/port when another installation exists.
+export COMPOSE_PROJECT_NAME=kit-local-demo
+export KIT_UI_PORT=4200
 docker compose up -d --build
 make seed SEED_COUNT=1024
 make runtime-status
-# The default local gateway is http://127.0.0.1:4200/.
-# Change KIT_UI_PORT before starting a separate installation if that port is occupied.
+make operator-token             # private local token; do not save in a report
 ```
 
-Root Compose builds the API/UI and runs independent capture, backfill, search, publisher, consumer and receipt-observer processes. Initializers provision installation-local credentials; workers receive only their own restricted configuration. Only the gateway is published, on loopback. Data and credentials remain in named volumes across ordinary `docker compose down`/up. Seeding is explicit, resumes the same committed recipe, and rejects a changed count instead of resetting an installation. Activation/scheduled backfill is not receiver completion.
+Open [the local operator UI](http://127.0.0.1:4200). Compose builds the image from this checkout. Initializers generate installation-local credentials/TLS material in named volumes; workers receive restricted roles, and the browser receives no database credentials. Only the gateway is published, on loopback. The token is held in browser page memory. No committed secret, ignored configuration or downloaded evidence archive is needed.
 
-The browser starts read-only. `make operator-token` prints this installation's local operator token; keep it private and paste it into Connect operator when explicit mutations are needed. Do not publish that output. The UI retains it only in page memory. No worker or browser has a Docker socket or administrator credentials.
-
-## Verification status
+`make seed` is explicit, bounded and resumable under the same manifest. A conflicting count fails; activation and scheduled backfill do not mean receiver completion. Normal restart retains identity, data, credentials, checkpoints and historical outcomes:
 
 ```sh
-npm ci --no-audit --no-fund
-npm run tools:provision       # Pinned local actionlint; no privileged installation
-make quality                 # Static checks and unit tests
-make verify-runtime          # Cold setup, retained restart and actual UI/receiver reads
-make verify-functional       # Real G1-G5 faults on a declared 1,024-baseline fixture
+docker compose down             # retain volumes
+docker compose up -d
 ```
 
-An already installed Chromium/Chrome is required for the browser checks (`UI_CHROMIUM_PATH` can select it). Missing prerequisites fail explicitly; verification does not install system packages or silently tune the host. Automated runtime/fault checks own unique projects and clean only those resources, not a running demo or unrelated databases.
+Keep the same Compose project name for this restart. Removing its volumes destroys that installation. Automated verification uses its own unique projects, ports and volumes and removes only those resources.
 
-**Two integrated functional G1-G5 runs passed**, including independent content/effect reconciliation and real browser checks. See [the exact scope and evidence](docs/evidence/Integrated-runtime.md). The fixture has 1,024 baselines and 519 mutations; it does **not** establish million-row capacity. The separate full `make verify` entry remains nonpassing until the final large-data contract is demonstrated. A small functional PASS is not full assignment acceptance.
-
-## Operator workspace
+## Verification
 
 ```sh
-npm ci --no-audit --no-fund
-npm run build:api
-CONTROL_CONFIG_FILE=/absolute/private/control.json npm run control:api
-# In another terminal:
-npm run ui:dev
+make verify                      # default: 1,000,000 genuine ~1 KiB baselines
+make verify-functional           # fresh 1,024-baseline development fault repeat
+make verify-runtime              # root setup, seed, retained restart and real UI controls
+make verify-ui                   # rendered browser fixture inventory, separate from live proof
+# Optional, explicitly selected capacity target:
+make verify VERIFY_COUNT=2000000
 ```
 
-The development interface binds to `127.0.0.1:4200` and proxies relative API requests to the existing loopback API at port 3000. Supply private configuration for an already initialized source/pipeline/consumer and registered receivers. The interface does not invent credentials, provision infrastructure, or substitute fake live data. Without the API it displays unavailable state. `compose.m6.yaml` packages only the control API against supplied configuration, not an automatic full-stack bootstrap.
+Run final acceptance from clean committed code after installation. `make verify` executes quality, browser fixture checks, the separate 257-baseline retained-runtime/control fixture, then real G1-G5 faults and 519 unique mutations on the **selected large installation**. It does not read an old summary to obtain PASS. [The final gate contract](docs/final-gates.md) describes the actual fault boundaries. A green fast CI job proves only its named small fixture; full acceptance is a separate optional manual job on an explicitly provisioned capacity runner. No hosted result is implied by local workflow validation.
 
-Six views cover overview, backfill, searchable records/details, failures/replay, named fixture/network simulations, and read-only configuration. Default access is read-only. The operator token is retained only in page memory and sent for explicit confirmed mutations. An ambiguous retry retains its request key. Accepted commands are not labeled completed replication.
+| Gate | Required observed behavior                                                                                                                                                                                      |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| G1   | Prior committed pages, actual page writes before COMMIT, independent open-transaction/cursor observation, scanner SIGKILL, unchanged durable checkpoint and resumed progress with overlapping source mutations. |
+| G2   | Actual redelivery after consumer COMMIT-before-ACK and duplicate publication after broker confirm-before-local-settlement; one effect per unique mutation.                                                      |
+| G3   | Real Elasticsearch service outage lasting at least 60 measured seconds, durable backlog, bounded attempts, independent broker/consumer progress and recovery.                                                   |
+| G4   | One actual 500-operation bulk, 497 successes and three independently predeclared mapping rejections with retained DLQ evidence.                                                                                 |
+| G5   | Real status/metrics/browser observations of progress, useful throughput, lag, failures and dependency/data health.                                                                                              |
 
-```sh
-make verify-ui          # Quality, Angular build and complete browser fixture inventory
-npm run test:ui:live     # Actual UI reads against an isolated real-service operational fixture
+Exports and the independent disk-backed oracle compare exact identity sets, versions, payloads, tombstones, event history, source ACKs, receipts and business effects. Five corrupt-export controls must be detected. Full terminal run validation remains mandatory; short status observations explicitly do not revalidate integrity, and unknown fields remain unknown. Failed phases and unattempted gates are distinct. Cleanup failure makes the entire command nonzero.
+
+Reports, input hashes, source snapshots, commands, fault markers, exports, resource samples and screenshots are written to ignored `artifacts/final/`, `artifacts/runtime/` and `artifacts/ui/`. They are local files, not public download links. [Dated evidence](docs/evidence/) retains previous results and failures at their original code identities.
+
+## Architecture and commit boundaries
+
+```mermaid
+flowchart LR
+  S[PostgreSQL source entities] -->|same transaction| O[Immutable outbox]
+  S --> B[Bounded keyset backfill]
+  O --> C[Incremental claim and capture]
+  C -->|pipeline COMMIT first| P[Canonical events and independent obligations]
+  B -->|one COMMIT| P
+  B --> K[Durable checkpoints and finite fence]
+  P -->|then source ACK| O
+  P --> E[Elasticsearch external versions and tombstones]
+  P -->|persistent mandatory publish| R[RabbitMQ quorum queue]
+  R -->|publisher confirm| P
+  R --> U[Independent consumer database]
+  U --> I[Inbox + projection + business effect COMMIT]
+  I -->|then individual ACK| R
+  I -->|exact receipt observation| P
+  E --> D[Retained ES DLQ and attempts]
+  D -->|audited same-event replay| P
+  R --> Q[Consumer quarantine, inspection only]
+  P --> A[Restricted control API and metrics]
+  A --> UI[Angular operator UI]
 ```
 
-Browser verification uses an already provisioned Chromium/Chrome executable, or `UI_CHROMIUM_PATH`. No system dependency is installed by verification. HTTP fixtures remain exclusively in tests. Separate live checks perform actual read-only API/receiver observations. Automated accessibility checks are not a full screen-reader or physical-device audit.
+Source and pipeline are separate PostgreSQL services/transaction domains. The consumer owns a separate database and credentials on the state service. Source mutations commit their immutable after-images atomically. Backfill pages commit staging and checkpoint evidence together. A finite source fence closes a run without preventing later incremental capture.
 
-All nine installed interface skills remain under `.agents/skills/`, with source fingerprints and [upstream notices](.agents/README.md). Imported skill text is excluded from formatting, not application source or first-party documentation.
+Delivery is **at least once**, with monotonic versioned projections and effectively-once defined consumer database effects. Each unique mutation contributes one audit effect and one aggregate unit; baseline observations do not. A source ACK means durable staging, a publisher confirm means broker acceptance, and a consumer receipt means database COMMIT. They are separate facts. There is no cross-sink atomic visibility or end-to-end exactly-once claim. Ambiguous outcomes remain unresolved until identity-based recovery proves them.
 
-## Environment and historical engineering notes
+These guarantees assume intact retained storage, controlled source privileges, trusted runtime roles, no incompatible independent database restore, and eventual healthy service time/capacity. Finite storage cannot absorb unlimited writes. Persistent tombstones and exact canonical event bytes prevent stale resurrection and content substitution. Runtime never recreates registered receivers or resets another sink to replay Elasticsearch.
 
-The detailed module notes below were recorded at their introduction milestones. Statements about then-unimplemented components describe those historical scopes, not the current inventory above. Dated evidence and Git history preserve actual failures and corrections; older results are not retrospectively relabeled.
+## Operator use and recovery
 
-Prerequisites: Linux x64, Node **24.19.0**, npm **12.0.2**, Docker with Compose, Git, make and tar. Node's native runner executes TypeScript; TypeScript **5.9.3** checks it separately. Keep one root lockfile and exact package pins.
+The UI opens read-only. Connect the installation token only for an intended command. Overview separates staging, broker confirmation and consumer effects; missing/last-known observations are labeled. Records provides search, current details and exact identifiers. Backfill supports start, pause and resume; pause is admission control, so in-flight pages may still commit. Request acceptance is shown as scheduling, not completed delivery.
 
-```sh
-npm ci --no-audit --no-fund
-npm run tools:provision
-make quality
-npm run test:integration:m1
-make verify-m1
-make verify-m2a
-make verify-m2b
-make verify
-```
+Failures exposes current and historical ES attempts, source blocks and consumer quarantine. ES replay targets the current terminal attempt, retains the original canonical event and all previous failures, and preserves broker/consumer success. Unchanged invalid content can fail again. Correcting source data creates a newer revision; explicit verified supersession is available through the existing [operations CLI](docs/operations.md). Consumer quarantine has **no public replay/purge control**.
 
-Provisioning downloads actionlint **1.7.12** into `.tools/cache/`, verifies the published archive checksum and a pinned binary checksum, and checks its version. No privileged system install is used. Missing tools fail clearly. `make quality` only reads existing tools and inputs: Prettier check, typed ESLint with zero warnings, TypeScript, Knip, Compose configuration with nonsecret interpolation, actionlint and pure/unit tests. It does not install, consult advisories, start PostgreSQL, edit files or invoke the integration/full verifier. Disposable process fixtures are exercised by the unit tests and cleaned up.
+Simulations operates sixteen named source fixtures (create/update/delete/restore), a real invalid mapped revision, and configured Toxiproxy disconnect/reconnect controls. It does not offer arbitrary SQL, arbitrary payloads or host commands. Configuration displays immutable identities, actual API limits and restart-required connection settings; automatic browser refresh is the supported local toggle. See [metric definitions](docs/metric-definitions.md), [UI contract](docs/ui-verification-contract.md) and [interface design](docs/ui-design.md).
 
-`make verify-m1` runs quality followed by fresh real PostgreSQL acceptance. Every integration invocation owns a unique Compose project, temporary credentials, volume and loopback port. It verifies a checked-in inventory of 22 required cases using native structured test events, retains JUnit and direct SQL/process evidence, checks retained-volume restart, and removes its own resources. Missing, skipped, todo, cancelled, duplicate or malformed results fail. `make verify` deliberately prints G1–G5 NOT IMPLEMENTED and exits nonzero (GNU make exit 2).
+## Decisions and provenance
 
-PostgreSQL remains pinned to `18.6-bookworm@sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af`. Durability settings remain on. The unchanged original migration defines epoch, entities and immutable outbox. Forward migration 002 adds only command receipts; the M1 profile applies 001 and the M2A profile applies both. Real migration execution, trigger/constraint/role and lifecycle branch tests establish SQL behavior; ordinary SQL parsing is not a PL/pgSQL proof. No SQL formatter or static SQL extension is a blocking dependency.
+The first commit `251cb5a` contains SPEC, AGENTS, ADRs 001-004 and the initial milestone before harness `7af0818` and implementation `5368de6`. Architecture was selected through AI-assisted review before implementation; it is not presented as a later agent discovery. [SPEC](SPEC.md) preserves that adoption context and subsequent deliberate refinements. [AGENTS](AGENTS.md) records workflow constraints.
 
-## Transaction contract
+Meaningful decisions include [transactional capture](docs/adr/001-source-capture.md), [delivery semantics](docs/adr/002-delivery-semantics.md), [identity and tombstones](docs/adr/003-revision-identity-and-tombstones.md), [atomic staging](docs/adr/008-atomic-pipeline-staging.md), [consumer COMMIT/ACK](docs/adr/011-rabbitmq-consumer.md), [finite backfill](docs/adr/013-backfill-checkpoints-fence.md), [audited operations](docs/adr/014-operational-control-replay.md) and [retained runtime](docs/adr/015-retained-local-runtime.md). Earlier module setup/limitations are retained in [historical notes](docs/history/README-milestones.md).
 
-Create a `Source` from connection configuration, then call `source.transaction(async (tx) => ...)`. Each transaction opens and closes a private session; callbacks receive allowlisted create, mutate, command and fixed diagnostic inspection operations. Full-history inspection is only for tiny test diagnostics, not a future bounded incremental reader. Await each operation. The capability expires at callback completion. The owner rejects nested/concurrent transactions before connection/transaction SQL; use the same existing capability for one atomic unit. Manual SQL transaction control is not exposed. Independent low-level SQL fixtures remain under tests/.
+## Capacity and limits
 
-Confirmed COMMIT permits success; a ROLLBACK command tag never does. A caught mutation error still fails the transaction and retains the original PostgreSQL cause/SQLSTATE. An interrupted COMMIT is unknown even if a subsequent ROLLBACK succeeds. Setup failure before work, known rollback, unknown completion and confirmed commit followed by cleanup failure are distinct. Cleanup errors remain separate, and unknown outcomes or broken cleanup poison the owner. There are no automatic mutation retries. Deadlock acceptance verifies the actual 40P01 victim and survivor without choosing which writer must lose.
+The prospective default is one million distinct roughly-1-KiB entities, with each worker limited to **256 MiB**, Node heap **128 MiB**, each page at most **64 records / 256 KiB**, and per-event validation unchanged. The actual payload-byte total and worker/process/cgroup peaks must come from the run; raw source payload alone must exceed three worker budgets. The earlier 2M plan remains historical and its optional profile is not claimed executed.
 
-Callbacks must settle cooperatively; arbitrary JavaScript cannot be preempted by this API. IDs/versions are checked decimal strings. Live payloads are JSONB objects; deletion uses SQL NULL, and restore advances the retained identity's version. The legacy source_writer mutation interface is outside M2A command deduplication; it remains for the original M1 SQL scope.
+[Capacity notes](docs/capacity-notes.md) retain measured CPU, memory, storage, seed/drain/export/oracle duration and bottlenecks. At `93eac82`, 262,144 baselines passed exact reconciliation and cleanup with four scanners/two sink workers; this was a baseline-only capacity run. It does not prove faults at one million rows. On earlier single shared-host 131,072 runs, the same page64 configuration with an equivalent due-index predicate reduced observed completion time from 1,175 to 660 seconds, about **1.78x**, not an asserted 2x. Doubling effective throughput would require roughly halving the limiting stage's per-record service demand or independently doubling its processing capacity without database contention; that is an untested hypothesis, not a promised result or additional work programme.
 
-## Source command contract
+Intentionally excluded: cloud deployment, multi-node HA, multi-tenancy, a generic connector framework, arbitrary external effects, Kafka/Kubernetes, automatic retention/GC, live receiver replacement, generic retries, public quarantine replay and additional polished screens. They are unnecessary to demonstrate this assignment and would broaden its failure/authority contract.
 
-Use the restricted `source_command` credential with `source.command({ sourceEpoch, commandId, contractVersion: 1, operation, entityId, payloadJson })`. The caller supplies the expected persisted epoch and UUID command ID. Create requires `entityId: null`; update/delete/restore require a positive BIGINT decimal string. Live payloads are JSON object text; delete requires `payloadJson: null`. The role can only execute the command function and cannot read or edit tables, call legacy mutations, alter capture or assume owner privileges.
+## Two concrete AI deviations
 
-The same key and equal PostgreSQL JSONB request recovers the original committed `result`; `replayed` describes only the attempt. The immutable result contains string IDs/version, change ID, epoch, UTC microsecond timestamp, deletion state and JSON payload text. It remains the original snapshot after later mutations. A fresh key denotes a different command. A rolled-back attempt leaves no successful receipt, so an explicit same-key retry can execute later. No-op commands retain receipts without adding revisions. There is no automatic retry or failed-response retention; receipts do not expire within the supported epoch.
+1. **Consumer wire accounting.** Requested: admit at most 32 original messages / 1,048,576 canonical wire bytes consistently in application and SQL, with COMMIT before ACK. The generated SQL used a different charge, so a legal 32-message cohort totaling exactly 1,048,576 bytes was charged 1,049,056 and rejected with `P6002`. Real RabbitMQ redelivery and unchanged database effects were retained, not called success. Correction `0a375fd` aligned the forward SQL accounting; clean `bba6465` passed fresh and populated B02-B08/B06H checks. [Reproduction and correction evidence](docs/evidence/M4.1-development.md).
+2. **Rejected-update oracle.** Requested: a rejected v2 must leave the previously admissible v1 document (or tombstone) intact, while unexpected missing/corrupt data fails. The generated oracle excluded the whole entity when its latest revision was rejected and falsely failed an unchanged valid v1 receiver. Diagnostic `94c0d74` reproduced the actual mapping rejection and exact old-oracle failure. Correction `d1b3baa` used verifier-owned expected admissible revisions and real negative controls; O01-O06 passed. [Reproduction and correction evidence](docs/evidence/M3.1-development.md).
 
-The owner starts READ COMMITTED, and SQL reserves the unique key before mutation. Contenders wait for the actual transaction outcome, then replay, conflict or take over after rollback. SQLSTATE P2001 / `SourceTransactionError.kind === 'idempotency_conflict'` identifies differing content under a successful key; P2002 / `source_epoch_mismatch` rejects an unexpected epoch. Completion checks prohibit committed partial reservations. [ADR 006](docs/adr/006-source-command-receipts.md) specifies the boundary and [M2A scope](docs/milestones/M2A.md) defines C01–C12 and both healthy fault controls. This is source deduplication, not end-to-end exactly-once or pipeline delivery.
+Neither example is invented to meet a quota. The reports distinguish original review findings, diagnostic reproduction, implementation correction and later acceptance.
 
-`make verify-m2a` runs unchanged quality checks plus all 22 M1/M1.1 cases and 14 M2A cases/controls, on fresh isolated PostgreSQL. Inventories are explicit, not inferred from discovered results. The checker also rejects a contradictory nonzero summary failed count. Initial empty-table assertions run before any workload; suites use distinct fixtures and known IDs rather than filename ordering.
+## Submission handoff
 
-For a clean M2A handoff, use `npm run review:capture -- --m2a`, then `npm run review:summary -- <capture-directory> --m2a`, and after committing documentation, `npm run review:bundle -- <capture-directory> --m2a`. This captures the existing M1 profile, standalone M2A, two fresh verify-m2a runs, all quality commands and the expected nonzero full verifier. Remote M2A CI is unrun unless a hosted run is explicitly recorded. The later successful M1.1 run is dated separately in its historical evidence.
-
-## Lossless local staging contract
-
-Use `SourceReader` with the dedicated `source_reader` credential and an expected epoch. Select explicit `(entityId, version)` pairs from immutable outbox history; `current(entityId)` reads one coherent current revision for parity diagnostics. Source_reader cannot read command receipts or execute mutations. No source row is marked staged or acknowledged.
-
-[ADR 007](docs/adr/007-lossless-revision-envelope.md) defines the exact v1 envelope. JCS canonicalizes its fixed flat fields; `payload_json` remains an opaque string exported by PostgreSQL 18 `payload::text`. High integers, long decimals, arrays, nulls and Unicode survive without JavaScript numeric conversion. Both read paths use identical UTC microsecond timestamp export. PostgreSQL validates JSONB-object shape and the exact text round trip. This freezes the codec for the epoch; it does not promise that every arbitrary-precision number fits every future Elasticsearch mapping.
-
-`Pipeline.stage(events)` validates a bounded batch, collapses identical duplicate identities, sorts by event ID, and opens one exclusive READ COMMITTED transaction. It retains exact canonical body bytes/hash, two pending delivery intents and one pending consumer-observation obligation. SQL checks hashes, metadata, canonical representation, foreign keys and deferred completeness. Both destinations are logical and **unbound**. Existing identical content returns `already_staged`; a new identity returns `inserted`, only after confirmed COMMIT. Conflicting content or missing obligations rolls back the whole batch without overwrite or repair, with a separate best-effort sanitized incident. SQLSTATE P3001/P3002 and `IntegrityError` retain primary outcome/error separately from incident failure. Hash consistency is not source authenticity; trusted staging credentials and database owners remain explicit boundaries.
-
-Starter configuration in src/limits.ts is 16 records, 64 KiB per wire record and 256 KiB per batch. Before transfer, SQL measures escaped payload text plus a conservative 1024-byte envelope allowance, withholding **all** selected payload projections if any record or total exceeds its bound. The application checks actual serialized sizes too. These are conservative settings, not benchmark results. Oversized revisions remain durable and explicitly unstaged. Uncommitted or absent selected identities return `notVisible`; this describes selection, not incremental completeness. Inspection's unbounded historical diagnostic API is not used.
-
-`npm run stage -- <entity-id>:<version> ...` stages an explicit selection. Configure SOURCE_EPOCH, SOURCE_READER_HOST/PORT/PASSWORD and PIPELINE_STAGER_HOST/PORT/PASSWORD for the already migrated `source_m1` and `pipeline_m2b` databases. The command uses only the restricted roles and emits its result after pipeline completion. It starts no services, generates no watermark and performs no retries. An explicit identical repeat through a healthy owner resolves durable results after an ambiguous completion.
-
-`make verify-m2b` runs quality, the independent 22-case M1 profile, the 36-case M2A profile, and both 16-case M2B profiles. Fresh installation applies source 003 before workloads; `npm run test:integration:m2b -- --upgrade` applies it after committed M2A revisions/receipts and compares every original row. The two-service profiles exercise real pre/post-COMMIT stager SIGKILLs, healthy releases, observed contention, constraints/roles, exact precision, size limits, and retained-volume restarts. Each profile has a new isolated project/epoch. `npm run review:capture -- --m2b` records standalone profiles and two full fresh repeats; summary/bundle commands take `<capture-directory> --m2b`.
-
-The known future seed-without-outbox/no-op-command FK obligation remains documented in ADR 007. No seeding, source ACK, continuous capture, receiver delivery or consumer processing is implemented. M2A's subsequent hosted CI observation is appended to its historical report; M2B CI remains unrun unless separately recorded.
-
-## Harness limits and evidence
-
-SIGKILL tests pause the production transaction owner at both existing private boundaries. They require exact process/session identities, independent row/lock observations, actual SIGKILL exit and no caller success. Healthy release controls require exit zero and exactly one success. Unexpected parent IPC loss closes the session and exits 72; it never counts as a SIGKILL result.
-
-Polling uses a monotonic deadline and observes success only before it. Resource-bearing database observations have a 500 ms server statement timeout; expiry closes the owned connection, bounds disposal, consumes late rejection, and verifies backend disappearance independently. Socket closure alone need not immediately interrupt a server query. Pure promises have no external resource to cancel. Subprocess capture is bounded to 1 MiB combined output and explicitly fails on overflow; complete chunks and cutoff prefixes are credential-redacted. Timeout cleanup targets only the process group created by that spawn. Tests terminate a real child/grandchild while an unrelated sentinel survives. Descendants deliberately escaping the owned group, harness SIGKILL, host crash and malicious database owners are outside these cleanup guarantees.
-
-Local sanitized artifacts live in ignored `artifacts/m1/<run-id>/` `artifacts/m2a/<run-id>/` or `artifacts/m2b/<run-id>/`. Public upload copies are created only through explicit sanitization; failed finalization invalidates stale PASS summaries. Primary and cleanup failures are separate. Dirty developmental runs record tracked/untracked input hashes and a patch; final acceptance requires committed clean code. Paths in summaries identify local files, not publicly accessible evidence URLs.
-
-`npm run review:capture` records all quality subcommands, quality, standalone integration, two fresh verify-m1 runs and expected failing verify from clean committed code. `npm run review:bundle -- <capture-directory>` creates a local final tracked archive, full diffs from the reviewed and initial specification commits, chronological history, development/acceptance logs and SHA-256 checksums.
-
-## Tool choices and CI
-
-Prettier **3.9.7** is the sole formatter for supported formats; SQL is excluded. ESLint retains its pinned major and uses typescript-eslint recommended type-checked rules with projectService, explicit floating/misused promise, await-thenable and unsafe-value rules. Narrow public-method test instrumentation exceptions explain the explicit receiver binding. TypeScript retains strict, noUncheckedIndexedAccess and erasableSyntaxOnly; adds exact optional properties, explicit returns, switch fallthrough, override, index-signature access, side-effect import and casing checks. `useUnknownInCatchVariables` is already included in strict. `skipLibCheck: false` is retained after checking the pinned dependencies.
-
-Knip **6.36.0** discovers npm scripts and the custom reporter; explicit entries cover native test files and the explicitly listed private process fixtures. Source files are reached through imports. No unused-code/dependency suppression is configured. Discarded formatting, promise/type and unused code/dependency canaries must be detected before handoff.
-
-The push/PR workflow now uses the same `make verify-m2b` command on Ubuntu 24.04 with read-only repository permission, exact Node/npm, no persisted checkout credentials, no project secrets and a 15-minute timeout. Action references are full release commit SHAs; their official release metadata and action inputs/runtime were reviewed locally. Actionlint validation is local evidence, **not a remotely run CI PASS**. Sanitized evidence upload runs even on failure. This task neither pushes the workflow nor changes repository settings.
-
-Separate future work includes advisory/security review and targeted property/mutation tests. No extra security scanner ecosystem, large CI benchmark, pipeline worker, acknowledgements, backfill, broker/search, consumer, UI or production deployment is introduced.
-
-Sources: [native reporters](https://nodejs.org/docs/latest-v24.x/api/test.html#custom-reporters), [typed linting](https://typescript-eslint.io/getting-started/typed-linting/), [Knip configuration](https://knip.dev/overview/configuration), [actionlint release](https://github.com/rhysd/actionlint/releases/tag/v1.7.12), and [pg lifecycle](https://node-postgres.com/apis/client).
-
-## M2C: bounded incremental capture
-
-`make verify-m2c` runs quality, the unchanged M1/M2A and both M2B profiles, then M2C on fresh and populated-upgrade two-database fixtures. `npm run test:integration:m2c` is the bounded capture profile; append `-- --upgrade` for already-populated M2B. The harness owns its resources and temporary credentials. It selects a run-local pipeline port that remains stable across its actual service stop/start test. These are tiny correctness fixtures, not capacity results.
-
-Forward source 004 adds a protected capture binding and payload-free work table. Forward pipeline 002 generates a persistent instance UUID. Controlled initialization commits pipeline identity first, then calls source.register_capture with that explicitly selected ID, epoch and pg18-jsonb-text/v1 codec. The source function briefly locks outbox writes while filling all retained revisions and establishing future transactional enqueueing. Only the migration owner can register; repeating the same setup is safe, and a replacement ID fails. scripts/migrate-staging.ts contains the bounded initialization operations used by the harness. A crash between databases leaves setup incomplete and no ACK opportunity.
-
-For an initialized installation, explicitly select `npm run capture -- once` or `npm run capture -- follow`. Set SOURCE_EPOCH and PIPELINE_ID plus SOURCE_CAPTURE_HOST/PORT/PASSWORD and PIPELINE_CAPTURE_HOST/PORT/PASSWORD. Database names remain source_m1 and pipeline_m2b; runtime users are source_capture and pipeline_capture. No default credentials or automatic registration. Follow stops admission on SIGINT/SIGTERM and lets bounded work settle or remain recoverable. A new process gets a new owner UUID.
-
-A source claim commits before any pipeline request. Immutable outbox revisions use the unchanged M2B envelope. Only a normally returned, confirmed pipeline COMMIT permits a separate source ACK under the current unexpired claim. After an unknown response or process death, another claim safely repeats staging and then acknowledges. A different pipeline instance, epoch or conflicting event stops capture. Source SQL checks ownership and receipt shape; the trusted capture protocol establishes remote staging order, not a cross-database FK or authenticated digest.
-
-Defaults are 16 claims, 64 KiB per record, 256 KiB per transfer, one staging batch in flight, 30-second leases, 5-second renewals and a 1-second idle poll. Metadata is partitioned before payload transfer, and individual oversized records remain visibly blocked/unacknowledged while fitting records progress. Transient failures retain eligibility delays with exponential backoff and positive jitter, without an attempt cutoff. Empty selection is not catch-up proof: fresh summaries retain delayed, leased and blocked counts; unavailable source is unknown. No source business mutation retries occur.
-
-ACK means **staged**, while destinations remain unbound and delivery/consumer obligations pending. Before real sink delivery, assert_obligations needs a deliberate forward change allowing valid settled replay without resetting success. The baseline/no-op command FK obligation in ADR 007 also remains for seeding/activation. Neither is implemented here. Full `make verify` still exits nonzero with G1–G5 NOT IMPLEMENTED. No sink/consumer, backfill, seed/activation, production API/UI or deployment is included.
-
-## M2C.1: registration isolation boundary
-
-Once the capture extension is installed with forward source migration 005, every state-changing source mutation requires READ COMMITTED. The common outbox enqueue trigger rejects unsupported isolation with SQLSTATE 25001 **before** checking for a capture binding, rolling back the entity/outbox change together. This includes the supported legacy source_writer entry points: exclusion from command deduplication never exempted their writes from capture. Read-only snapshot transactions remain allowed. Legacy unchanged-update/repeated-delete no-ops create no revision and do not reach this trigger; source_command retains its existing READ COMMITTED rule for all invocations.
-
-`make verify-m2c1` wraps the unchanged `make verify-m2c`, then requires guarded fresh installation (27 cases) and a populated, registered M2C forward upgrade (23 cases). The four registration-only cases require an initially empty binding and therefore belong to the fresh inventory; no fake binding reset or skipped result is used in upgrades. Both guarded profiles repeat all 19 prior capture cases, including actual signals, outages and healthy controls. Earlier schema profiles retain their original inventories. `npm run test:integration:m2c1` selects the guarded fresh profile; append `-- --upgrade` for the registered upgrade. The workflow selects the same wrapper.
-
-`node scripts/m1.ts m2c1-repro` is an explicitly separate historical counterexample through migration 004: its successful exit means the old-snapshot missing-work defect was demonstrated, **not** that broken capture is accepted. It never runs in the corrected acceptance gate. The reproduction was executed before production correction; retained outbox survived, and missing-work detection stopped capture without a false ACK.
-
-Use `npm run review:capture -- --m2c1`, then `review:summary` and `review:bundle` with `<capture-directory> --m2c1`. Evidence preserves original M2C results, the later hosted CI observation, the actual counterexample and corrected outcomes separately. No sink delivery, seeding, receipt redesign, polling change or new tool/dependency is included. Full `make verify` remains nonzero. Stop for independent review.
-
-## M3: durable Elasticsearch projection
-
-`make verify-m3` runs quality and each earlier profile once, then fresh and populated guarded M2C.1 profiles against real TLS Elasticsearch, two PostgreSQL services and test-only Toxiproxy. The original source migrations, canonical envelope/codec and command/capture contracts are unchanged. Forward pipeline migration 003 adds delivery ownership, bounded attempts/dead letters and target admission to the existing Elasticsearch intent. Restaging preserves valid delivery progress. RabbitMQ and consumer obligations remain pending.
-
-`npm run deliver:es -- once|follow|status` uses explicit PIPELINE_ES_HOST/PORT/PASSWORD, ES_URL, ES_USERNAME, ES_PASSWORD and ES_CA_FILE; the registered ledger supplies the expected receiver/pipeline/source identities. See the CLI's required variables and [ADR 010](docs/adr/010-elasticsearch-projection-delivery.md). Setup is controlled through scripts/es-setup.ts and scripts/es-service.ts, separate from worker startup. It creates/verifies a unique concrete receiver and binds its actual UUIDs/configuration. The retained single-node service uses a restricted file-realm runtime user and role, avoiding native security-index recovery as an authentication dependency. Its private users/users_roles/roles.yml and TLS files must survive alongside the data volume. Setup performs an initialization restart after installing them; runtime never rewrites these files or configures Elasticsearch. Wrong credentials and identity/configuration changes block the target. UUID checks detect replacement; they are not atomic remote fencing.
-
-Search-v1 retains the full exact canonical body in `_source` and indexes only name, country and loyalty_points. Decimal-string IDs/versions stay exact through strict external-version indexing, lossless responses and realtime conflict verification. Tombstones are higher-version documents. A 500-item HTTP 200 response is inspected item by item; genuine mapper failures retain original dead letters, while unknown outcomes remain retryable. Capture/ACK continues to mean durable staging, independently of ES delivery.
-
-`npm run review:m3 -- capture` requires clean committed code, runs two complete gates and records the expected nonzero full verifier. `summary` and `bundle` take that local capture directory. Full logs belong to ignored artifacts; the compact report distinguishes inspected local results from remote CI, which is not run by these commands. No privileged host tuning is performed: existing vm.max_map_count must be at least 1048576. There is no broker/consumer, backfill, seeding, public replay API, production deployment or full G1–G5 guarantee.
-
-## M3.1 prerequisites and degraded fixtures
-
-`make verify-m3` first observes the read-only local prerequisite, then runs quality and each earlier profile once, both real M3 profiles, and the six-case rejected-revision profile (`npm run test:integration:m31`). The original bulk/reconciliation profiles also require O07's explicit workload expectations. A latest rejected source revision is **EXPECTED DEGRADED** even when the receiver correctly retains an older admissible document or tombstone. Expected rejection identities/content are declared before delivery; unknown failures cannot authorize exclusions. Historical reproduction: `npm run test:reproduction:m3-oracle` deliberately demonstrates the old oracle assertion failure and is not corrected acceptance.
-
-The supported local harness assumes Linux with Docker sharing that host's kernel. Reading `/proc/sys/vm/max_map_count` does not configure or prove a remote Docker daemon. The project requires at least **1048576**. A lower/unreadable value fails before heavy profiles or service launch and records required/observed/platform/phase; setup failures before test launch report required cases NOT RUN. Missing evidence after its producing stage was attempted still fails.
-
-Local remediation belongs to an authorized operator: inspect `sysctl -n vm.max_map_count` on the actual Docker host and, only with that host owner's approval, raise a lower value with `sudo sysctl -w vm.max_map_count=1048576`; preserve a higher value. No local repository command performs this change or persists `/etc/sysctl.conf`. The workflow alone is authorized to establish it on GitHub's ephemeral **ubuntu-24.04 VM**, guarded by `runner.environment == 'github-hosted'` and Linux, logging before/after values. It does not tune self-hosted runners. Local workflow validation is not a hosted PASS. See [M3.1 scope](docs/milestones/M3.1.md).
+This task produces local commits and local evidence only. Publishing/pushing the candidate and any sanitized evidence requires separate authorization; a READY local result does not mean GitHub has received it. The [acceptance matrix](docs/acceptance-matrix.md) identifies any remaining blocker and the exact tested versus later documentation identities.

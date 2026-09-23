@@ -1,5 +1,7 @@
 # AGENTS.md
 
+Current authorization: final submission closure in [docs/acceptance-closure.md](docs/acceptance-closure.md). Historical milestone boundaries below describe their original scope. `make verify` is now the real million-entity acceptance entry; historical captures no longer invoke or expect failure from the retired placeholder. No publication is authorized.
+
 ## Before work
 
 Read SPEC.md, relevant accepted ADRs, and the current milestone task. Inspect git status and repository/ancestor instructions. SPEC defines behavior; this file defines workflow. Report contradictions instead of silently choosing another guarantee.
@@ -28,7 +30,7 @@ Finish with tested commit SHA, changes, reproducible results, relevant SQL/code,
 
 ## Available commands
 
-Use `npm ci`, `npm run typecheck`, `npm run lint`, `npm run test:unit`, and `npm run test:integration:m1`. `make verify-m1` runs only the implemented M1 checks. `make verify` deliberately reports G1-G5 NOT IMPLEMENTED and exits nonzero. Integration artifacts are under ignored `artifacts/m1/<run-id>/`; integration resources are managed by `scripts/m1.ts`. Do not invoke Compose with a shared/default project name.
+Use `npm ci`, `npm run typecheck`, `npm run lint`, `npm run test:unit`, and `npm run test:integration:m1`. `make verify-m1` runs only the implemented M1 checks. `make verify` executes current full acceptance, with a nonzero result for any mandatory failure. Integration artifacts are under ignored `artifacts/m1/<run-id>/`; integration resources are managed by `scripts/m1.ts`. Do not invoke Compose with a shared/default project name.
 
 ## M1.1 commands and boundary
 
@@ -104,4 +106,8 @@ M8 authorizes root Compose packaging, explicit retained seed/activation, indepen
 
 `make verify-runtime` requires cold retained Compose initialization, source/receiver reconciliation, retained restart and actual browser reads. `make verify-functional` runs quality and real G1-G5 failure scenarios on an explicit 1,024-baseline fixture through `scripts/verify-final.py`. Its private wrappers live in `scripts/verification/` and are selected only by the verifier's owned Compose override; normal workers never activate them. Preserve the independent source recipe/command/rejection oracle and its negative controls.
 
-Two passing functional runs are recorded in `docs/evidence/Integrated-runtime.md`. They do not establish the two-million-row target in `docs/capacity-notes.md`. Keep actual failures, tested-code identities and later documentation identities separate. Do not promote smaller fixture results into full-size acceptance, delete assertions, or add a success fallback for missing browser/service evidence. Root Compose/demo volumes are retained; fault/cleanup commands target only the exact project owned by that invocation.
+Two passing functional runs are recorded in `docs/evidence/Integrated-runtime.md`. They do not establish the current million-entity default or optional two-million profile in `docs/capacity-notes.md`. Keep actual failures, tested-code identities and later documentation identities separate. Do not promote smaller fixture results into full-size acceptance, delete assertions, or add a success fallback for missing browser/service evidence. Root Compose/demo volumes are retained; fault/cleanup commands target only the exact project owned by that invocation.
+
+### Final submission commands
+
+`make verify` runs quality, browser fixture inventory, fresh retained root runtime with real controls, then selected large-dataset G1-G5 faults, exact disk-backed reconciliation, negative controls and cleanup. Default `VERIFY_COUNT=1000000`; only an explicit `VERIFY_COUNT=2000000` selects 2M. `make verify-functional` / `make verify-fast` remain 1024-baseline development checks. New historical review captures omit the retired placeholder probe; existing reports remain unchanged. Use one clean committed candidate and a fresh local checkout, preserve failed evidence, and stop after acceptance closure.
