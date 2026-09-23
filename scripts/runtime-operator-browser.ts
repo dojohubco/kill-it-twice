@@ -96,15 +96,25 @@ await withCleanup(
     }
     async function confirm(title: string, label: string) {
       const dialog = page.getByRole('dialog', { name: title, exact: true });
-      const response = page.waitForResponse(
-        (r) =>
-          new URL(r.url()).pathname.startsWith('/api/v1/') &&
-          r.request().method() !== 'GET',
-      );
-      await dialog.getByRole('button', { name: label, exact: true }).click();
-      const received = await response;
-      assert.equal(received.status(), 202);
-      const data = object(object((await received.json()) as unknown)['data']);
+      const key = await dialog.locator('.request-identity code').innerText();
+      assert.match(key, /^[a-f0-9-]{36}$/);
+      // Consume this exact command response immediately on arrival, before
+      // click completion or subsequent browser work can discard its CDP body.
+      const response = page
+        .waitForResponse(
+          (r) =>
+            new URL(r.url()).pathname.startsWith('/api/v1/') &&
+            r.request().method() !== 'GET' &&
+            r.request().headers()['idempotency-key'] === key,
+        )
+        .then(async (received) => {
+          assert.equal(received.status(), 202);
+          return object(object((await received.json()) as unknown)['data']);
+        });
+      const [data] = await Promise.all([
+        response,
+        dialog.getByRole('button', { name: label, exact: true }).click(),
+      ]);
       await dialog.getByText('Request accepted', { exact: true }).waitFor();
       assert.match(await dialog.innerText(), /not end-to-end delivery/);
       await dialog.getByRole('button', { name: 'Done', exact: true }).click();
