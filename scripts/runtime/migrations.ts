@@ -108,6 +108,7 @@ export const pipelineFiles = [
   'pipeline/014-backfill-page-bounds.sql',
   'pipeline/015-explicit-due-predicates.sql',
   'pipeline/016-observation-and-progress.sql',
+  'pipeline/017-observation-indexes.sql',
 ] as const;
 export const consumerFiles = [
   'consumer/001-consumer.sql',

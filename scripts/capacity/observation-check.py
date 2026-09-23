@@ -11,7 +11,14 @@ def sql(text,label,expected=(0,)):
     file=r.out/(label+'.sql');file.write_text(text+'\n')
     return r.compose(['exec','-T','pipeline','psql','-X','-q','-A','-t','-v','ON_ERROR_STOP=1','-v','VERBOSITY=verbose','-U','pipeline_admin','-d','pipeline_m2b'],label,input_file=file,expected=expected)
 def snapshot(label):
-    return sql("BEGIN READ ONLY;SELECT row_to_json(x)::text FROM (SELECT * FROM pipeline.backfill_runs ORDER BY run_id)x;SELECT row_to_json(x)::text FROM (SELECT * FROM pipeline.backfill_ranges ORDER BY run_id,range_no)x;SELECT row_to_json(x)::text FROM (SELECT * FROM pipeline.backfill_batches ORDER BY batch_id)x;SELECT row_to_json(x)::text FROM (SELECT * FROM pipeline.backfill_members ORDER BY run_id,event_id COLLATE \"C\")x;SELECT row_to_json(x)::text FROM (SELECT * FROM pipeline.events ORDER BY event_id COLLATE \"C\")x;ROLLBACK;",label)
+    return sql("BEGIN READ ONLY;SELECT row_to_json(x)::text FROM (SELECT * FROM pipeline.backfill_runs ORDER BY run_id)x;SELECT row_to_json(x)::text FROM (SELECT * FROM pipeline.backfill_ranges ORDER BY run_id,range_no)x;SELECT row_to_json(x)::text FROM (SELECT * FROM pipeline.backfill_batches ORDER BY batch_id)x;SELECT row_to_json(x)::text FROM (SELECT * FROM pipeline.backfill_members ORDER BY run_id,event_id COLLATE \"C\")x;SELECT row_to_json(x)::text FROM (SELECT * FROM pipeline.events ORDER BY event_id COLLATE \"C\")x;SELECT row_to_json(x)::text FROM (SELECT * FROM pipeline.delivery_intents ORDER BY event_id COLLATE \"C\",kind)x;SELECT row_to_json(x)::text FROM (SELECT * FROM pipeline.consumer_observations ORDER BY event_id COLLATE \"C\")x;ROLLBACK;",label)
+def operational_snapshot(query,label):
+    value=json.loads(sql("BEGIN READ ONLY;SET LOCAL ROLE pipeline_operator;SET LOCAL statement_timeout=2500;"+query+";ROLLBACK;",label).read_text())
+    value.pop('observed_at')
+    # SQL grouped arrays have no ordering contract. Preserve every field/value.
+    for key in ('deliveries','observations','attempts','settled'):
+        value[key].sort(key=lambda row:json.dumps(row,sort_keys=True))
+    return value
 original=(ROOT/'migrations/pipeline/006-backfill.sql').read_text()
 start=original.index('CREATE FUNCTION pipeline.backfill_progress_valid(');end=original.index('\n$$;',start)+4
 reference=original[start:end].replace('pipeline.backfill_progress_valid(', 'pg_temp.reference_progress(')
@@ -27,11 +34,16 @@ try:
     r.wait(r.status,lambda s:isinstance(s.get('backfill'),dict) and s['backfill']['phase']=='complete','before-complete',timeout=400)
     r.compose(['stop','-t','20','capture','backfill','es-worker','publisher','consumer','observer'],'quiesce',timeout=180)
     before=snapshot('before')
+    query=json.loads(r.run(['node','--input-type=module','-e',"import {queries} from './src/operations/queries.ts';console.log(JSON.stringify(queries.pipeline.snapshot))"],'operational-query').read_text())
+    operational_before=operational_snapshot(query,'operational-before')
     metadata="SELECT jsonb_build_object('oid',oid,'owner',proowner,'acl',proacl,'config',proconfig,'security',prosecdef) FROM pg_proc WHERE oid='pipeline.backfill_progress_valid(uuid)'::regprocedure;"
     catalog=sql(metadata,'metadata-before')
     migration=ROOT/'migrations/pipeline/016-observation-and-progress.sql'
     sql('BEGIN;\n'+migration.read_text()+'\nCOMMIT;','upgrade')
+    indexes=ROOT/'migrations/pipeline/017-observation-indexes.sql'
+    sql('BEGIN;\n'+indexes.read_text()+'\nCOMMIT;','observation-index-upgrade')
     assert before.read_bytes()==snapshot('after').read_bytes()
+    assert operational_before==operational_snapshot(query,'operational-after')
     assert catalog.read_bytes()==sql(metadata,'metadata-after').read_bytes()
     checked=[]
     for label,alter in [
@@ -55,7 +67,7 @@ try:
         os.link(log,exported/(name+'.jsonl'))
     (exported/'failures.jsonl').write_text('');(r.out/'journal.jsonl').write_text('');(r.out/'rejections.json').write_text('[]')
     proof=r.run([sys.executable,'-B','tests/final/reconcile.py',str(exported),'--count','4096','--journal',str(r.out/'journal.jsonl'),'--rejections',str(r.out/'rejections.json')],'independent-oracle',timeout=300)
-    r.report.update(status='PASS',reconciliation=json.loads(proof.read_text()),comparison=checked,preserved_sha256=sha(before),metadata_sha256=sha(catalog),migration_sha256=sha(migration),plans_file=plan.name,scope='Real populated function preservation, old/new progress equivalence, rollback-only negative controls and exact content reconciliation; no large-scale timing claim')
+    r.report.update(status='PASS',reconciliation=json.loads(proof.read_text()),comparison=checked,preserved_sha256=sha(before),metadata_sha256=sha(catalog),migration_sha256=sha(migration),index_migration_sha256=sha(indexes),operational_snapshot_preserved=True,plans_file=plan.name,scope='Real populated function/index upgrade preservation, old/new progress equivalence, rollback-only negative controls and exact content reconciliation; no large-scale timing claim')
     assert subprocess.check_output(['git','status','--porcelain'],cwd=ROOT,text=True)==r.dirty
     assert subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()==r.head
 except BaseException as error:r.report.update(status='FAIL',error={'type':type(error).__name__,'message':str(error)})

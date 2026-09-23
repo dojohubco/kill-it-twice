@@ -29,8 +29,13 @@ export class OperationalDatabase {
               const capability = await client.query<{ present: boolean }>(
                 "SELECT to_regprocedure('pipeline.backfill_observation(uuid)') IS NOT NULL AS present",
               );
-              if (capability.rows[0]?.present === true)
+              if (capability.rows[0]?.present === true) {
+                // The indexed million-member observation measured 3.6 seconds.
+                // Only this read gets 8 seconds; discovery, legacy full status
+                // and other reads keep 2.5 seconds. Terminal proof is separate.
+                await client.query('SET LOCAL statement_timeout=8000');
                 selected = 'SELECT pipeline.backfill_observation($1) value';
+              }
             }
             const r = await client.query<{ value: unknown }>(selected, args);
             return r.rows.map((r) => record(r.value));

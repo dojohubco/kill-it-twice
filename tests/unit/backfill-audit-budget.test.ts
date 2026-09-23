@@ -105,7 +105,22 @@ for (const installed of [false, true]) {
         calls.includes('SET TRANSACTION READ ONLY') &&
           calls.includes('SET LOCAL statement_timeout=2500'),
       );
+      assert.deepEqual(
+        calls.filter((c) => c.startsWith('SET LOCAL statement_timeout=')),
+        installed
+          ? [
+              'SET LOCAL statement_timeout=2500',
+              'SET LOCAL statement_timeout=8000',
+            ]
+          : ['SET LOCAL statement_timeout=2500'],
+      );
       assert.ok(!calls.some((c) => c.includes('180000')));
+      calls.length = 0;
+      await db.read('pipeline', 'snapshot');
+      assert.deepEqual(
+        calls.filter((c) => c.startsWith('SET LOCAL statement_timeout=')),
+        ['SET LOCAL statement_timeout=2500'],
+      );
     } finally {
       query.mock.restore();
       end.mock.restore();
