@@ -21,6 +21,10 @@ class Runtime:
         self.project = 'kit-final-' + datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d%H%M%S') + '-' + uuid.uuid4().hex[:8]
         self.out = ROOT / 'artifacts/final' / self.project
         self.out.mkdir(parents=True)
+        # Fault workers keep UID 1000 and gain only this owned evidence group.
+        # A hosted runner's UID need not equal the container's UID.
+        self.out.chmod(0o770)
+        self.evidence_group = str(self.out.stat().st_gid)
         self.head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
         self.dirty = subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True)
         self.env = dict(os.environ, KIT_UI_PORT='0', KIT_IMAGE='kill-it-twice-runtime:final-' + self.head[:12])

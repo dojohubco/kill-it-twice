@@ -72,6 +72,7 @@ jobs:
             artifacts/m3-oracle/**/public/**
             artifacts/m3.1/**/public/**
             artifacts/ci/public/**
+            artifacts/final/*/public/**
             artifacts/ui/browser-*/**
           if-no-files-found: error
           retention-days: 7

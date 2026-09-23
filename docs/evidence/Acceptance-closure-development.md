@@ -19,3 +19,13 @@ The correction gives only full baseline sealing a 60-second SQL / 65-second clie
 Quality passed with 85 unit cases. The current-capacity bootstrap profile `m5a-20260923122623880-f61fe1c9` passed its real 18-case inventory, including crash/healthy barriers, sealing, privileges and corrupted baseline detection. These targeted checks used the recorded working-tree patch; final acceptance still requires a new clean committed candidate.
 
 The populated-upgrade preservation profile `m5a-20260923122924619-6df9e039` also passed, with cleanup PASS. No historical event, receipt, source identity or migration assertion was removed.
+
+## Evidence-directory portability and hosted failure visibility
+
+Read-only inspection observed hosted run [35861611483](https://github.com/dojohubco/kill-it-twice/actions/runs/35861611483) at `b2e56aa` fail G1 after quality passed; G2-G5 and the UI job were not run. Its upload contained the CI wrapper logs but omitted the detailed final-run report, so the precise hosted G1 cause cannot be asserted from those artifacts.
+
+A separate real unprivileged-container reproduction established a concrete portability defect: the normal worker UID 1000 could not write fault evidence in a 0755 directory owned by UID 1001 (`EACCES`). The directory owner enabling group write (0770), plus adding only that directory's existing GID to the fault container, made the same write succeed. No root container, chown, global group change or privileged host operation was used. This is a reproduced verifier defect, not proof of the unseen hosted error's exact cause.
+
+The owned million-row attempt `kit-final-20260923124357-3c5d7731` was deliberately interrupted through its SIGTERM cleanup handler while seeding (last retained progress 999424) before a verifier correction would invalidate its code identity. The manifest records KeyboardInterrupt / verifier termination, G1 FAIL and G2-G5 NOT RUN; cleanup PASS. It is not a product-integrity counterexample or completed acceptance. The prior first million-row sealing failure remains a separate genuine failure.
+
+Fault containers now retain UID 1000 and gain only the run directory's existing group. An early actual write/unlink probe checks all four fault roles before seeding. Normal application Compose roles are unchanged. On failure the verifier captures bounded worker diagnostics, preserves the primary error and cleanup separately, and writes a curated final report under its public evidence directory. The existing fast-CI upload includes that directory. Quality passed with 85 unit cases; a new clean fast and full run are still required.

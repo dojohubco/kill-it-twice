@@ -117,7 +117,7 @@ token=r.control('backfill','backfill.before_page_commit')
 services={}
 for role in ('backfill','consumer','publisher','es-worker'):
     if role!='backfill':r.control(role)
-    services[role]={'restart':'no','command':['node','scripts/verification/fault-worker.ts',role],'volumes':[str(r.out)+':/verification:rw,z']}
+    services[role]={'restart':'no','command':['node','scripts/verification/fault-worker.ts',role],'group_add':[r.evidence_group],'volumes':[str(r.out)+':/verification:rw,z']}
 services['backfill']['environment']={'BACKFILL_PAGE_RECORDS':str(options.page_records)}
 (r.out/'verification.json').write_text(json.dumps({'services':services},indent=2))
 files=subprocess.check_output(['git','ls-files','--cached','--others','--exclude-standard','-z'],cwd=ROOT).decode().split('\0')
@@ -138,6 +138,13 @@ try:
     r.run(['node','scripts/runtime-preflight.ts'],'prerequisite')
     r.compose(['config','--quiet'],'compose-configuration')
     r.compose(['up','-d','--build'],'cold-up',timeout=600)
+    permissions=[]
+    for role in services:
+        probe="const fs=require('node:fs');const p='/verification/"+role+"-access-probe';fs.writeFileSync(p,'probe',{flag:'wx'});fs.unlinkSync(p);console.log(JSON.stringify({uid:process.getuid(),groups:process.getgroups()}))"
+        value=r.json_command(['exec','-T',role,'node','-e',probe],'evidence-write-'+role,timeout=30)
+        assert value['uid']==1000 and int(r.evidence_group) in value['groups']
+        permissions.append({'role':role,**value})
+    r.report['evidence_permissions']=permissions;r.save()
     port=r.compose(['port','ui','4200'],'gateway').read_text().strip();assert port.startswith('127.0.0.1:');r.url='http://'+port;r.report['gateway']=r.url
     resources=ResourceSampler(r.project,r.out,interval=15 if large else 5);resources.start()
     set_phase('G1')
@@ -298,6 +305,11 @@ except BaseException as error:
     r.report['status']='FAIL';r.report['error']={'phase':phase,'type':type(error).__name__,'message':str(error)}
 finally:
     r.health_check=lambda: None  # Resource failure must not disable owned cleanup.
+    if r.report['status']=='FAIL':
+        try:
+            r.compose(['logs','--no-color','--tail','20',*services],'worker-failure-diagnostics',timeout=30,maximum=1024*1024)
+        except BaseException as error:
+            r.report['diagnostic_error']={'type':type(error).__name__,'message':str(error)}
     if resources is not None:
         try:
             r.report['resources']=resources.finish()
@@ -307,6 +319,16 @@ finally:
     observed={g['id']:g['status'] for g in r.report['gates']}
     r.report['gate_report']={g:observed.get(g,'FAIL' if g==phase else 'NOT RUN') for g in ('G1','G2','G3','G4','G5')}
     r.cleanup()
+    public={key:r.report.get(key) for key in ('head','count','scope','status','phase','error','gate_report','required_cases','cleanup','measurement_error','diagnostic_error','resources','evidence_permissions','reconciliation','negative_controls','input_sha256','source_snapshot_sha256')}
+    try:
+        directory=r.out/'public';directory.mkdir()
+        (directory/'final-report.json').write_text(json.dumps(public,indent=2)+'\n')
+        for log in r.out.glob('*worker-failure-diagnostics.*.log'):
+            shutil.copyfile(log,directory/log.name)
+    except BaseException as error:
+        r.report['status']='FAIL';r.report['publication_error']={'type':type(error).__name__,'message':str(error)}
+        public.update(status='FAIL',publication_error=r.report['publication_error']);r.save()
+    print('FINAL_REPORT '+json.dumps(public,separators=(',',':')),flush=True)
     for gate,result in r.report['gate_report'].items():print(gate+' '+result,flush=True)
 print(r.report['status']+': '+str(r.out/'run.json'),flush=True)
 sys.exit(0 if r.report['status']=='PASS' else 1)
