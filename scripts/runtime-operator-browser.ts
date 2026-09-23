@@ -69,6 +69,80 @@ await withCleanup(
     const page = await browser.newPage({
       viewport: { width: 1440, height: 1000 },
     });
+    // Observe a bounded clone of the real fetch stream. Chrome may discard the
+    // DevTools response body even while the application successfully consumes it.
+    // No request is repeated, intercepted, fulfilled or replaced.
+    await page.addInitScript(() => {
+      const captures = new Map<
+        string,
+        { status: number; body: string | null; error: string | null }
+      >();
+      Object.defineProperty(window, '__kitControlResponses', {
+        value: captures,
+      });
+      const nativeFetch = window.fetch.bind(window);
+      window.fetch = async (input, init) => {
+        const response = await nativeFetch(input, init);
+        const request = input instanceof Request ? input : null;
+        const method = init?.method ?? request?.method ?? 'GET';
+        const target = new URL(
+          input instanceof Request ? input.url : input,
+          location.href,
+        );
+        const key = new Headers(init?.headers ?? request?.headers).get(
+          'idempotency-key',
+        );
+        if (
+          method !== 'GET' &&
+          target.origin === location.origin &&
+          target.pathname.startsWith('/api/v1/') &&
+          key
+        ) {
+          const copy = response.clone();
+          void (async () => {
+            try {
+              const reader = copy.body?.getReader();
+              if (!reader)
+                throw new Error('Actual control response has no body');
+              const chunks: Uint8Array[] = [];
+              let bytes = 0;
+              try {
+                for (;;) {
+                  const part = await reader.read();
+                  if (part.done) break;
+                  bytes += part.value.byteLength;
+                  if (bytes > 4 * 1024 * 1024) {
+                    await reader.cancel();
+                    throw new Error('Control response exceeds the UI byte cap');
+                  }
+                  chunks.push(part.value);
+                }
+              } finally {
+                reader.releaseLock();
+              }
+              const body = new Uint8Array(bytes);
+              let offset = 0;
+              for (const chunk of chunks) {
+                body.set(chunk, offset);
+                offset += chunk.byteLength;
+              }
+              captures.set(key, {
+                status: response.status,
+                body: new TextDecoder('utf-8', { fatal: true }).decode(body),
+                error: null,
+              });
+            } catch (error) {
+              captures.set(key, {
+                status: response.status,
+                body: null,
+                error: String(error),
+              });
+            }
+          })();
+        }
+        return response;
+      };
+    });
     const errors: string[] = [];
     const writes: { path: string; key: string | undefined }[] = [];
     page.on('pageerror', (e) => errors.push(e.message));
@@ -98,23 +172,40 @@ await withCleanup(
       const dialog = page.getByRole('dialog', { name: title, exact: true });
       const key = await dialog.locator('.request-identity code').innerText();
       assert.match(key, /^[a-f0-9-]{36}$/);
-      // Consume this exact command response immediately on arrival, before
-      // click completion or subsequent browser work can discard its CDP body.
-      const response = page
-        .waitForResponse(
-          (r) =>
-            new URL(r.url()).pathname.startsWith('/api/v1/') &&
-            r.request().method() !== 'GET' &&
-            r.request().headers()['idempotency-key'] === key,
-        )
-        .then(async (received) => {
-          assert.equal(received.status(), 202);
-          return object(object((await received.json()) as unknown)['data']);
-        });
-      const [data] = await Promise.all([
+      const response = page.waitForResponse(
+        (r) =>
+          new URL(r.url()).pathname.startsWith('/api/v1/') &&
+          r.request().method() !== 'GET' &&
+          r.request().headers()['idempotency-key'] === key,
+      );
+      const [received] = await Promise.all([
         response,
         dialog.getByRole('button', { name: label, exact: true }).click(),
       ]);
+      assert.equal(received.status(), 202);
+      const captureHandle = await page.waitForFunction(
+        (requestKey) =>
+          (
+            window as typeof window & {
+              __kitControlResponses: Map<string, unknown>;
+            }
+          ).__kitControlResponses.get(requestKey),
+        key,
+        { timeout: 12000 },
+      );
+      const captured = object(await captureHandle.jsonValue());
+      await captureHandle.dispose();
+      assert.equal(captured['error'], null);
+      assert.equal(captured['status'], 202);
+      const body = captured['body'];
+      assert.equal(typeof body, 'string');
+      assert.ok(typeof body === 'string');
+      const envelope = object(JSON.parse(body) as unknown);
+      assert.equal(
+        envelope['request_id'],
+        await received.headerValue('x-request-id'),
+      );
+      const data = object(envelope['data']);
       await dialog.getByText('Request accepted', { exact: true }).waitFor();
       assert.match(await dialog.innerText(), /not end-to-end delivery/);
       await dialog.getByRole('button', { name: 'Done', exact: true }).click();
@@ -292,6 +383,7 @@ await withCleanup(
         scope: 'Real controls on separate 257-baseline retained fixture',
         browser: browser.version(),
         interceptedResponses: 0,
+        controlResponseCapture: 'bounded clone of actual browser fetch stream',
         writes,
         pageErrors: errors,
         replay: {
