@@ -26,10 +26,14 @@ r.report["page_records"]=options.page_records
 large=options.count>=1000000
 resources=None
 started=time.monotonic()
-overall_deadline=started+(19800 if large else 2400)
+# Four-vCPU server observations were 65-80 events/s: 1M needs 3.5-4.3h.
+# Six hours adds drain/proof margin; optional 2M explicitly doubles that phase.
+drain_budget=21600*(options.count//1000000) if large else 1800
+total_budget=drain_budget+14400 if large else 2400
+overall_deadline=started+total_budget
 phase='prerequisites'
 r.report['required_cases']=['G1','G2','G3','G4','G5','reconciliation','negative-controls','resources','cleanup']
-r.report['budgets_seconds']={'total':19800 if large else 2400,'seed':7200,'large_drain':10800,'incremental_settle':360,'export_each':3600,'oracle_each':7200,'barrier':24,'cleanup':180}
+r.report['budgets_seconds']={'total':total_budget,'seed':7200,'large_drain':drain_budget,'incremental_settle':360,'export_each':3600,'oracle_each':7200,'barrier':24,'cleanup':180}
 disk_paths=[ROOT]
 next_health=0
 def health():
@@ -185,7 +189,7 @@ try:
     assert changed[0]['result']==changed[1]['result'] and changed[1]['replayed'] is True
     overlap_after=r.wait(lambda:r.inspect('backfill'),lambda rows:sum(int(q['committed_batches']) for q in rows)>sum(int(q['committed_batches']) for q in overlap_before),'page-progress-during-source-work')
     if large:scale(4,2)
-    drain_start=time.monotonic();complete=settled(timeout=10800 if large else 1800)
+    drain_start=time.monotonic();complete=settled(timeout=drain_budget)
     r.report['scan_drain_after_fault_seconds']=time.monotonic()-drain_start
     if large:scale(1,1)
     r.gate('G1',{'healthy':healthy,'healthy_progress':healthy_after,'fault':killed,'checkpoint_before':old,'checkpoint_after_kill':current,'open_sessions':sessions,'completed_run':complete['backfill'],'concurrent_mutations':len(seen),'overlap_before':overlap_before,'overlap_after':overlap_after})

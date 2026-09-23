@@ -1,7 +1,7 @@
 // Only the complete, explicitly named gates receive the longer bounded deadline.
 export function ciTimeout(executable: string, args: readonly string[]): number {
   if (executable !== 'make' || args.length !== 1) return 600000;
-  if (args[0] === 'verify') return 25200000;
+  if (args[0] === 'verify') return 39600000;
   if (['verify-functional', 'verify-fast'].includes(args[0] ?? ''))
     return 2400000;
   if (args[0] === 'verify-runtime') return 1800000;

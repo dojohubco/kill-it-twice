@@ -20,7 +20,7 @@ try:
         ('ui-build',['npm','run','build:ui'],300),
         ('ui-fixtures',['npm','run','test:ui'],600),
         ('retained-runtime',[sys.executable,'-B','scripts/verify-runtime.py'],1200),
-        ('large-faults',[sys.executable,'-B','scripts/verify-final.py','--count',str(options.count),'--page-records','64'],20100),
+        ('large-faults',[sys.executable,'-B','scripts/verify-final.py','--count',str(options.count),'--page-records','64'],21600*(options.count//1000000)+14700),
     ]:
         print('PHASE '+phase,flush=True)
         log=r.run(args,phase,timeout=timeout,graceful=240)
