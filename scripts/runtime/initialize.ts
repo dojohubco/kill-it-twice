@@ -49,8 +49,8 @@ async function roleSetup(c: pg.Client, roles: string[]) {
   assert.equal(rows.length, roles.length);
   assert.ok(rows.every((r) => r.safe));
 }
-async function ready(work: () => Promise<unknown>) {
-  const until = performance.now() + 120000;
+async function ready(work: () => Promise<unknown>, budgetMs = 120000) {
+  const until = performance.now() + budgetMs;
   for (;;) {
     try {
       await work();
@@ -161,12 +161,15 @@ try {
     });
     await withCleanup(
       async () => {
+        // Real server receiver startup took 226 seconds. Allow the same
+        // finite 360-second readiness window used by receiver recovery;
+        // SQL, registration and delivery deadlines are independent.
         await ready(async () => {
           assert.notEqual(
             object(await setup.request('GET', '/'))['cluster_uuid'],
             '_na_',
           );
-        });
+        }, 360000);
         await ready(() => broker.request('GET', '/api/overview'));
         progress('elasticsearch-registration');
         await registerEs(

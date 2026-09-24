@@ -7,7 +7,8 @@ void test('capacity sampler distinguishes fresh, stale, unavailable and malforme
   const result = await promisify(execFile)(
     'python3',
     ['-B', 'tests/capacity/observations_test.py'],
-    { timeout: 5000, maxBuffer: 65536 },
+    // Includes interpreter startup and the complete Python suite, not a service deadline.
+    { timeout: 30000, maxBuffer: 65536 },
   );
   assert.match(result.stderr, /Ran 7 tests/);
   assert.match(result.stderr, /\bOK\b/);

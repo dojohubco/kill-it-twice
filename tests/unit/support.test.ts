@@ -139,7 +139,7 @@ void test('bounded output fails explicitly and redacts secrets spanning writes a
       'process.stdout.write("split-");setTimeout(()=>process.stdout.write("secret-token"),20)',
     ],
     process.env,
-    2_000,
+    15_000,
     true,
     { secrets: [secret] },
   );
@@ -152,7 +152,7 @@ void test('bounded output fails explicitly and redacts secrets spanning writes a
       'process.stdout.write("x".repeat(1020)+"split-secret-token"+"x".repeat(100000))',
     ],
     process.env,
-    2_000,
+    15_000,
     true,
     { maxOutputBytes: 1024, secrets: [secret] },
   );
@@ -174,7 +174,9 @@ void test('timeout kills the real owned child and grandchild while unrelated sen
       process.execPath,
       ['tests/support/group-child.ts'],
       process.env,
-      750,
+      // Measured fixture startup is 2.6 seconds on the shared host.
+      // This tests eventual group termination, not subsecond startup latency.
+      15_000,
       true,
     );
     assert.equal(result.timedOut, true);
