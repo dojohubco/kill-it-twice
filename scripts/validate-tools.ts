@@ -6,9 +6,14 @@ import { command } from './support.ts';
 import { object } from './acceptance.ts';
 import { actionlint } from './tool-pins.ts';
 
-async function checked(executable: string, args: string[], env = process.env) {
+async function checked(
+  executable: string,
+  args: string[],
+  env = process.env,
+  timeoutMs = 30_000,
+) {
   const started = performance.now();
-  const result = await command(executable, args, env, 30_000, true);
+  const result = await command(executable, args, env, timeoutMs, true);
   assert.ok(
     result.code === 0 &&
       !result.signal &&
@@ -22,7 +27,7 @@ async function checked(executable: string, args: string[], env = process.env) {
       outputOverflow: result.outputOverflow,
       cleanupErrors: result.cleanupErrors,
       elapsedMs: performance.now() - started,
-      timeoutMs: 30_000,
+      timeoutMs,
     })}\n${result.stderr}\n${result.stdout}`,
   );
   console.log(result.stdout.trim());
@@ -30,6 +35,8 @@ async function checked(executable: string, args: string[], env = process.env) {
 }
 const mode = process.argv[2];
 if (mode === 'compose') {
+  // Read-only CLI validation hit the 30s wall-clock guard on the shared server.
+  // Keep a finite process allowance; service/transaction/fault deadlines are separate.
   for (const files of [
     ['compose.m1.yaml'],
     ['compose.m1.yaml', 'compose.m2b.yaml'],
@@ -57,19 +64,25 @@ if (mode === 'compose') {
         M4_PRIVATE_DIR: '/nonsecret-quality-fixture/rabbit',
         CONTROL_CONFIG_FILE: '/nonsecret-quality-fixture/control.json',
       },
+      60_000,
     );
   const runtime = object(
     JSON.parse(
-      await checked('docker', [
-        'compose',
-        '-f',
-        'compose.yaml',
-        '-p',
-        'quality-runtime-budget',
-        'config',
-        '--format',
-        'json',
-      ]),
+      await checked(
+        'docker',
+        [
+          'compose',
+          '-f',
+          'compose.yaml',
+          '-p',
+          'quality-runtime-budget',
+          'config',
+          '--format',
+          'json',
+        ],
+        process.env,
+        60_000,
+      ),
     ),
   );
   const pipeline = object(object(runtime['services'])['pipeline']);

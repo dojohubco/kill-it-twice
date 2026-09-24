@@ -16,7 +16,8 @@ phase='admission'
 try:
     assert not r.dirty,'make verify requires clean committed code'
     for phase,args,timeout in [
-        ('quality',['make','quality'],600),
+        # Shared-server component measurements total about 41-45 minutes.
+        ('quality',['make','quality'],3600),
         ('ui-build',['npm','run','build:ui'],300),
         ('ui-fixtures',['npm','run','test:ui'],600),
         ('retained-runtime',[sys.executable,'-B','scripts/verify-runtime.py'],1200),
