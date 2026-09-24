@@ -7,6 +7,7 @@ import { object } from './acceptance.ts';
 import { actionlint } from './tool-pins.ts';
 
 async function checked(executable: string, args: string[], env = process.env) {
+  const started = performance.now();
   const result = await command(executable, args, env, 30_000, true);
   assert.ok(
     result.code === 0 &&
@@ -14,7 +15,15 @@ async function checked(executable: string, args: string[], env = process.env) {
       !result.timedOut &&
       !result.outputOverflow &&
       result.cleanupErrors.length === 0,
-    `${executable} failed: ${result.stderr}\n${result.stdout}`,
+    `${executable} ${JSON.stringify(args)} failed: ${JSON.stringify({
+      code: result.code,
+      signal: result.signal,
+      timedOut: result.timedOut,
+      outputOverflow: result.outputOverflow,
+      cleanupErrors: result.cleanupErrors,
+      elapsedMs: performance.now() - started,
+      timeoutMs: 30_000,
+    })}\n${result.stderr}\n${result.stdout}`,
   );
   console.log(result.stdout.trim());
   return result.stdout.trim();
