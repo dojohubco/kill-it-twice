@@ -2,6 +2,8 @@
 
 Current authorization: final submission closure in [docs/acceptance-closure.md](docs/acceptance-closure.md). Historical milestone boundaries below describe their original scope. `make verify` is now the real million-entity acceptance entry; historical captures no longer invoke or expect failure from the retired placeholder. No publication is authorized.
 
+Closure evidence: the full local default-1M submission and separate 1024 functional check passed at `ecdfdb5063aa7977af6bceccdaa6b1ece3fdece7` on 2026-09-24, including independent reconciliation, negative controls and cleanup. See [the dated final report](docs/evidence/Final-submission-2026-09-24.md). Later documentation changes do not redefine the tested identity. Stop optimization after this accepted workload; server acceptance, hosted CI and optional 2M remain separate unproved scopes.
+
 ## Before work
 
 Read SPEC.md, relevant accepted ADRs, and the current milestone task. Inspect git status and repository/ancestor instructions. SPEC defines behavior; this file defines workflow. Report contradictions instead of silently choosing another guarantee.

@@ -1,0 +1,633 @@
+{
+  "generated_at": "2026-09-24T20:16:48.171658+00:00",
+  "scope": "LOCAL default-million submission acceptance; server acceptance remains NOT RUN / interrupted",
+  "status": "PASS",
+  "tested_commit": "ecdfdb5063aa7977af6bceccdaa6b1ece3fdece7",
+  "publication_performed": false,
+  "command": ["make", "verify"],
+  "count": 1000000,
+  "started_at": "2026-09-24T17:06:35.491804+00:00",
+  "finished_at": "2026-09-24T20:09:21.147918+00:00",
+  "elapsed_seconds": 10965.656114,
+  "phases": [
+    {
+      "phase": "quality",
+      "status": "PASS",
+      "exit": 0,
+      "elapsed_seconds": 47.319018
+    },
+    {
+      "phase": "ui-build",
+      "status": "PASS",
+      "exit": 0,
+      "elapsed_seconds": 4.427131
+    },
+    {
+      "phase": "ui-fixtures",
+      "status": "PASS",
+      "exit": 0,
+      "elapsed_seconds": 10.411873
+    },
+    {
+      "phase": "retained-runtime",
+      "status": "PASS",
+      "exit": 0,
+      "elapsed_seconds": 156.205334
+    },
+    {
+      "phase": "large-faults",
+      "status": "PASS",
+      "exit": 0,
+      "elapsed_seconds": 10746.827086
+    }
+  ],
+  "gates": {
+    "G1": "PASS",
+    "G2": "PASS",
+    "G3": "PASS",
+    "G4": "PASS",
+    "G5": "PASS"
+  },
+  "reconciliation": {
+    "status": "PASS",
+    "scope": "Independent frozen-fixture comparison; execution scale is reported separately",
+    "baselines": 1000000,
+    "entities": 1000515,
+    "historical_events": 1000519,
+    "mutation_effects": 519,
+    "expected_rejected_revisions": 3,
+    "oracle": "verifier-owned commands and seed recipe, exact revisions/bytes/relations/values"
+  },
+  "gate_measurements": {
+    "G1": {
+      "backfill_complete_at": "2026-09-24T19:15:34.564102+00:00",
+      "historical_terminal_proof": true,
+      "counts": {
+        "invalid": null,
+        "required": "1000005",
+        "es_errors": "0",
+        "es_pending": "0",
+        "es_satisfied": "1000005",
+        "rabbit_pending": "0",
+        "consumer_errors": "0",
+        "consumer_pending": "0",
+        "rabbit_satisfied": "1000005",
+        "consumer_processed": "1000005"
+      }
+    },
+    "G2": {
+      "consumer_delivery_count": 2,
+      "publisher_delivery_count": 2
+    },
+    "G3": {
+      "down_seconds": 60.68613033699512,
+      "mutations_while_down": 10,
+      "broker_consumer_progress": true,
+      "attempt_delta": 15,
+      "attempt_bound": 150,
+      "recovered_observation": "2026-09-24T19:23:18.070Z"
+    },
+    "G4": {
+      "operations": 500,
+      "actual_applied": 497,
+      "actual_mapper_rejections": 3,
+      "dead_letters": 3
+    },
+    "G5": {
+      "status": "PASS",
+      "browser": "153.0.8010.52",
+      "flow": "retained Compose gateway -> Overview -> Records -> exact details",
+      "interceptedResponses": 0,
+      "pageErrors": []
+    }
+  },
+  "negative_controls": [
+    {
+      "kind": "missing",
+      "exit": 1,
+      "assertion_error": true,
+      "operational_error": false,
+      "timed_out": false,
+      "output_overflow": false,
+      "elapsed_seconds": 189.765455,
+      "stderr_sha256": "c99a6089eb562bd393cde11a07bcacf9ac67f9911d07ab0fde9f22844e4452c0"
+    },
+    {
+      "kind": "extra",
+      "exit": 1,
+      "assertion_error": true,
+      "operational_error": false,
+      "timed_out": false,
+      "output_overflow": false,
+      "elapsed_seconds": 189.796319,
+      "stderr_sha256": "c99a6089eb562bd393cde11a07bcacf9ac67f9911d07ab0fde9f22844e4452c0"
+    },
+    {
+      "kind": "payload",
+      "exit": 1,
+      "assertion_error": true,
+      "operational_error": false,
+      "timed_out": false,
+      "output_overflow": false,
+      "elapsed_seconds": 216.384456,
+      "stderr_sha256": "7a502d8d5840f127e586e2fa3e95efee908be6b91c1a01ce620ad1a3f413f540"
+    },
+    {
+      "kind": "version",
+      "exit": 1,
+      "assertion_error": true,
+      "operational_error": false,
+      "timed_out": false,
+      "output_overflow": false,
+      "elapsed_seconds": 220.693051,
+      "stderr_sha256": "c96d8111a9401b4a9a08f28bad92318e5e88d7b409d8a2f3fa9c5c5ff7e717ef"
+    },
+    {
+      "kind": "effect",
+      "exit": 1,
+      "assertion_error": true,
+      "operational_error": false,
+      "timed_out": false,
+      "output_overflow": false,
+      "elapsed_seconds": 220.057887,
+      "stderr_sha256": "34b47d8b79362b83748cd1675fe654261c553c6b4abc7fd0734504f0390359a9"
+    }
+  ],
+  "retained_runtime_cases": [
+    {
+      "id": "R01",
+      "status": "PASS"
+    },
+    {
+      "id": "R02",
+      "status": "PASS"
+    },
+    {
+      "id": "R03",
+      "status": "PASS"
+    },
+    {
+      "id": "R04",
+      "status": "PASS"
+    },
+    {
+      "id": "R05",
+      "status": "PASS"
+    },
+    {
+      "id": "R06",
+      "status": "PASS"
+    },
+    {
+      "id": "R07",
+      "status": "PASS"
+    }
+  ],
+  "cleanup": {
+    "retained-runtime": {
+      "status": "PASS",
+      "errors": []
+    },
+    "large-faults": {
+      "status": "PASS",
+      "errors": []
+    }
+  },
+  "preexisting_containers_preserved": true,
+  "postrun_owned_container_query": "Zero containers for both service-owning child projects and earlier local1024 project during closure",
+  "source_unchanged_clean_at_completion": true,
+  "timings_seconds": {
+    "seed_and_activation": 683.2077257130004,
+    "scan_drain_after_fault": 6857.363377098998
+  },
+  "command_measurements": [
+    {
+      "label": "export-baselines",
+      "started_at": "2026-09-24T19:25:38.565045+00:00",
+      "finished_at": "2026-09-24T19:26:08.339317+00:00",
+      "exit": 0,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 27000832,
+      "cpu_user_seconds": 2.003951999999998,
+      "cpu_system_seconds": 8.799916999999997
+    },
+    {
+      "label": "export-source",
+      "started_at": "2026-09-24T19:26:08.369247+00:00",
+      "finished_at": "2026-09-24T19:26:35.545724+00:00",
+      "exit": 0,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 27095040,
+      "cpu_user_seconds": 1.9080820000000003,
+      "cpu_system_seconds": 8.678605000000005
+    },
+    {
+      "label": "export-mutations",
+      "started_at": "2026-09-24T19:26:35.607685+00:00",
+      "finished_at": "2026-09-24T19:26:36.817323+00:00",
+      "exit": 0,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 27078656,
+      "cpu_user_seconds": 0.1239530000000002,
+      "cpu_system_seconds": 0.08477299999999843
+    },
+    {
+      "label": "export-commands",
+      "started_at": "2026-09-24T19:26:36.857154+00:00",
+      "finished_at": "2026-09-24T19:26:38.167397+00:00",
+      "exit": 0,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 27516928,
+      "cpu_user_seconds": 0.11120900000000233,
+      "cpu_system_seconds": 0.0633849999999967
+    },
+    {
+      "label": "export-work",
+      "started_at": "2026-09-24T19:26:38.197486+00:00",
+      "finished_at": "2026-09-24T19:26:39.356811+00:00",
+      "exit": 0,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 27107328,
+      "cpu_user_seconds": 0.10526899999999983,
+      "cpu_system_seconds": 0.05804600000000448
+    },
+    {
+      "label": "export-pipeline",
+      "started_at": "2026-09-24T19:26:39.387545+00:00",
+      "finished_at": "2026-09-24T19:28:46.585139+00:00",
+      "exit": 0,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 28233728,
+      "cpu_user_seconds": 2.9536699999999954,
+      "cpu_system_seconds": 14.895136
+    },
+    {
+      "label": "export-consumer",
+      "started_at": "2026-09-24T19:28:46.620990+00:00",
+      "finished_at": "2026-09-24T19:29:53.766299+00:00",
+      "exit": 0,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 27504640,
+      "cpu_user_seconds": 2.3414820000000063,
+      "cpu_system_seconds": 11.141544999999994
+    },
+    {
+      "label": "export-totals",
+      "started_at": "2026-09-24T19:29:53.796066+00:00",
+      "finished_at": "2026-09-24T19:30:05.821133+00:00",
+      "exit": 0,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 27291648,
+      "cpu_user_seconds": 0.9605959999999953,
+      "cpu_system_seconds": 3.081395999999998
+    },
+    {
+      "label": "export-projection",
+      "started_at": "2026-09-24T19:30:05.852536+00:00",
+      "finished_at": "2026-09-24T19:30:18.772176+00:00",
+      "exit": 0,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 26873856,
+      "cpu_user_seconds": 0.9590170000000029,
+      "cpu_system_seconds": 3.4499640000000085
+    },
+    {
+      "label": "export-receiver",
+      "started_at": "2026-09-24T19:30:18.807600+00:00",
+      "finished_at": "2026-09-24T19:45:06.106317+00:00",
+      "exit": 0,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 27586560,
+      "cpu_user_seconds": 6.461818999999998,
+      "cpu_system_seconds": 22.568038
+    },
+    {
+      "label": "independent-oracle",
+      "started_at": "2026-09-24T19:45:06.440834+00:00",
+      "finished_at": "2026-09-24T19:50:17.004870+00:00",
+      "exit": 0,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 29229056,
+      "cpu_user_seconds": 254.00672499999996,
+      "cpu_system_seconds": 35.072878
+    },
+    {
+      "label": "independent-oracle",
+      "started_at": "2026-09-24T19:50:29.575254+00:00",
+      "finished_at": "2026-09-24T19:53:39.340709+00:00",
+      "exit": 1,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 38273024,
+      "cpu_user_seconds": 142.64758799999998,
+      "cpu_system_seconds": 28.543476999999996
+    },
+    {
+      "label": "independent-oracle",
+      "started_at": "2026-09-24T19:53:54.289084+00:00",
+      "finished_at": "2026-09-24T19:57:04.085403+00:00",
+      "exit": 1,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 38350848,
+      "cpu_user_seconds": 143.94106000000005,
+      "cpu_system_seconds": 28.686871999999994
+    },
+    {
+      "label": "independent-oracle",
+      "started_at": "2026-09-24T19:57:16.144054+00:00",
+      "finished_at": "2026-09-24T20:00:52.528510+00:00",
+      "exit": 1,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 38293504,
+      "cpu_user_seconds": 170.29712899999993,
+      "cpu_system_seconds": 31.41911300000001
+    },
+    {
+      "label": "independent-oracle",
+      "started_at": "2026-09-24T20:01:04.744867+00:00",
+      "finished_at": "2026-09-24T20:04:45.437918+00:00",
+      "exit": 1,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 39395328,
+      "cpu_user_seconds": 172.74748499999998,
+      "cpu_system_seconds": 31.85905299999999
+    },
+    {
+      "label": "independent-oracle",
+      "started_at": "2026-09-24T20:04:55.470338+00:00",
+      "finished_at": "2026-09-24T20:08:35.528225+00:00",
+      "exit": 1,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 39350272,
+      "cpu_user_seconds": 171.56865399999992,
+      "cpu_system_seconds": 33.06480899999997
+    }
+  ],
+  "storage": {
+    "observed_at": "2026-09-24T19:25:38.489Z",
+    "databases": [
+      {
+        "database": "source_m1",
+        "bytes": "2697172671"
+      },
+      {
+        "database": "pipeline_m2b",
+        "bytes": "8246441663"
+      },
+      {
+        "database": "consumer_m4",
+        "bytes": "2610386623"
+      }
+    ],
+    "baseline_payload": {
+      "entities": "1000000",
+      "total_bytes": "1034667793",
+      "minimum_bytes": "1021",
+      "maximum_bytes": "1036",
+      "average_bytes": "1034.6677930000000000"
+    },
+    "elasticsearch": {
+      "primary_store_bytes": "353745174",
+      "lucene_documents": "1000512",
+      "note": "Physical index statistic; independent exported documents prove logical correctness"
+    }
+  },
+  "resources": {
+    "status": "OBSERVED",
+    "samples": 704,
+    "interval_seconds": 15,
+    "scope": "Read-only observed process and cgroup peaks; explicitly disappeared containers are recorded without invented peaks; process exit between samples can omit a final high-water value, and host memory includes unrelated workloads",
+    "by_role": {
+      "inspect": {
+        "sampled_containers": 8,
+        "configured_limits_bytes": [268435456],
+        "maximum_cgroup_peak_bytes": 74207232,
+        "maximum_process_rss_high_water_bytes": 128733184,
+        "sum_maximum_observed_container_cpu_usec": 411717604
+      },
+      "ui": {
+        "sampled_containers": 1,
+        "configured_limits_bytes": [134217728],
+        "maximum_cgroup_peak_bytes": 108408832,
+        "maximum_process_rss_high_water_bytes": 105623552,
+        "sum_maximum_observed_container_cpu_usec": 250520166
+      },
+      "observer": {
+        "sampled_containers": 2,
+        "configured_limits_bytes": [268435456],
+        "maximum_cgroup_peak_bytes": 50954240,
+        "maximum_process_rss_high_water_bytes": 104144896,
+        "sum_maximum_observed_container_cpu_usec": 1177328843
+      },
+      "capture": {
+        "sampled_containers": 1,
+        "configured_limits_bytes": [268435456],
+        "maximum_cgroup_peak_bytes": 44281856,
+        "maximum_process_rss_high_water_bytes": 97271808,
+        "sum_maximum_observed_container_cpu_usec": 70667716
+      },
+      "backfill": {
+        "sampled_containers": 4,
+        "configured_limits_bytes": [268435456],
+        "maximum_cgroup_peak_bytes": 67727360,
+        "maximum_process_rss_high_water_bytes": 122531840,
+        "sum_maximum_observed_container_cpu_usec": 835638186
+      },
+      "es-worker": {
+        "sampled_containers": 2,
+        "configured_limits_bytes": [268435456],
+        "maximum_cgroup_peak_bytes": 94896128,
+        "maximum_process_rss_high_water_bytes": 147918848,
+        "sum_maximum_observed_container_cpu_usec": 867491931
+      },
+      "publisher": {
+        "sampled_containers": 2,
+        "configured_limits_bytes": [268435456],
+        "maximum_cgroup_peak_bytes": 79691776,
+        "maximum_process_rss_high_water_bytes": 134729728,
+        "sum_maximum_observed_container_cpu_usec": 760043933
+      },
+      "consumer": {
+        "sampled_containers": 2,
+        "configured_limits_bytes": [268435456],
+        "maximum_cgroup_peak_bytes": 78913536,
+        "maximum_process_rss_high_water_bytes": 133476352,
+        "sum_maximum_observed_container_cpu_usec": 998929727
+      },
+      "control-api": {
+        "sampled_containers": 1,
+        "configured_limits_bytes": [268435456],
+        "maximum_cgroup_peak_bytes": 77627392,
+        "maximum_process_rss_high_water_bytes": 128802816,
+        "sum_maximum_observed_container_cpu_usec": 29382167
+      },
+      "elasticsearch": {
+        "sampled_containers": 1,
+        "configured_limits_bytes": [2147483648],
+        "maximum_cgroup_peak_bytes": 1957511168,
+        "maximum_process_rss_high_water_bytes": 1327104,
+        "sum_maximum_observed_container_cpu_usec": 785980382
+      },
+      "pipeline": {
+        "sampled_containers": 1,
+        "configured_limits_bytes": [1073741824],
+        "maximum_cgroup_peak_bytes": 1074094080,
+        "maximum_process_rss_high_water_bytes": 33656832,
+        "sum_maximum_observed_container_cpu_usec": 36401627594
+      },
+      "rabbitmq": {
+        "sampled_containers": 1,
+        "configured_limits_bytes": [1073741824],
+        "maximum_cgroup_peak_bytes": 332148736,
+        "maximum_process_rss_high_water_bytes": 170627072,
+        "sum_maximum_observed_container_cpu_usec": 1544281779
+      },
+      "source": {
+        "sampled_containers": 1,
+        "configured_limits_bytes": [1073741824],
+        "maximum_cgroup_peak_bytes": 1073754112,
+        "maximum_process_rss_high_water_bytes": 33857536,
+        "sum_maximum_observed_container_cpu_usec": 1458118762
+      },
+      "toxiproxy": {
+        "sampled_containers": 1,
+        "configured_limits_bytes": [134217728],
+        "maximum_cgroup_peak_bytes": 19759104,
+        "maximum_process_rss_high_water_bytes": 14090240,
+        "sum_maximum_observed_container_cpu_usec": 200231053
+      },
+      "seed": {
+        "sampled_containers": 1,
+        "configured_limits_bytes": [268435456],
+        "maximum_cgroup_peak_bytes": 59105280,
+        "maximum_process_rss_high_water_bytes": 108994560,
+        "sum_maximum_observed_container_cpu_usec": 78791182
+      },
+      "initializer": {
+        "sampled_containers": 1,
+        "configured_limits_bytes": [268435456],
+        "maximum_cgroup_peak_bytes": 52846592,
+        "maximum_process_rss_high_water_bytes": 106782720,
+        "sum_maximum_observed_container_cpu_usec": 496444
+      }
+    },
+    "minimum_host_available_memory_bytes": 7751229440,
+    "minimum_host_free_disk_bytes": 87690547200,
+    "cpu_scope": "Sum of maximum sampled cumulative cgroup counters per container; not exact whole-host CPU or an uncontended benchmark"
+  },
+  "tools_observed_during_closure": {
+    "node": "24.19.0",
+    "npm": "12.0.2",
+    "docker": "29.7.2",
+    "compose": "5.5.1",
+    "python": "3.14.7",
+    "git": "2.55.0"
+  },
+  "service_images_from_recorded_inspections": {
+    "inspect": {
+      "reference": "kill-it-twice-runtime:final-ecdfdb5063aa",
+      "image_id": "sha256:5b00e09b6242438292cc90bb84d9a7028991a66e37070e4444f64bb3a5b0b4f9"
+    },
+    "ui": {
+      "reference": "kill-it-twice-runtime:final-ecdfdb5063aa",
+      "image_id": "sha256:5b00e09b6242438292cc90bb84d9a7028991a66e37070e4444f64bb3a5b0b4f9"
+    },
+    "observer": {
+      "reference": "kill-it-twice-runtime:final-ecdfdb5063aa",
+      "image_id": "sha256:5b00e09b6242438292cc90bb84d9a7028991a66e37070e4444f64bb3a5b0b4f9"
+    },
+    "capture": {
+      "reference": "kill-it-twice-runtime:final-ecdfdb5063aa",
+      "image_id": "sha256:5b00e09b6242438292cc90bb84d9a7028991a66e37070e4444f64bb3a5b0b4f9"
+    },
+    "backfill": {
+      "reference": "kill-it-twice-runtime:final-ecdfdb5063aa",
+      "image_id": "sha256:5b00e09b6242438292cc90bb84d9a7028991a66e37070e4444f64bb3a5b0b4f9"
+    },
+    "es-worker": {
+      "reference": "kill-it-twice-runtime:final-ecdfdb5063aa",
+      "image_id": "sha256:5b00e09b6242438292cc90bb84d9a7028991a66e37070e4444f64bb3a5b0b4f9"
+    },
+    "publisher": {
+      "reference": "kill-it-twice-runtime:final-ecdfdb5063aa",
+      "image_id": "sha256:5b00e09b6242438292cc90bb84d9a7028991a66e37070e4444f64bb3a5b0b4f9"
+    },
+    "consumer": {
+      "reference": "kill-it-twice-runtime:final-ecdfdb5063aa",
+      "image_id": "sha256:5b00e09b6242438292cc90bb84d9a7028991a66e37070e4444f64bb3a5b0b4f9"
+    },
+    "control-api": {
+      "reference": "kill-it-twice-runtime:final-ecdfdb5063aa",
+      "image_id": "sha256:5b00e09b6242438292cc90bb84d9a7028991a66e37070e4444f64bb3a5b0b4f9"
+    },
+    "initializer": {
+      "reference": "kill-it-twice-runtime:final-ecdfdb5063aa",
+      "image_id": "sha256:5b00e09b6242438292cc90bb84d9a7028991a66e37070e4444f64bb3a5b0b4f9"
+    },
+    "elasticsearch": {
+      "reference": "docker.elastic.co/elasticsearch/elasticsearch:9.5.4@sha256:82ac14f43fe701992e601f4cc81e1c0d7dbc5a2576d8cd736006452925df4026",
+      "image_id": "sha256:82ac14f43fe701992e601f4cc81e1c0d7dbc5a2576d8cd736006452925df4026"
+    },
+    "pipeline": {
+      "reference": "postgres:18.6-bookworm@sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af",
+      "image_id": "sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af"
+    },
+    "rabbitmq": {
+      "reference": "rabbitmq:4.3.6-management@sha256:de62d9901fb73aaa8767b9c1e9ea32f2938f69d1b83e430f7c5ca854081d2128",
+      "image_id": "sha256:de62d9901fb73aaa8767b9c1e9ea32f2938f69d1b83e430f7c5ca854081d2128"
+    },
+    "source": {
+      "reference": "postgres:18.6-bookworm@sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af",
+      "image_id": "sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af"
+    },
+    "realm": {
+      "reference": "docker.elastic.co/elasticsearch/elasticsearch:9.5.4@sha256:82ac14f43fe701992e601f4cc81e1c0d7dbc5a2576d8cd736006452925df4026",
+      "image_id": "sha256:82ac14f43fe701992e601f4cc81e1c0d7dbc5a2576d8cd736006452925df4026"
+    },
+    "provision": {
+      "reference": "postgres:18.6-bookworm@sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af",
+      "image_id": "sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af"
+    },
+    "toxiproxy": {
+      "reference": "ghcr.io/shopify/toxiproxy:2.12.0@sha256:9378ed52a28bc50edc1350f936f518f31fa95f0d15917d6eb40b8e376d1a214e",
+      "image_id": "sha256:9378ed52a28bc50edc1350f936f518f31fa95f0d15917d6eb40b8e376d1a214e"
+    }
+  },
+  "manifest_references": {
+    "submission": {
+      "path": "artifacts/final/kit-final-20260924170635-842aed69/run.json",
+      "sha256": "1a596041481fd7e9abb8e717ac6f02d155f58f678d867716744903248a5e0dd8"
+    },
+    "retained-runtime": {
+      "path": "artifacts/runtime/kit-verify-20260924170737-0fe1e919/run.json",
+      "sha256": "e90d488712bf8adb02ed0e1b1ad45f2c3c11cbf55ce356083b07fa106ef1d11c"
+    },
+    "large-faults": {
+      "path": "artifacts/final/kit-final-20260924171013-ca3956cb/run.json",
+      "sha256": "12373f993e0a00818b8077b385cb15d552f62345d2237adb2ece4a9e5c3b41d5"
+    }
+  },
+  "strict_supervisor_result_sha256": "43cf9cb38e0f38fa2074ecd48b2d4d0a045508b4553a06111b3320e61d9f2290",
+  "raw_evidence_policy": "Raw manifests, configuration, database exports, payload logs and Docker environment remain outside the sanitized bundle; original evidence is retained locally",
+  "limitations": [
+    "Optional 2M and hosted CI were not executed",
+    "Shared production server full acceptance was interrupted before service gates; local PASS does not change that result",
+    "Intermittent operational pipeline reads timed out during G1; exact queries were not isolated and no complete availability claim is made",
+    "Recreated server demo has four previously failed workers; preserved without repair in this closure"
+  ]
+}

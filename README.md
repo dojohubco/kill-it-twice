@@ -2,7 +2,7 @@
 
 A retained local replication application: PostgreSQL source and outbox, resumable backfill plus incremental capture, Elasticsearch search, RabbitMQ stream, independent consumer effects, and an Angular operator UI.
 
-**Final acceptance is pending.** The real `make verify` now executes the selected million-entity workload; only a completed report with independent reconciliation and cleanup establishes a pass. See the [acceptance matrix](docs/acceptance-matrix.md) and [closure decision](docs/acceptance-closure.md). Historical small passes are not current full-scale acceptance.
+**Local final acceptance passed on 2026-09-24**, at tested commit `ecdfdb5063aa7977af6bceccdaa6b1ece3fdece7`: the complete `make verify`, all G1-G5 gates, exact million-baseline reconciliation, five corruption controls and both child cleanups passed. The separate 1,024-baseline functional run also passed. See the [final evidence](docs/evidence/Final-submission-2026-09-24.md), [acceptance matrix](docs/acceptance-matrix.md) and [closure decision](docs/acceptance-closure.md). This is local execution; interrupted server acceptance, hosted CI, optional 2M and publication are not claimed.
 
 ## Prerequisites and quick start
 
@@ -104,7 +104,7 @@ Meaningful decisions include [transactional capture](docs/adr/001-source-capture
 
 ## Capacity and limits
 
-The prospective default is one million distinct roughly-1-KiB entities, with each worker limited to **256 MiB**, Node heap **128 MiB**, each page at most **64 records / 256 KiB**, and per-event validation unchanged. The actual payload-byte total and worker/process/cgroup peaks must come from the run; raw source payload alone must exceed three worker budgets. The earlier 2M plan remains historical and its optional profile is not claimed executed.
+The verified default is one million distinct roughly-1-KiB entities, with each worker limited to **256 MiB**, Node heap **128 MiB**, each page at most **64 records / 256 KiB**, and per-event validation unchanged. The completed run contained **1,034,667,793 baseline payload bytes**, about 3.85 worker budgets; the largest observed worker process RSS high-water value was 147,918,848 bytes. These are sampled shared-host observations, not a dedicated-hardware benchmark. The earlier 2M plan remains historical and its optional profile is not claimed executed.
 
 [Capacity notes](docs/capacity-notes.md) retain measured CPU, memory, storage, seed/drain/export/oracle duration and bottlenecks. At `93eac82`, 262,144 baselines passed exact reconciliation and cleanup with four scanners/two sink workers; this was a baseline-only capacity run. It does not prove faults at one million rows. On earlier single shared-host 131,072 runs, the same page64 configuration with an equivalent due-index predicate reduced observed completion time from 1,175 to 660 seconds, about **1.78x**, not an asserted 2x. Doubling effective throughput would require roughly halving the limiting stage's per-record service demand or independently doubling its processing capacity without database contention; that is an untested hypothesis, not a promised result or additional work programme.
 

@@ -1,8 +1,29 @@
 # Capacity notes
 
-## Current acceptance target, 2026-09-23
+## Completed local acceptance, 2026-09-24
 
-The prospective default is **1,000,000 distinct approximately 1-KiB baselines**, with the existing concurrent mutation and real failure workload, 256-MiB worker limits and exact disk-backed reconciliation. `make verify` executes this profile; `make verify VERIFY_COUNT=2000000` explicitly selects the optional 2M profile. **Neither full profile has yet completed at the closure candidate.** The change is a recorded prospective decision, not a relabeling of earlier results.
+The default **1,000,000 distinct approximately 1-KiB baselines**, with 519 declared mutations and real failures, passed at `ecdfdb5063aa7977af6bceccdaa6b1ece3fdece7`. Full `make verify` completed all phases, G1–G5, exact disk-backed reconciliation, five corruption controls and cleanup. Worker limits remained 256 MiB, with 128-MiB Node heaps and explicit 64-record / 256-KiB pages. `make verify VERIFY_COUNT=2000000` remains optional and **NOT RUN**. The earlier adoption of 1M was prospective; old results have not been relabeled.
+
+| Measured quantity                                        |                        Local default-million result |
+| -------------------------------------------------------- | --------------------------------------------------: |
+| Baseline payload bytes                                   |                                       1,034,667,793 |
+| Per-baseline bytes: minimum / maximum / average          |                           1021 / 1036 / 1034.667793 |
+| Seed and activation                                      |                                           683.208 s |
+| Scan, delivery and receipt drain after the scanner fault |                                          6857.363 s |
+| Receiver export                                          |                                           887.299 s |
+| Positive exact oracle                                    |                                           310.564 s |
+| Full command through strict supervisor completion        |                                         10965.656 s |
+| Largest observed worker process RSS high-water           |                                       147,918,848 B |
+| Largest observed worker cgroup memory peak               |                                        94,896,128 B |
+| Positive oracle process peak RSS                         |                                        29,229,056 B |
+| Periodic resource samples                                |                                                 704 |
+| Minimum observed host available memory / free disk       |                  7,751,229,440 B / 87,690,547,200 B |
+| Source / pipeline / consumer database sizes              | 2,697,172,671 B / 8,246,441,663 B / 2,610,386,623 B |
+| Elasticsearch primary store                              |                                       353,745,174 B |
+
+Baseline payload is approximately 3.85 times one worker's 256-MiB budget. Process RSS and cgroup memory use different accounting and must not be treated as interchangeable. The independent oracle used disk-backed state. Samples can miss a process's final high-water value after exit; host memory includes unrelated workloads. Database and index sizes were observed at 19:25:38 UTC, before cleanup. Physical Lucene document counts are separate from the oracle's logical entity counts. Per-role CPU, memory, limits, image identities and exact timings are in the [selected JSON evidence](evidence/Final-submission-2026-09-24.json) and [final report](evidence/Final-submission-2026-09-24.md).
+
+Pipeline PostgreSQL dominated sampled cumulative CPU: 36,401.628 seconds versus source PostgreSQL's 1458.119 seconds. These are sums of maximum observed cgroup counters, not exact whole-host CPU or an uncontended benchmark. Scan/drain includes delivery and receipt observation, so it is not isolated scan throughput. Receipts lagged behind delivery: sink/consumer completion preceded receipt completion, and G1 waited for all required fresh terminal evidence. Receipt progress resumed without runtime edits after an earlier stall. Operational pipeline reads intermittently timed out; the exact query cause was not isolated and continuous status availability is not claimed. No further optimization or bound changes were made to obtain this completed result.
 
 The inherited sequence at `93eac82` completed 262144 genuine baselines with exact source/receiver reconciliation and cleanup. [Inspected results and resource/storage measurements](evidence/Observation-terminal.md) distinguish the populated corruption proof, 1024 fault test and 262144 baseline-only run. They do not establish faults at one million rows. Current final results belong in [the acceptance matrix](acceptance-matrix.md).
 
@@ -14,7 +35,7 @@ The sections below preserve the earlier 2M plan and then-current limitations. Th
 
 **The 2,000,000-entity profile has not run.** The integrated fault fixture contains 1,024 roughly-1-KiB baselines plus 519 declared mutations. Its elapsed time includes cold image/service initialization, deliberate crashes, an explicit 60-second outage, paused workers, small polling defaults, exports, negative controls and cleanup. Dividing records by that whole duration would not be a meaningful throughput benchmark.
 
-The target remains two million entities with bounded worker memory, an independent disk-backed reconciliation, and measured stage-specific elapsed time, CPU/RSS, PostgreSQL growth and Elasticsearch storage. No forecast is presented as a validated result.
+The target at that historical stage was two million entities with bounded worker memory, independent disk-backed reconciliation and stage-specific measurements. The verified default above supersedes that plan. No forecast is presented as a validated result.
 
 ## Historical small-fixture observations — 2026-09-21 baseline
 
@@ -50,4 +71,4 @@ On one shared-host run each, 131,072 baselines reached the complete observation 
 
 Forty of the final run's 91 periodic pipeline observations were unavailable; the sampler kept them unknown, while other components continued to report. The run later produced a fresh complete observation and exact independent reconciliation. Summary-query latency under load therefore remains a real limitation before a two-million-row run or a dashboard scale claim. No timeout was lengthened or unknown response relabeled zero to obtain this result.
 
-The two-million-row target is still NOT RUN. Full `make verify` remains nonpassing pending that separate final acceptance. `--page-records 64` is an explicit tested capacity/functional option, not a silent change to historical fixtures.
+At the time of those historical measurements, full `make verify` had not passed. The current local 1M acceptance above now passes; optional 2M remains NOT RUN. `--page-records 64` is an explicit tested capacity/functional option, not a retroactive change to historical fixtures.

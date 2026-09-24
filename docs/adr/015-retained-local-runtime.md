@@ -24,6 +24,8 @@ Resource ceilings make retained work visible rather than promising unlimited buf
 
 References: Docker Compose startup ordering and `service_completed_successfully` (https://docs.docker.com/compose/how-tos/startup-order/); Elasticsearch file realm and role files (https://www.elastic.co/docs/deploy-manage/users-roles/cluster-or-deployment-auth/file-based). These describe orchestration/authentication mechanisms, not the application delivery guarantee.
 
+Execution evidence added 2026-09-24: [the final local submission](../evidence/Final-submission-2026-09-24.md) passed retained-runtime R01-R07 and separate default-1M faults/reconciliation/cleanup at `ecdfdb5`. The original adoption status above is historical; this result adds evidence without changing the decision or claiming 2M/server/HA acceptance.
+
 ## Run-discovery refinement
 
 Inspection found that pipeline_backfill intentionally has no direct table SELECT grant. Forward migration 009 adds only a bounded SECURITY DEFINER navigation function (maximum 16 run identities), with an exact database timestamp/UUID cursor. It does not broaden table access or add a capture watermark. Runtime dispatch calls the existing worker for each discovered run.
