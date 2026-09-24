@@ -322,10 +322,31 @@ except BaseException as error:
 finally:
     r.health_check=lambda: None  # Resource failure must not disable owned cleanup.
     if r.report['status']=='FAIL':
+        # Preserve every owned worker's final error even when other replicas log
+        # large successful batches. Never inspect environment or foreign resources.
+        diagnostic_errors=[]
+        diagnostic_deadline=time.monotonic()+60
+        def diagnostic_budget():
+            remaining=diagnostic_deadline-time.monotonic()
+            if remaining<=0:raise TimeoutError('Failure diagnostics 60-second total budget exhausted')
+            return min(5,remaining)
+        for service in services:
+            try:
+                ids=r.compose(['ps','--all','-q',service],'failure-'+service+'-ids',timeout=diagnostic_budget(),maximum=65536).read_text().split()
+                assert len(ids)<=8 and all(len(i)==64 and all(c in '0123456789abcdef' for c in i) for i in ids)
+                for identity in ids:
+                    label='worker-failure-diagnostics-'+service+'-'+identity[:12]
+                    state=r.run(['docker','inspect','--format','{{json .State}}',identity],label+'-state',timeout=diagnostic_budget(),maximum=65536)
+                    assert isinstance(json.loads(state.read_text()),dict)
+                    r.run(['docker','logs','--timestamps','--tail','5',identity],label,timeout=diagnostic_budget(),maximum=1024*1024)
+            except BaseException as error:
+                diagnostic_errors.append({'service':service,'type':type(error).__name__,'message':str(error)})
+        # Database logs can contain SQL context. Retain privately, never copy into public/.
         try:
-            r.compose(['logs','--no-color','--tail','20',*services],'worker-failure-diagnostics',timeout=30,maximum=1024*1024)
+            r.compose(['logs','--no-color','--timestamps','--tail','40','pipeline'],'database-failure-diagnostics',timeout=diagnostic_budget(),maximum=1024*1024)
         except BaseException as error:
-            r.report['diagnostic_error']={'type':type(error).__name__,'message':str(error)}
+            diagnostic_errors.append({'service':'pipeline','type':type(error).__name__,'message':str(error)})
+        if diagnostic_errors:r.report['diagnostic_error']=diagnostic_errors
     if resources is not None:
         try:
             r.report['resources']=resources.finish()

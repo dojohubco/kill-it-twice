@@ -97,3 +97,49 @@ A bounded real-Docker reproduction (`artifacts/server-restart/sampler-before/res
 The same real two-container reproduction passed after correction and both reproductions cleaned only their owned containers. Six targeted Python cases cover units, foreign ownership, explicit failure, exact disappearance, unrelated errors and incomplete responses. The failed clean fast report remains unchanged; a new clean candidate must rerun the fast gate and then the default million-row workload. No unchanged passing candidate is rerun to inflate totals.
 
 After the sampler correction, `make quality` passed all 85 unit tests with zero failures/skips (`artifacts/server-restart/quality-sampler.log`).
+
+## Million fixture worker exit and missing diagnosis, 2026-09-24
+
+Clean code `213ab3d11712e60bd261cc7cb7ba11e798592044` passed the same-code
+1,024-baseline functional gate, all five oracle negative controls, resource
+sampling and cleanup. The fresh full run passed quality, UI build/fixtures and
+retained runtime including real controls. Its genuine million-baseline child
+`kit-final-20260924002742-61c8a803` failed G1 at 02:20 UTC: the health check
+required two running Elasticsearch workers and observed one running and one
+exited. G2–G5, final reconciliation and the large negative controls were NOT RUN.
+Cleanup passed at 02:20:43 UTC. The full series exited 2. No timeout expiry or
+out-of-memory cause has been established.
+
+The worker's retained log contains only `es-delivery-failure` with classification
+`transaction_or_cleanup`; it discarded the underlying transaction cause. The
+shared diagnostic command also exceeded its 1 MiB output budget because it
+combined large successful batch reports from every replica. Raw failed evidence
+remains under `artifacts/server-acceptance/candidate-213ab3d/fresh/`; the summary
+is `artifacts/server-restart/failed-million-213ab3d-summary.json`. Consumer counts
+and the unavailable pipeline observation do not establish reconciliation.
+
+The next correction is diagnostic only. Elasticsearch CLI failures retain bounded
+transaction phase/outcome, SQLSTATE, cause/cleanup relationships and repository
+code locations, without exception messages, SQL, parameters or credentials.
+Failure capture records each owned replica's state and last five log lines
+separately; database diagnostics stay private. Every command and the overall
+60-second diagnostic stage are bounded, and capture errors remain errors.
+Delivery semantics, retry behavior, budgets, resource limits and all acceptance
+assertions are unchanged. The original worker-exit root cause remains UNKNOWN;
+this correction must not be described as a demonstrated replication fix.
+
+An isolated real PostgreSQL reproduction exercises division-by-zero (`22012`)
+and statement cancellation (`57014`), confirming that the new diagnostic retains
+the real SQLSTATE, work phase and rolled-back outcome without printing its private
+credential. Artifacts are in `artifacts/server-restart/failure-diagnostics-repro/`.
+The first diagnostic procedure had an argv-index error before application work;
+its failed result and successful cleanup remain in the sibling
+`failure-diagnostics-repro-argument-error/`. An initial unit-test lint failure
+(unawaited test promises) remains in `quality-failure-diagnostics-lint-failed.log`.
+These development failures are separate from the million fixture failure.
+
+Validation of the diagnostic correction: `make quality` exited 0, including
+87 unit tests with no failures or skips; log
+`artifacts/server-restart/quality-failure-diagnostics.log`. The real PostgreSQL
+reproduction exited 0 and cleanup passed. These checks validate diagnostic
+retention; they do not resolve or supersede the failed million-entity run.

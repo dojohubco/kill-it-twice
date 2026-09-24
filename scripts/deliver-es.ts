@@ -1,3 +1,4 @@
+import { failureSummary } from '../src/internal/failure-summary.ts';
 import { readFile } from 'node:fs/promises';
 import { EsTransport } from '../src/es/transport.ts';
 import { EsLedger } from '../src/es/ledger.ts';
@@ -49,6 +50,7 @@ else {
     console.error(
       JSON.stringify({
         type: 'es-delivery-failure',
+        errors: failureSummary(error),
         classification:
           error instanceof EsFailure
             ? error.classification
