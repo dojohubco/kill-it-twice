@@ -10,6 +10,7 @@ import sys
 import time
 import urllib.request
 import uuid
+from verification.runtime import validate_compose_identity, cleanup_owned_resources
 
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT = 'kit-verify-' + datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d%H%M%S') + '-' + uuid.uuid4().hex[:8]
@@ -64,7 +65,13 @@ def run(args, label, timeout=120, expected=(0,), input_file=None, maximum=64 * 1
     assert record['exit'] in expected and not timed_out and not overflow, record
     return prefix.with_suffix('.stdout.log')
 
-def compose(args, label, **options): return run(COMPOSE + args, label, **options)
+compose_project_validated = False
+def compose(args, label, **options):
+    global compose_project_validated
+    if not compose_project_validated:
+        validate_compose_identity(PROJECT, COMPOSE, run)
+        compose_project_validated = True
+    return run(COMPOSE + args, label, **options)
 
 def inspect_state():
     path = compose(['run', '--rm', '--no-deps', '-T', 'inspect'], 'state')
@@ -231,16 +238,8 @@ except BaseException as error:
     report['status'] = 'FAIL'
     report['error'] = dict(type=type(error).__name__, message=str(error))
 finally:
-    failures = []
-    try:
-        compose(['down', '--volumes', '--remove-orphans', '--timeout', '20'], 'owned-cleanup', timeout=180)
-        for resource, args in [('containers', ['ps', '-aq']), ('volumes', ['volume', 'ls', '-q']), ('networks', ['network', 'ls', '-q'])]:
-            path = run(['docker', *args, '--filter', 'label=com.docker.compose.project=' + PROJECT], 'remaining-' + resource)
-            assert not path.read_text().strip(), ('Owned resource retained', resource)
-    except BaseException as error:
-        failures.append(dict(type=type(error).__name__, message=str(error)))
-    report['cleanup'] = dict(status='FAIL' if failures else 'PASS', errors=failures)
-    if failures: report['status'] = 'FAIL'
+    report['cleanup'] = cleanup_owned_resources(PROJECT, run)
+    if report['cleanup']['status'] == 'FAIL': report['status'] = 'FAIL'
     report['finished_at'] = datetime.datetime.now(datetime.timezone.utc).isoformat()
     save()
 print(report['status'] + ': ' + str(OUT / 'run.json'), flush=True)

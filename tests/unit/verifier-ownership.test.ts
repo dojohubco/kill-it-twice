@@ -9,6 +9,6 @@ void test('verifier refuses demo cleanup, foreign resources and wrong Compose pr
     ['-B', 'tests/final/runtime_test.py'],
     { timeout: 5000, maxBuffer: 65536 },
   );
-  assert.match(result.stderr, /Ran 4 tests/);
+  assert.match(result.stderr, /Ran 6 tests/);
   assert.match(result.stderr, /\bOK\b/);
 });

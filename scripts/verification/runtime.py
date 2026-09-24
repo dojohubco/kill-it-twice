@@ -16,6 +16,40 @@ def now(): return datetime.datetime.now(datetime.timezone.utc).isoformat()
 def sha(path):
     with path.open('rb') as stream: return hashlib.file_digest(stream, 'sha256').hexdigest()
 
+def validate_compose_identity(project, compose_args, run):
+    config=json.loads(run(compose_args+['config','--format','json'],'owned-compose-identity',timeout=30).read_text())
+    assert config['name']==project, 'Compose resolved a different project'
+    assert all(v['name'].startswith(project+'_') and not v.get('external') for v in config.get('volumes',{}).values())
+    assert all(v['name'].startswith(project+'_') and not v.get('external') for v in config.get('networks',{}).values())
+
+def cleanup_owned_resources(project, run):
+    failures=[]
+    try:
+        # Use explicit, revalidated resource IDs rather than Compose down:
+        # a configuration-resolution failure must never choose a demo.
+        assert project.startswith(('kit-final-', 'kit-verify-'))
+        deadline=time.monotonic()+180
+        def bounded(args,label):
+            remaining=deadline-time.monotonic()
+            assert remaining>0, 'Owned cleanup deadline'
+            return run(args,label,timeout=min(60,remaining),maximum=4*1024*1024)
+        for kind,listing in [('container',['ps','-aq']),('volume',['volume','ls','-q']),('network',['network','ls','-q'])]:
+            identifiers=bounded(['docker',*listing,'--filter','label=com.docker.compose.project='+project],'cleanup-list-'+kind).read_text().split()
+            if identifiers:
+                records=json.loads(bounded(['docker',kind,'inspect',*identifiers],'cleanup-identities-'+kind).read_text())
+                assert len(records)==len(identifiers)
+                for record in records:
+                    labels=record['Config']['Labels'] if kind=='container' else record['Labels']
+                    assert labels['com.docker.compose.project']==project
+                    if kind=='network':assert not record['Containers'], 'Owned network still has attached containers'
+                if kind=='container':
+                    bounded(['docker','stop','--time','20',*identifiers],'cleanup-stop-containers')
+                    bounded(['docker','rm','--force',*identifiers],'cleanup-remove-containers')
+                else:bounded(['docker',kind,'rm',*identifiers],'cleanup-remove-'+kind)
+            assert not bounded(['docker',*listing,'--filter','label=com.docker.compose.project='+project],'remaining-'+kind).read_text().strip(),kind
+    except BaseException as e: failures.append({'type':type(e).__name__,'message':str(e)})
+    return {'status':'FAIL' if failures else 'PASS','errors':failures}
+
 class Runtime:
     def __init__(self, count):
         self.project = 'kit-final-' + datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d%H%M%S') + '-' + uuid.uuid4().hex[:8]
@@ -88,10 +122,7 @@ class Runtime:
         # Resolve configuration from the repository and verify ownership before
         # any operation. An explicit -p alone is not a sufficient cleanup guard.
         if not self.compose_project_validated:
-            config=json.loads(self.run(self.compose_args+['config','--format','json'],'owned-compose-identity',timeout=30).read_text())
-            assert config['name']==self.project, 'Compose resolved a different project'
-            assert all(v['name'].startswith(self.project+'_') and not v.get('external') for v in config.get('volumes',{}).values())
-            assert all(v['name'].startswith(self.project+'_') and not v.get('external') for v in config.get('networks',{}).values())
+            validate_compose_identity(self.project, self.compose_args, self.run)
             self.compose_project_validated=True
         return self.run(self.compose_args+args, label, **options)
     def start_inspector(self):
@@ -156,31 +187,6 @@ class Runtime:
         assert name in ('G1','G2','G3','G4','G5') and name not in [x['id'] for x in self.report['gates']]
         self.report['gates'].append({'id':name,'status':'PASS','evidence':evidence});self.save();print(name+' PASS',flush=True)
     def cleanup(self):
-        failures=[]
-        try:
-            # Use explicit, revalidated resource IDs rather than Compose down:
-            # a configuration-resolution failure must never choose a demo.
-            assert self.project.startswith('kit-final-')
-            deadline=time.monotonic()+180
-            def bounded(args,label):
-                remaining=deadline-time.monotonic()
-                assert remaining>0, 'Owned cleanup deadline'
-                return self.run(args,label,timeout=min(60,remaining),maximum=4*1024*1024)
-            for kind,listing in [('container',['ps','-aq']),('volume',['volume','ls','-q']),('network',['network','ls','-q'])]:
-                identifiers=bounded(['docker',*listing,'--filter','label=com.docker.compose.project='+self.project],'cleanup-list-'+kind).read_text().split()
-                if identifiers:
-                    records=json.loads(bounded(['docker',kind,'inspect',*identifiers],'cleanup-identities-'+kind).read_text())
-                    assert len(records)==len(identifiers)
-                    for record in records:
-                        labels=record['Config']['Labels'] if kind=='container' else record['Labels']
-                        assert labels['com.docker.compose.project']==self.project
-                        if kind=='network':assert not record['Containers'], 'Owned network still has attached containers'
-                    if kind=='container':
-                        bounded(['docker','stop','--time','20',*identifiers],'cleanup-stop-containers')
-                        bounded(['docker','rm','--force',*identifiers],'cleanup-remove-containers')
-                    else:bounded(['docker',kind,'rm',*identifiers],'cleanup-remove-'+kind)
-                assert not bounded(['docker',*listing,'--filter','label=com.docker.compose.project='+self.project],'remaining-'+kind).read_text().strip(),kind
-        except BaseException as e: failures.append({'type':type(e).__name__,'message':str(e)})
-        self.report['cleanup']={'status':'FAIL' if failures else 'PASS','errors':failures}
-        if failures:self.report['status']='FAIL'
+        self.report['cleanup']=cleanup_owned_resources(self.project, self.run)
+        if self.report['cleanup']['status']=='FAIL':self.report['status']='FAIL'
         self.report['finished_at']=now();self.save()

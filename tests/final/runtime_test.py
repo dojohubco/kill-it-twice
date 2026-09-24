@@ -6,7 +6,7 @@ import tempfile
 import unittest
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'scripts'))
-from verification.runtime import Runtime
+from verification.runtime import Runtime, cleanup_owned_resources, validate_compose_identity
 
 class OwnershipTests(unittest.TestCase):
     def runtime(self,directory,project='kit-final-test'):
@@ -49,4 +49,25 @@ class OwnershipTests(unittest.TestCase):
             r.run=run
             with self.assertRaises(AssertionError):r.compose(['up','-d'],'must-not-run')
             self.assertEqual(len(calls),1)
+    def test_retained_runtime_foreign_label_refuses_deletion(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project='kit-verify-test';calls=[]
+            def run(args,label,**options):
+                calls.append(args);p=Path(directory)/label
+                if label=='cleanup-list-container':p.write_text('abc\n')
+                elif label=='cleanup-identities-container':p.write_text(json.dumps([{'Config':{'Labels':{'com.docker.compose.project':'kit-server-dev'}}}]))
+                else:self.fail('Unexpected operation: '+label)
+                return p
+            result=cleanup_owned_resources(project,run)
+            self.assertEqual(result['status'],'FAIL')
+            self.assertFalse(any('stop' in a or 'rm' in a for a in calls))
+    def test_retained_runtime_wrong_project_refuses_validation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project='kit-verify-test';calls=[];p=Path(directory)/'config.json'
+            p.write_text(json.dumps({'name':'kit-server-dev'}))
+            def run(args,label,**options):calls.append(args);return p
+            with self.assertRaises(AssertionError):
+                validate_compose_identity(project,['docker','compose','-p',project],run)
+            self.assertEqual(len(calls),1)
+            self.assertEqual(calls[0][-3:],['config','--format','json'])
 if __name__=='__main__':unittest.main()
