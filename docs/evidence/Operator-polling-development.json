@@ -1,0 +1,119 @@
+{
+  "scope": "Developmental real retained-runtime polling editor verification; not clean full-scale acceptance",
+  "status": "PASS",
+  "base_commit": "1ef8b0f8cf41706dc7b8abedf3adadf6e9aef02c",
+  "developmental": true,
+  "inputs_sha256": "1f709e97ab7f553f42a17f0b0aa8080650fb279290d9afb529ef2a73ef9e4dd8",
+  "manifest_sha256": "5cb3b2a65c383e4e2be69f7af04921a8c814218112601d2e9e9a41515c9015e8",
+  "started_at": "2026-09-24T21:52:59.521878+00:00",
+  "finished_at": "2026-09-24T21:56:50.410117+00:00",
+  "cases": [
+    {
+      "id": "R01",
+      "status": "PASS"
+    },
+    {
+      "id": "R02",
+      "status": "PASS"
+    },
+    {
+      "id": "R03",
+      "status": "PASS"
+    },
+    {
+      "id": "R04",
+      "status": "PASS"
+    },
+    {
+      "id": "R05",
+      "status": "PASS"
+    },
+    {
+      "id": "R06",
+      "status": "PASS"
+    },
+    {
+      "id": "R07",
+      "status": "PASS"
+    },
+    {
+      "id": "R08",
+      "status": "PASS"
+    }
+  ],
+  "polling": {
+    "permissions": {
+      "status": "PASS",
+      "checks": [
+        "pipeline_capture: read settings allowed, writes and history denied",
+        "pipeline_backfill: read settings allowed, writes and history denied",
+        "immutable receipts: update/delete/truncate rejected, retained exactly",
+        "SQL input bounds: rejected without changing settings"
+      ]
+    },
+    "worker_observations": {
+      "backfill": {
+        "type": "runtime_polling",
+        "role": "backfill",
+        "revision": "4",
+        "delay_ms": 900
+      },
+      "capture": {
+        "type": "runtime_polling",
+        "role": "capture",
+        "revision": "4",
+        "delay_ms": 400
+      }
+    },
+    "restart_observations": {
+      "capture": {
+        "type": "runtime_polling",
+        "role": "capture",
+        "revision": "4",
+        "delay_ms": 400
+      },
+      "backfill": {
+        "type": "runtime_polling",
+        "role": "backfill",
+        "revision": "4",
+        "delay_ms": 900
+      }
+    },
+    "settings_retained": true
+  },
+  "browser": {
+    "status": "PASS",
+    "scope": "Real settings browser/API, no intercepted responses",
+    "checks": [
+      "operator authorization",
+      "HTTP input bounds",
+      "native numeric validation",
+      "draft survives observation refresh",
+      "confirmation cancel without mutation",
+      "keyboard confirmation",
+      "same-key original receipt",
+      "changed-key-input conflict",
+      "stale revision conflict",
+      "concurrent edit has exactly one winner",
+      "old retry does not overwrite newer settings",
+      "browser reload persistence",
+      "320px and 200-percent text reflow"
+    ],
+    "audits": [
+      {
+        "width": 1280,
+        "violations": 0
+      },
+      {
+        "width": 320,
+        "violations": 0
+      }
+    ],
+    "pageErrors": [],
+    "interceptedResponses": 0
+  },
+  "cleanup": {
+    "status": "PASS",
+    "errors": []
+  }
+}

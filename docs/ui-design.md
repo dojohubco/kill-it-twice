@@ -53,3 +53,9 @@ The existing read-only status route will reuse the already implemented Operation
 ## Executed verification — 2026-09-21
 
 The plan above preceded implementation. The Angular interface and read-only monitor adapter are now implemented. Executed browser fixtures, the separate actual service observation, code identities, corrections and remaining limitations are recorded in [Operator interface evidence](evidence/Operator-UI.md). This note does not claim full assignment, scale, deployment, screen-reader or physical-device acceptance.
+
+## Operator polling editor — 2026-09-25
+
+ADR 016 extends Configuration with real pipeline cadence controls. The two native numeric fields reuse existing typography, colors, spacing, focus treatment and confirmation dialogs. The page states valid bounds and the load/latency tradeoff. A saved revision means durable storage; it does not claim that all workers have applied it. Background workspace refresh preserves drafts, navigation warns before discarding changes, and explicit reload fetches the latest revision. A conflict cannot overwrite another operator's saved values.
+
+The real retained-runtime R08 case covers save/cancel, native validation, keyboard submission, same-key replay, concurrent revisions, 320px layout, doubled text and automated contrast/accessibility checks. Worker observations and restart retention are verified separately from browser rendering. No animation or new dependency is introduced. The developmental real-service case passed; see [operator polling evidence](evidence/Operator-polling-development.md). Clean full acceptance remains separate.

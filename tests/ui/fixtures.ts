@@ -254,7 +254,18 @@ export async function routeFixtures(page: Page): Promise<UiFixtureState> {
           ),
         });
       data = snapshot;
-    } else if (path === '/api/v1/config') data = configFixture();
+    } else if (path === '/api/v1/config/polling')
+      data = {
+        revision: '1',
+        capture_poll_ms: 1000,
+        backfill_idle_ms: 1000,
+        updated_at: now(),
+        observed_at: now(),
+        minimum_ms: 50,
+        maximum_ms: 30000,
+        recent_changes: [],
+      };
+    else if (path === '/api/v1/config') data = configFixture();
     else if (path.startsWith('/api/v1/backfills/')) data = backfillFixture();
     else if (path === '/api/v1/entities')
       data = {

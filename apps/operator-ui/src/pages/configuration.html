@@ -2,8 +2,7 @@
   <div>
     <h1 tabindex="-1">Configuration</h1>
     <p class="page-description">
-      Inspect the registered system and the limits its controls actually
-      enforce.
+      Set polling intervals and inspect the registered system.
     </p>
   </div>
   <button
@@ -15,6 +14,109 @@
     <kit-icon name="refresh" />Refresh configuration
   </button>
 </div>
+<section class="panel" aria-labelledby="polling-heading">
+  <div class="section-heading">
+    <h2 id="polling-heading">Pipeline polling</h2>
+    <button
+      type="button"
+      class="button secondary"
+      (click)="loadPolling()"
+      [disabled]="pollingLoading()||actions.current()!==null"
+    >
+      {{dirty()?'Discard changes and reload':'Reload saved intervals'}}
+    </button>
+  </div>
+  <p class="help-text" id="polling-help">
+    Use 50–30,000 milliseconds. Shorter waits can increase database load; longer
+    waits can delay new work. Settings survive restarts. Workers check for
+    changes between iterations, caching reads for up to five seconds. An
+    existing wait or in-flight work finishes first.
+  </p>
+  @if(pollingLoading()){
+  <p role="status">Loading saved intervals…</p>
+  } @if(pollingError()){
+  <p class="notice danger" role="alert">{{pollingError()}}</p>
+  } @if(polling();as settings){
+  <p class="help-text">
+    Saved revision
+    <code data-testid="polling-revision">{{value(settings['revision'])}}</code>
+    · {{timestamp(settings['updated_at'])}}
+  </p>
+  <form (submit)="save($event)" aria-describedby="polling-help">
+    <div class="two-column">
+      <div class="field">
+        <label for="capture-poll">Incremental capture interval (ms)</label>
+        <input
+          id="capture-poll"
+          name="capture_poll_ms"
+          type="number"
+          inputmode="numeric"
+          min="50"
+          max="30000"
+          step="1"
+          required
+          [value]="captureMs()"
+          (input)="edit($event,'capture')"
+          [disabled]="pollingLoading()||actions.current()!==null"
+          aria-describedby="capture-poll-help"
+        />
+        <small id="capture-poll-help"
+          >Wait between bounded source-capture cycles. Required, 50–30,000
+          ms.</small
+        >
+      </div>
+      <div class="field">
+        <label for="backfill-idle">Idle backfill interval (ms)</label>
+        <input
+          id="backfill-idle"
+          name="backfill_idle_ms"
+          type="number"
+          inputmode="numeric"
+          min="50"
+          max="30000"
+          step="1"
+          required
+          [value]="backfillMs()"
+          (input)="edit($event,'backfill')"
+          [disabled]="pollingLoading()||actions.current()!==null"
+          aria-describedby="backfill-idle-help"
+        />
+        <small id="backfill-idle-help"
+          >Wait when no scan page advanced. Required, 50–30,000 ms.</small
+        >
+      </div>
+    </div>
+    <p class="help-text" role="status">
+      {{dirty()?'Unsaved changes. Review and save, or discard and
+      reload.':'Showing saved intervals. Saving does not confirm that every
+      worker has applied them.'}}
+    </p>
+    <button
+      class="button"
+      type="submit"
+      [disabled]="!ws.api.operator()||pollingLoading()||actions.current()!==null"
+    >
+      Review interval changes
+    </button>
+    @if(!ws.api.operator()){
+    <p class="help-text">Connect operator access to save intervals.</p>
+    }
+  </form>
+  @if(records(settings['recent_changes']).length){
+  <details>
+    <summary>Recent saved changes</summary>
+    @for(change of records(settings['recent_changes']);track
+    value(change['request_id'])){
+    <p class="help-text">
+      Revision {{value(record(change['result'])['revision'])}} · capture
+      {{count(record(change['result'])['capture_poll_ms'])}} ms · idle backfill
+      {{count(record(change['result'])['backfill_idle_ms'])}} ms ·
+      {{timestamp(change['created_at'])}}
+    </p>
+    }
+  </details>
+  } }
+</section>
 <div class="notice">
   <strong>Identity is not an editable preference.</strong>
   <p>

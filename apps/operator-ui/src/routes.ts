@@ -1,4 +1,7 @@
-import type { Routes } from '@angular/router';
+import type { CanDeactivateFn, Routes } from '@angular/router';
+import type { ConfigurationPage } from './pages/configuration';
+const leaveConfiguration: CanDeactivateFn<ConfigurationPage> = (page) =>
+  page.canLeave();
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'overview' },
   {
@@ -30,6 +33,7 @@ export const routes: Routes = [
   {
     path: 'configuration',
     title: 'Configuration · Kill It Twice',
+    canDeactivate: [leaveConfiguration],
     loadComponent: () =>
       import('./pages/configuration').then((m) => m.ConfigurationPage),
   },

@@ -312,6 +312,8 @@ export class Capture {
   async follow(
     report: (value: CaptureResult | CaptureFailure) => void | Promise<void>,
     signal: AbortSignal,
+    idleDelay: () => Promise<number> = () =>
+      Promise.resolve(this.options.idleMs),
   ): Promise<void> {
     while (!signal.aborted) {
       try {
@@ -330,7 +332,10 @@ export class Capture {
         if (error.fatal) throw error;
       }
       try {
-        await delay(this.options.idleMs, undefined, { signal });
+        const idleMs = await idleDelay();
+        if (!Number.isInteger(idleMs) || idleMs < 50 || idleMs > 30000)
+          throw new Error('Invalid bounded capture polling interval');
+        await delay(idleMs, undefined, { signal });
       } catch (error) {
         if (!signal.aborted) throw error;
       }

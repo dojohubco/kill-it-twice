@@ -229,7 +229,47 @@ try:
     compose(['start','capture','es-worker','publisher','consumer','observer'],'start-operator-fixture-workers')
     controls=run(['node','scripts/runtime-operator-browser.ts',url,str(OUT),PROJECT],'real-operator-controls',timeout=360)
     case('R07',json.loads(controls.read_text()))
-    assert [c['id'] for c in report['cases']] == ['R01', 'R02', 'R03', 'R04', 'R05', 'R06','R07']
+    compose(['start','backfill'],'start-settings-observer')
+    polling_log=run(['node','scripts/runtime-polling-browser.ts',url,str(OUT),PROJECT],'real-polling-settings',timeout=180)
+    polling=json.loads(polling_log.read_text())
+    permissions=json.loads(compose(['run','--rm','--no-deps','-T','inspect','node','scripts/runtime/polling-check.ts'],'polling-roles-and-receipts').read_text())
+    assert polling['status']=='PASS' and permissions['status']=='PASS'
+    saved=polling['saved']
+    def polling_state():
+        with urllib.request.urlopen(url+'/api/v1/config/polling',timeout=15) as response:
+            return json.loads(response.read(65537))['data']
+    def workers_observed(label, since):
+        deadline=time.monotonic()+60
+        found={}
+        while time.monotonic()<deadline:
+            log=compose(['logs','--no-log-prefix','--since',since,'--tail','100','capture','backfill'],label)
+            for line in log.read_text().splitlines():
+                try: item=json.loads(line)
+                except ValueError: continue
+                if item.get('type')=='runtime_polling' and item.get('revision')==saved['revision']:
+                    role=item['role']; expected=saved['capture_poll_ms' if role=='capture' else 'backfill_idle_ms']
+                    assert item['delay_ms']==expected
+                    found[role]=item
+            if set(found)=={'capture','backfill'}: return found
+            time.sleep(1)
+        raise AssertionError('Workers did not observe saved polling revision')
+    applied=workers_observed('polling-workers-before-restart',report['started_at'])
+    restart_at=datetime.datetime.now(datetime.timezone.utc).isoformat()
+    compose(['stop','-t','20','capture','backfill','control-api'],'polling-retained-stop',timeout=90)
+    compose(['start','capture','backfill','control-api'],'polling-retained-start',timeout=90)
+    deadline=time.monotonic()+60
+    while True:
+        try:
+            retained=polling_state()
+            break
+        except OSError:
+            assert time.monotonic()<deadline,'Settings API did not restart'
+            time.sleep(1)
+    for key in ('revision','capture_poll_ms','backfill_idle_ms','updated_at','recent_changes'):
+        assert retained[key]==saved[key],('settings changed on restart',key)
+    reapplied=workers_observed('polling-workers-after-restart',restart_at)
+    case('R08',dict(browser=polling,permissions=permissions,worker_observations=applied,restart_observations=reapplied,settings_retained=True))
+    assert [c['id'] for c in report['cases']] == ['R01', 'R02', 'R03', 'R04', 'R05', 'R06','R07','R08']
     assert subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip() == HEAD
     assert subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True) == DIRTY
     for item in inputs: assert hashlib.sha256((ROOT / item['path']).read_bytes()).hexdigest() == item['sha256'], item['path']

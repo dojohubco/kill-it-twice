@@ -1,6 +1,6 @@
 # Final acceptance matrix
 
-Status: **READY for local submission** at tested commit `ecdfdb5063aa7977af6bceccdaa6b1ece3fdece7`. Full default-million `make verify` exited zero and the strict supervisor completed at 2026-09-24 20:09:21 UTC. All five parent phases, G1–G5, exact independent reconciliation, five corruption controls and both child cleanups passed. A separate 1024-row functional run also passed at the same clean commit. See the [final report](evidence/Final-submission-2026-09-24.md) and [selected evidence](evidence/Final-submission-2026-09-24.json).
+Historical status: **READY for local submission** at tested commit `ecdfdb5063aa7977af6bceccdaa6b1ece3fdece7`. Full default-million `make verify` exited zero and the strict supervisor completed at 2026-09-24 20:09:21 UTC. All five parent phases, G1–G5, exact independent reconciliation, five corruption controls and both child cleanups passed. A separate 1024-row functional run also passed at the same clean commit. See the [final report](evidence/Final-submission-2026-09-24.md) and [selected evidence](evidence/Final-submission-2026-09-24.json).
 
 **Server acceptance remains NOT RUN / interrupted.** Local success does not relabel the preserved server attempts. Hosted CI, optional 2M and publication were not performed. Four previously failed workers in the recreated server demo remain preserved without repair.
 
@@ -19,6 +19,8 @@ Status: **READY for local submission** at tested commit `ecdfdb5063aa7977af6bcec
 | SPEC before code and chronological evolution                   | Verified in local Git without rewriting history                                   | SPEC `251cb5a`, harness `7af0818`, implementation `5368de6`                           |
 | Diagram, ADRs, measurements and two actual AI deviations       | Documented, with execution boundaries                                             | README; ADRs 001–015; wire accounting `0a375fd` / B02–B08; oracle `d1b3baa` / O01–O06 |
 | Public repository handoff                                      | NOT PUBLISHED                                                                     | Local source/history bundle only; no push, upload or PR                               |
+
+Current addition: the operator polling editor in ADR 016 is implemented but awaits its own fresh clean acceptance. The historical result below is not evidence for later runtime changes.
 
 ## Candidate and evidence identity
 

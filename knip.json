@@ -28,7 +28,9 @@
     "scripts/capacity/count-proof.ts",
     "scripts/capacity/storage.ts",
     "scripts/capacity/page-proof.ts",
-    "scripts/runtime-operator-browser.ts"
+    "scripts/runtime-operator-browser.ts",
+    "scripts/runtime-polling-browser.ts",
+    "scripts/runtime/polling-check.ts"
   ],
   "project": [
     "src/**/*.ts",

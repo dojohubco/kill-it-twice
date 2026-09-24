@@ -32,6 +32,8 @@ try:
             manifest=Path(manifests[0]);child=json.loads(manifest.read_text())
             assert child['status']=='PASS' and child['cleanup']['status']=='PASS' and child['head']==r.head and not child['developmental']
             result.update(manifest=str(manifest.relative_to(ROOT)),sha256=sha(manifest))
+            if phase=='retained-runtime':
+                assert [(c['id'],c['status']) for c in child['cases']]==[(f'R{i:02d}','PASS') for i in range(1,9)]
             if phase=='large-faults':
                 assert child['count']==options.count and child['reconciliation']['baselines']==options.count
                 assert child['gate_report']=={g:'PASS' for g in r.report['gate_report']}

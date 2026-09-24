@@ -1,3 +1,4 @@
+import { runtimePolling } from '../../src/operations/polling.ts';
 import { setTimeout as delay } from 'node:timers/promises';
 import { runtimePageRecords } from '../../src/backfill/bounds.ts';
 import { Backfill, BackfillFailure } from '../../src/backfill/worker.ts';
@@ -16,6 +17,16 @@ const worker = new Backfill(
     },
   },
   { pageRecords: runtimePageRecords(process.env['BACKFILL_PAGE_RECORDS']) },
+);
+const idleDelay = runtimePolling(
+  connection('pipeline_backfill'),
+  'backfill',
+  (observation) =>
+    writeCaptureReport(process.stdout, {
+      type: 'runtime_polling',
+      role: 'backfill',
+      ...observation,
+    }),
 );
 const zero = '00000000-0000-0000-0000-000000000000';
 let at = '-infinity',
@@ -58,7 +69,9 @@ while (!stop.signal.aborted) {
     id = zero;
   }
   if (!progressed)
-    await delay(1000, undefined, { signal: stop.signal }).catch((e) => {
-      if (!stop.signal.aborted) throw e;
-    });
+    await delay(await idleDelay(), undefined, { signal: stop.signal }).catch(
+      (e) => {
+        if (!stop.signal.aborted) throw e;
+      },
+    );
 }

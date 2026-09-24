@@ -572,6 +572,23 @@ export class OperationsService {
       fixtures,
     };
   }
+  async polling() {
+    return one(await this.db.read('pipeline', 'polling'));
+  }
+  setPolling(key: string, correlation: string, body: unknown) {
+    const r = shape(body, [
+      'expected_revision',
+      'capture_poll_ms',
+      'backfill_idle_ms',
+    ]);
+    return this.db.polling(
+      id(key),
+      id(correlation),
+      bigint(r['expected_revision']),
+      integer(r['capture_poll_ms'], 50, 30000),
+      integer(r['backfill_idle_ms'], 50, 30000),
+    );
+  }
   async config() {
     const snapshot = one(await this.db.read('pipeline', 'snapshot'));
     return {

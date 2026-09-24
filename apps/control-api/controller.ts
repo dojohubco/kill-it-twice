@@ -263,6 +263,51 @@ export class ControlController {
   failures(@Query() query: unknown, @Req() req: Request) {
     return this.result(req, 'failures', this.service.failures(query));
   }
+  @Get('config/polling')
+  @read('Current polling intervals and recent committed changes')
+  polling(@Req() req: Request) {
+    return this.result(req, 'polling_config', this.service.polling());
+  }
+  @Put('config/polling')
+  @ApiSecurity('operator')
+  @ApiHeader({ name: 'Idempotency-Key', required: true, schema: uuidSchema })
+  @ApiResponse({
+    status: 202,
+    schema: mutationSchema,
+    description: 'Settings durably stored; workers observe between iterations',
+  })
+  @ApiResponse({ status: 200, schema: mutationSchema })
+  @ApiResponse({
+    status: 409,
+    schema: errorSchema,
+    description: 'Stale revision or conflicting request key',
+  })
+  @ApiResponse({
+    status: 401,
+    schema: errorSchema,
+    description: 'Operator token required',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['expected_revision', 'capture_poll_ms', 'backfill_idle_ms'],
+      properties: {
+        expected_revision: decimal,
+        capture_poll_ms: { type: 'integer', minimum: 50, maximum: 30000 },
+        backfill_idle_ms: { type: 'integer', minimum: 50, maximum: 30000 },
+      },
+    },
+  })
+  setPolling(
+    @Body() body: unknown,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.mutate(req, res, 'polling_update', (key) =>
+      this.service.setPolling(key, req.requestId, body),
+    );
+  }
   @Get('config')
   @ApiResponse({ status: 200, schema: responseSchema('config') })
   config(@Req() req: Request) {

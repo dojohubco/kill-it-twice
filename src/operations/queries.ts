@@ -9,6 +9,7 @@ export const queries = {
     failures: `SELECT jsonb_build_object('key','source:'||o.source_epoch||':'||o.entity_id||':'||o.entity_version,'type','capture_block','event_id',o.source_epoch||':'||o.entity_id||':'||o.entity_version,'recorded_at',o.recorded_at,'classification',coalesce(w.reason,'missing_work'),'context','Capture requires operator investigation','state',coalesce(w.state,'missing'),'replayable',false,'replay_reason','source_capture_block') value FROM source.outbox o LEFT JOIN source.capture_work w USING(source_epoch,entity_id,entity_version) WHERE (w.state='blocked' OR w.work_id IS NULL) AND ('source:'||o.source_epoch||':'||o.entity_id||':'||o.entity_version) COLLATE "C">$1 COLLATE "C" ORDER BY ('source:'||o.source_epoch||':'||o.entity_id||':'||o.entity_version) COLLATE "C" LIMIT $2`,
   },
   pipeline: {
+    polling: `SELECT pipeline.polling_status() value`,
     snapshot: `WITH delivery_summary AS MATERIALIZED (SELECT kind,state,disposition,count(*) n,min(created_at) oldest FROM pipeline.delivery_intents GROUP BY kind,state,disposition) SELECT jsonb_build_object('observed_at',clock_timestamp()::text,
    'es_oldest_unresolved_at',(SELECT min(e.staged_at)::text FROM pipeline.events e JOIN pipeline.delivery_intents d USING(event_id) WHERE d.kind='elasticsearch' AND d.state<>'satisfied'),
    'staged',(SELECT count(*)::text FROM pipeline.events),

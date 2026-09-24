@@ -65,6 +65,19 @@ export class OperationalDatabase {
     );
     return owner.transaction((w) => w.write());
   }
+  polling(
+    key: string,
+    correlation: string,
+    revision: string,
+    captureMs: number,
+    backfillMs: number,
+  ) {
+    return this.#write(
+      'pipeline',
+      'SELECT pipeline.set_polling($1,$2,$3,$4,$5) value',
+      [key, correlation, revision, captureMs, backfillMs],
+    );
+  }
   replay(
     key: string,
     correlation: string,

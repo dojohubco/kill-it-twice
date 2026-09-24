@@ -1,3 +1,4 @@
+import { runtimePolling } from '../src/operations/polling.ts';
 import { writeCaptureReport } from '../src/internal/capture-report.ts';
 import { Capture, CaptureFailure } from '../src/capture.ts';
 import { IntegrityError } from '../src/pipeline.ts';
@@ -85,6 +86,18 @@ try {
             : { type: 'capture-observation', ...value },
         ),
       stop.signal,
+      process.env['KIT_RUNTIME_POLLING'] === '1'
+        ? runtimePolling(
+            config('PIPELINE_CAPTURE', 'pipeline_m2b', 'pipeline_capture'),
+            'capture',
+            (observation) =>
+              writeCaptureReport(process.stdout, {
+                type: 'runtime_polling',
+                role: 'capture',
+                ...observation,
+              }),
+          )
+        : undefined,
     );
 } catch (error) {
   console.error(JSON.stringify(failure(error)));

@@ -29,6 +29,7 @@ try {
   for (const s of ['SIGINT', 'SIGTERM']) process.removeListener(s, stop);
   if (!start.signal.aborted) {
     // Initializer applies both owning-database read bounds before this worker starts.
+    if (role === 'capture') process.env['KIT_RUNTIME_POLLING'] = '1';
     if (role === 'observer') process.env['RECEIPT_BATCH_SIZE'] ??= '32';
     if (role === 'elasticsearch' || role === 'publisher')
       process.env['SINK_DATABASE_BATCH_SIZE'] ??= '32';
