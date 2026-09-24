@@ -135,7 +135,8 @@ for role in ('backfill','consumer','publisher','es-worker'):
     if role!='backfill':r.control(role)
     services[role]={'restart':'no','command':['node','scripts/verification/fault-worker.ts',role],'group_add':[r.evidence_group],'volumes':[str(r.out)+':/verification:rw,z']}
 services['backfill']['environment']={'BACKFILL_PAGE_RECORDS':str(options.page_records)}
-(r.out/'verification.json').write_text(json.dumps({'services':services},indent=2))
+overrides={**services,'inspect':{'restart':'no','command':['node','-e','setInterval(()=>{},1000)']}}
+(r.out/'verification.json').write_text(json.dumps({'services':overrides},indent=2))
 files=subprocess.check_output(['git','ls-files','--cached','--others','--exclude-standard','-z'],cwd=ROOT).decode().split('\0')
 inputs=[{'path':p,'sha256':sha(ROOT/p)} for p in sorted(set(filter(None,files))) if (ROOT/p).is_file()]
 (r.out/'inputs.json').write_text(json.dumps(inputs,indent=2));r.report['input_sha256']=hashlib.sha256(json.dumps(inputs,separators=(',',':')).encode()).hexdigest();r.save()
@@ -161,6 +162,7 @@ try:
         assert value['uid']==1000 and int(r.evidence_group) in value['groups']
         permissions.append({'role':role,**value})
     r.report['evidence_permissions']=permissions;r.save()
+    r.start_inspector()
     port=r.compose(['port','ui','4200'],'gateway').read_text().strip();assert port.startswith('127.0.0.1:');r.url='http://'+port;r.report['gateway']=r.url
     resources=ResourceSampler(r.project,r.out,interval=15 if large else 5);resources.start()
     set_phase('G1')
@@ -330,15 +332,18 @@ finally:
             remaining=diagnostic_deadline-time.monotonic()
             if remaining<=0:raise TimeoutError('Failure diagnostics 60-second total budget exhausted')
             return min(5,remaining)
-        for service in services:
+        receiver_services=['elasticsearch','toxiproxy','initializer']
+        diagnostic_services=receiver_services+list(services) if phase in ('prerequisites','G3') else list(services)+receiver_services
+        for service in diagnostic_services:
             try:
                 ids=r.compose(['ps','--all','-q',service],'failure-'+service+'-ids',timeout=diagnostic_budget(),maximum=65536).read_text().split()
                 assert len(ids)<=8 and all(len(i)==64 and all(c in '0123456789abcdef' for c in i) for i in ids)
                 for identity in ids:
-                    label='worker-failure-diagnostics-'+service+'-'+identity[:12]
+                    private=service in receiver_services
+                    label=('private-receiver-diagnostics-' if private else 'worker-failure-diagnostics-')+service+'-'+identity[:12]
                     state=r.run(['docker','inspect','--format','{{json .State}}',identity],label+'-state',timeout=diagnostic_budget(),maximum=65536)
                     assert isinstance(json.loads(state.read_text()),dict)
-                    r.run(['docker','logs','--timestamps','--tail','5',identity],label,timeout=diagnostic_budget(),maximum=1024*1024)
+                    r.run(['docker','logs','--timestamps','--tail','2000' if private else '5',identity],label,timeout=diagnostic_budget(),maximum=(4 if private else 1)*1024*1024)
             except BaseException as error:
                 diagnostic_errors.append({'service':service,'type':type(error).__name__,'message':str(error)})
         # Database logs can contain SQL context. Retain privately, never copy into public/.

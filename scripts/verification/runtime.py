@@ -29,6 +29,8 @@ class Runtime:
         self.dirty = subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True)
         self.env = dict(os.environ, KIT_UI_PORT='0', KIT_IMAGE='kill-it-twice-runtime:final-' + self.head[:12])
         self.compose_args = ['docker', 'compose', '-f', str(ROOT/'compose.yaml'), '-f', str(self.out/'verification.json'), '-p', self.project]
+        self.inspector_id = None
+        self.compose_project_validated = False
         self.sequence = 0
         self.health_check = lambda: None
         self.report = dict(scope='Integrated real fault gates at an explicit finite fixture; not unrun scale evidence', project=self.project, count=count, head=self.head, developmental=bool(self.dirty), started_at=now(), status='RUNNING', gates=[], commands=[], cleanup=None)
@@ -82,8 +84,28 @@ class Runtime:
         if failure is not None:raise failure
         assert record['exit'] in expected and not timed_out and not overflow, record
         return stdout
-    def compose(self, args, label, **options): return self.run(self.compose_args+args, label, **options)
-    def json_command(self, args, label, **options): return json.loads(self.compose(args,label,**options).read_text())
+    def compose(self, args, label, **options):
+        # Resolve configuration from the repository and verify ownership before
+        # any operation. An explicit -p alone is not a sufficient cleanup guard.
+        if not self.compose_project_validated:
+            config=json.loads(self.run(self.compose_args+['config','--format','json'],'owned-compose-identity',timeout=30).read_text())
+            assert config['name']==self.project, 'Compose resolved a different project'
+            assert all(v['name'].startswith(self.project+'_') and not v.get('external') for v in config.get('volumes',{}).values())
+            assert all(v['name'].startswith(self.project+'_') and not v.get('external') for v in config.get('networks',{}).values())
+            self.compose_project_validated=True
+        return self.run(self.compose_args+args, label, **options)
+    def start_inspector(self):
+        # Only the verifier override supplies this resident process. Each read
+        # still starts a fresh Node process and uses the original SQL/roles.
+        self.compose(['up','-d','--no-build','--no-deps','inspect'],'resident-inspector')
+        self.inspector_id=self.worker_id('inspect')
+        self.report['resident_inspector']={'container_id':self.inspector_id,'started_at':now()}
+        self.save()
+    def json_command(self, args, label, **options):
+        if self.inspector_id and args[:5]==['run','--rm','--no-deps','-T','inspect']:
+            output=self.run(['docker','exec',self.inspector_id,*args[5:]],label,**options)
+        else: output=self.compose(args,label,**options)
+        return json.loads(output.read_text())
     def inspect(self, mode='summary'):
         return self.json_command(['run','--rm','--no-deps','-T','inspect','node','scripts/verification/inspect.ts',mode], 'inspect-'+mode)
     def worker_id(self, role):
@@ -124,7 +146,11 @@ class Runtime:
         after=json.loads(self.run(['docker','inspect',identity],role+'-after-kill').read_text())[0]
         assert not after['State']['Running'] and after['State']['ExitCode']==137
         return {'boundary':boundary,'container_id':identity,'exit_code':137,'started_at':before['State']['StartedAt'],'finished_at':after['State']['FinishedAt']}
-    def start(self,role): self.compose(['start',role],role+'-start')
+    def start(self,role):
+        # Restart exactly the existing owned receiver/worker. Compose start can
+        # also restart completed provisioning dependencies during fault tests.
+        identity=self.worker_id(role)
+        self.run(['docker','start',identity],role+'-start')
     def stop(self,role): self.compose(['stop','-t','20',role],role+'-stop',timeout=60)
     def gate(self,name,evidence):
         assert name in ('G1','G2','G3','G4','G5') and name not in [x['id'] for x in self.report['gates']]
@@ -132,10 +158,28 @@ class Runtime:
     def cleanup(self):
         failures=[]
         try:
-            self.compose(['down','--volumes','--remove-orphans','--timeout','20'],'owned-cleanup',timeout=180)
-            for name,args in [('containers',['ps','-aq']),('volumes',['volume','ls','-q']),('networks',['network','ls','-q'])]:
-                p=self.run(['docker',*args,'--filter','label=com.docker.compose.project='+self.project],'remaining-'+name)
-                assert not p.read_text().strip(),name
+            # Use explicit, revalidated resource IDs rather than Compose down:
+            # a configuration-resolution failure must never choose a demo.
+            assert self.project.startswith('kit-final-')
+            deadline=time.monotonic()+180
+            def bounded(args,label):
+                remaining=deadline-time.monotonic()
+                assert remaining>0, 'Owned cleanup deadline'
+                return self.run(args,label,timeout=min(60,remaining),maximum=4*1024*1024)
+            for kind,listing in [('container',['ps','-aq']),('volume',['volume','ls','-q']),('network',['network','ls','-q'])]:
+                identifiers=bounded(['docker',*listing,'--filter','label=com.docker.compose.project='+self.project],'cleanup-list-'+kind).read_text().split()
+                if identifiers:
+                    records=json.loads(bounded(['docker',kind,'inspect',*identifiers],'cleanup-identities-'+kind).read_text())
+                    assert len(records)==len(identifiers)
+                    for record in records:
+                        labels=record['Config']['Labels'] if kind=='container' else record['Labels']
+                        assert labels['com.docker.compose.project']==self.project
+                        if kind=='network':assert not record['Containers'], 'Owned network still has attached containers'
+                    if kind=='container':
+                        bounded(['docker','stop','--time','20',*identifiers],'cleanup-stop-containers')
+                        bounded(['docker','rm','--force',*identifiers],'cleanup-remove-containers')
+                    else:bounded(['docker',kind,'rm',*identifiers],'cleanup-remove-'+kind)
+                assert not bounded(['docker',*listing,'--filter','label=com.docker.compose.project='+self.project],'remaining-'+kind).read_text().strip(),kind
         except BaseException as e: failures.append({'type':type(e).__name__,'message':str(e)})
         self.report['cleanup']={'status':'FAIL' if failures else 'PASS','errors':failures}
         if failures:self.report['status']='FAIL'
