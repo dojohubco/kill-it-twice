@@ -1,6 +1,7 @@
 """Bounded read-only sampling of containers owned by one capacity invocation."""
 import datetime
 import json
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -22,15 +23,26 @@ class ResourceSampler:
         assert project.startswith('kit-final-') and 1<=interval<=30
         self.project=project;self.directory=Path(directory);self.interval=interval
         self.stop_event=threading.Event();self.thread=None;self.errors=[];self.count=0;self.peak={}
-    def command(self,args):
+    def command(self,args,disappeared=None):
         result=subprocess.run(args,capture_output=True,timeout=15)
-        if result.returncode:raise RuntimeError('Owned container inspection failed')
-        if len(result.stdout)>2*1024*1024:raise RuntimeError('Container inspection response bound')
+        if len(result.stdout)>2*1024*1024 or len(result.stderr)>65536:raise RuntimeError('Container inspection response bound')
+        if result.returncode:
+            lines=result.stderr.decode('utf-8',errors='replace').splitlines()
+            missing=[re.fullmatch(r'error: no such object: ([0-9a-f]{64})',line,re.IGNORECASE) for line in lines]
+            # Compose --rm helpers can exit between ps and inspect. Accept only
+            # explicit absence of these exact listed IDs, never a daemon error.
+            if (disappeared is not None and args[:2]==['docker','inspect'] and result.returncode==1
+                    and missing and all(missing) and len({match[1] for match in missing})==len(missing)
+                    and all(match[1] in args[2:] for match in missing)):
+                disappeared.extend(match[1] for match in missing)
+            else:
+                raise RuntimeError('Owned container inspection failed: '+result.stderr.decode('utf-8',errors='replace')[:512])
         return result.stdout
     def sample(self):
-        ids=self.command(['docker','ps','-q','--filter','label=com.docker.compose.project='+self.project]).decode().split()
+        ids=self.command(['docker','ps','-q','--no-trunc','--filter','label=com.docker.compose.project='+self.project]).decode().split()
         assert len(ids)<=32
-        containers=json.loads(self.command(['docker','inspect',*ids])) if ids else []
+        disappeared=[]
+        containers=json.loads(self.command(['docker','inspect',*ids],disappeared=disappeared)) if ids else []
         rows=[]
         for container in containers:
             labels=container['Config']['Labels'];assert labels['com.docker.compose.project']==self.project
@@ -49,7 +61,10 @@ class ResourceSampler:
             prior=self.peak.setdefault(identity,{'role':role,'limit_bytes':row['limit_bytes'],'shared_memory_limit_bytes':row['shared_memory_limit_bytes']})
             for field in ['cpu_usage_usec','memory_peak_bytes','process_rss_high_water_bytes']:
                 if row[field] is not None:prior[field]=max(prior.get(field,0),row[field])
-        entry={'at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'host_memory':memory_fields(Path('/proc/meminfo').read_text()),'disk_free_bytes':shutil.disk_usage(self.directory).free,'containers':rows}
+        observed=[container['Id'] for container in containers]
+        assert len(set(observed+disappeared))==len(observed)+len(disappeared)
+        assert set(observed+disappeared)==set(ids),'Incomplete container inspection response'
+        entry={'disappeared_container_ids':disappeared,'at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'host_memory':memory_fields(Path('/proc/meminfo').read_text()),'disk_free_bytes':shutil.disk_usage(self.directory).free,'containers':rows}
         path=self.directory/'resources.jsonl';line=json.dumps(entry,separators=(',',':'))+'\n'
         assert (path.stat().st_size if path.exists() else 0)+len(line.encode())<=64*1024*1024
         with path.open('a') as stream:stream.write(line)
@@ -58,7 +73,7 @@ class ResourceSampler:
         while not self.stop_event.wait(self.interval):
             try:self.sample()
             except BaseException as error:
-                self.errors.append({'type':type(error).__name__,'phase':'read_only_sample'});return
+                self.errors.append({'type':type(error).__name__,'phase':'read_only_sample','message':str(error)[:1024]});return
     def start(self):
         assert self.thread is None
         self.sample();self.thread=threading.Thread(target=self._loop,name='owned-resource-sampler',daemon=False);self.thread.start()
@@ -67,6 +82,6 @@ class ResourceSampler:
         if self.thread:
             self.thread.join(35)
             if self.thread.is_alive():raise RuntimeError('Resource sampler did not stop')
-        result={'status':'FAIL' if self.errors else 'OBSERVED','samples':self.count,'interval_seconds':self.interval,'peak_by_container':self.peak,'errors':self.errors,'scope':'Read-only observed process and cgroup peaks; process exit between samples can omit a final high-water value, and host memory includes unrelated workloads'}
+        result={'status':'FAIL' if self.errors else 'OBSERVED','samples':self.count,'interval_seconds':self.interval,'peak_by_container':self.peak,'errors':self.errors,'scope':'Read-only observed process and cgroup peaks; explicitly disappeared containers are recorded without invented peaks; process exit between samples can omit a final high-water value, and host memory includes unrelated workloads'}
         (self.directory/'resource-summary.json').write_text(json.dumps(result,indent=2)+'\n')
         return result

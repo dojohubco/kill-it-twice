@@ -9,6 +9,6 @@ void test('capacity resource reports retain byte units, ownership and explicit f
     ['-B', 'tests/capacity/resources_test.py'],
     { timeout: 5000, maxBuffer: 65536 },
   );
-  assert.match(result.stderr, /Ran 3 tests/);
+  assert.match(result.stderr, /Ran 6 tests/);
   assert.match(result.stderr, /\bOK\b/);
 });
