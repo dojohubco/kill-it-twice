@@ -1,0 +1,17 @@
+# G5 independent metrics observation, 2026-09-25
+
+Candidate `2588af89f4ec2ba3cab1a61032cee02af6f2cc05` passed the real million-row G1-G4 gates, then failed G5. The saved G5 status was fresh for all dependencies, backfill complete and all 519 source mutations acknowledged. The following independent `/metrics` request reported pipeline unavailable, correctly omitted its Elasticsearch DLQ and staged samples, and caused the immediate assertion requiring exactly three DLQ records to fail. The saved metric name in HELP/TYPE text did not establish a staged value. Both child cleanups passed and all 27 preexisting containers remained; G5 browser, independent final reconciliation and negative controls did not run. This failed run remains FAIL. The exact database slow-query plan/subexpression is still unproved.
+
+## Explicit test correction and review
+
+ADR 014 and `docs/metric-definitions.md` require separately timestamped observations and omitted values when a dependency is unavailable. A fresh status response cannot establish freshness of a later metrics request. The former single-attempt assertion assumed that relationship. This is a verifier observation correction, with no application, query, planner, database limit, delivery or terminal-proof change.
+
+G5 now admits its exact status and independently fresh metrics inside the existing single 360-second settle wait. Every failed metrics attempt causes a new status observation before another scrape. The verifier wait rechecks its original deadline after the predicate, so a slow scrape cannot produce late success. There is no added phase allowance, borrowed old value, zero fill or alternate success path. The previous exact status, three DLQ, zero source pending and browser checks remain. Acceptance additionally requires a real exact staged-value sample, one unambiguous value per required metric, and current source/pipeline/consumer freshness indicators. Unavailability, wrong counts, absent samples and exhausted bounds remain failure. Save every scrape with its paired status observation time in a bounded private history, and preserve the final status/metrics files.
+
+Review of the final call path confirms that the metrics callback runs only after the existing status predicate is satisfied and shares that predicate's original wait deadline. It cannot satisfy status checks, bypass G5 browser assertions or provide reconciliation. The failed candidate and artifacts are immutable; only the editable source checkout is corrected.
+
+## Focused checks and boundary
+
+`python3 -B tests/final/runtime_test.py` passed all 19 cases, including seven metrics regressions: independently unavailable then fresh observation, permanent unavailability at the original deadline, wrong/duplicate DLQ values, header-only/wrong staged totals, nonzero source pending, missing/invalid freshness, and a successful scrape that arrives after the original settle deadline. The exact saved failing scrape is rejected by the new callback and retained byte-for-byte. These are deterministic verifier regressions, not real-service acceptance. Existing ownership/redelivery tests remain in the inventory.
+
+`make quality` passed after the final deadline guard, including all 88 Node tests and the nested 19-case Python inventory. The earlier quality pass before that guard is retained separately. A new clean-candidate 1024 run and full 1M acceptance are required separately. No public publication is allowed from these focused results. See the accompanying JSON for the failed manifest hash and exact checks.

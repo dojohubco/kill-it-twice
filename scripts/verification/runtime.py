@@ -151,13 +151,39 @@ class Runtime:
             data=response.read(limit+1); assert len(data)<=limit
             return data.decode('utf8')
     def status(self): return json.loads(self.http('/api/v1/status'))['data']
+    def g5_metrics(self, snapshot, expected_staged):
+        # This callback runs inside G5's existing 360-second settle wait. An
+        # unavailable scrape is evidence to retain, never a zero or a PASS.
+        metrics=self.http('/metrics')
+        (self.out/'g5-status.json').write_text(json.dumps(snapshot,indent=2))
+        (self.out/'g5-metrics.prom').write_text(metrics)
+        history=self.out/'g5-metrics-observations.jsonl'
+        assert not history.exists() or history.stat().st_size<64*1024**2
+        with history.open('a') as stream:
+            stream.write(json.dumps({'at':now(),'status_observed_at':snapshot.get('observed_at'),'metrics':metrics},separators=(',',':'))+'\n')
+        samples={}
+        for line in metrics.splitlines():
+            if not line or line.startswith('#'):continue
+            fields=line.split()
+            if len(fields)!=2:return False
+            samples.setdefault(fields[0],[]).append(fields[1])
+        expected={'pipeline_source_pending':'0','pipeline_events_staged_total':str(expected_staged),'pipeline_dlq_open{kind="elasticsearch"}':'3'}
+        for component in ('source','pipeline','consumer'):
+            expected[f'pipeline_dependency_health{{component="{component}",state="unavailable"}}']='0'
+            values=samples.get(f'pipeline_observation_fresh_timestamp_seconds{{component="{component}"}}',[])
+            if len(values)!=1:return False
+            try:
+                timestamp=float(values[0])
+                if not 0<timestamp<float('inf'):return False
+            except ValueError:return False
+        return all(samples.get(name)==[value] for name,value in expected.items())
     def wait(self, operation, predicate, label, timeout=240, interval=.2):
         deadline=time.monotonic()+timeout; last=None
         while time.monotonic()<deadline:
             self.health_check()
             try:
                 last=operation()
-                if predicate(last): return last
+                if predicate(last) and time.monotonic()<deadline: return last
             except (OSError,ValueError) as e: last={'unavailable':type(e).__name__}
             time.sleep(interval)
         (self.out/(label+'-last.json')).write_text(json.dumps(last,indent=2))

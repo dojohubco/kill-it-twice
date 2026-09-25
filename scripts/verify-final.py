@@ -77,7 +77,7 @@ def changes(items):
         assert reply['command_id']==item['command_id'];seen.add(item['command_id'])
     return replies
 
-def settled(rejected=0,es=True,timeout=360):
+def settled(rejected=0,es=True,timeout=360,after=None):
     total=options.count+len(seen)
     next_workers=0
     def accept(s):
@@ -90,7 +90,8 @@ def settled(rejected=0,es=True,timeout=360):
         if states.get(('rabbitmq','satisfied'),0)!=total:return False
         if es and (states.get(('elasticsearch','satisfied'),0)!=total-rejected or states.get(('elasticsearch','dead_letter'),0)!=rejected):return False
         if sum(int(x['count']) for x in p['observations'] if x['state']=='processed')!=total:return False
-        return dependencies['source']['data']['counts']['acknowledged']==str(len(seen)) and s['backfill']['phase']=='complete'
+        if dependencies['source']['data']['counts']['acknowledged']!=str(len(seen)) or s['backfill']['phase']!='complete':return False
+        return after(s) if after is not None else True
     def observation():
         nonlocal next_workers
         # No worker is intentionally stopped during G1 drain. Fail on a real
@@ -259,12 +260,16 @@ try:
     r.gate('G4',{'operations':500,'actual_applied':497,'actual_mapper_rejections':rejected,'dead_letters':failures,'request_sha256':responses[0]['request_sha256'],'declared_source_command_ids':declared})
 
     set_phase('G5')
-    snapshot=settled(rejected=3);metrics=r.http('/metrics')
+    # Status and metrics make separate observations. Require both within this
+    # existing settle deadline, rather than assuming the second is still fresh.
+    snapshot=settled(rejected=3,after=lambda s:r.g5_metrics(s,options.count+len(seen)))
+    metrics=(r.out/'g5-metrics.prom').read_text()
     (r.out/'g5-status.json').write_text(json.dumps(snapshot,indent=2));(r.out/'g5-metrics.prom').write_text(metrics)
     assert snapshot['backfill']['phase']=='complete'
     assert snapshot['dependencies']['source']['data']['counts']['acknowledged']==str(len(seen))
     assert 'pipeline_dlq_open{kind="elasticsearch"} 3' in metrics
     assert 'pipeline_source_pending 0' in metrics and 'pipeline_events_staged_total' in metrics
+    assert f'pipeline_events_staged_total {options.count+len(seen)}' in metrics.splitlines()
     browser=r.run(['node','scripts/runtime-browser.ts',r.url,str(r.out),str(options.count+len(seen))],'real-ui',timeout=90)
     browser_result=json.loads(browser.read_text());assert browser_result['mutations']==0 and browser_result['interceptedResponses']==0 and not browser_result['pageErrors']
     r.gate('G5',{'snapshot':'g5-status.json','metrics':'g5-metrics.prom','browser':browser_result,'declared_open_dlq':3,'source_pending':0,'backfill_phase':'complete'})

@@ -1,0 +1,42 @@
+{
+  "status": "FOCUSED_REGRESSION_PASS_FULL_ACCEPTANCE_NOT_RUN",
+  "failed_head": "2588af89f4ec2ba3cab1a61032cee02af6f2cc05",
+  "failed_large_manifest_sha256": "011c578378917ce7a021a4f12be0d7e38796c53f938b20b65c828f38a94839d3",
+  "failure": {
+    "first_failed_assertion": "pipeline_dlq_open{kind=\"elasticsearch\"} 3 in metrics",
+    "snapshot_timestamp": "2026-09-25T13:41:13.542Z",
+    "snapshot_all_components_fresh": true,
+    "snapshot_backfill_complete": true,
+    "snapshot_source_acknowledged": "519",
+    "separate_metrics_pipeline_unavailable": true,
+    "required_dlq_sample_present": false,
+    "staged_sample_present": false,
+    "source_pending_zero": true
+  },
+  "saved_failed_metrics_rejected_without_exception": true,
+  "focused_tests": {
+    "command": "python3 -B tests/final/runtime_test.py",
+    "exit": 0,
+    "total": 19,
+    "new_metrics_cases": 7
+  },
+  "review": {
+    "original_assertions_retained": true,
+    "exact_staged_sample_added": true,
+    "metrics_freshness_required": true,
+    "status_and_metrics_share_original_360_second_settle": true,
+    "application_or_query_changes": false,
+    "retry_means_new_status_and_metrics_pair": true,
+    "old_failed_run_remains_fail": true,
+    "slow_success_after_original_deadline_rejected": true
+  },
+  "quality": {
+    "command": "make quality",
+    "exit": 0,
+    "node_tests": 88,
+    "python_tests_within_unit_wrapper": 19,
+    "log_sha256": "d6375f24ffff8a8aafc4dfb0bcee13ddbc8bc6e28e91a592fdb89f5c5958308b"
+  },
+  "new_strict_1024": "NOT RUN",
+  "new_full_1M": "NOT RUN"
+}

@@ -123,4 +123,79 @@ class ConsumerRedeliveryTests(unittest.TestCase):
             with self.assertRaisesRegex(AssertionError,'Deadline: consumer-redelivery'):
                 self.run_observation(directory,[rows])
 
+class G5MetricsTests(unittest.TestCase):
+    total=1000519
+    def metrics(self):
+        lines=['# HELP pipeline_events_staged_total Immutable staged events.',
+               f'pipeline_events_staged_total {self.total}',
+               'pipeline_source_pending 0','pipeline_dlq_open{kind="elasticsearch"} 3']
+        for component in ('source','pipeline','consumer'):
+            lines.extend([f'pipeline_dependency_health{{component="{component}",state="unavailable"}} 0',
+                          f'pipeline_observation_fresh_timestamp_seconds{{component="{component}"}} 1000.25'])
+        return '\n'.join(lines)+'\n'
+    def run_observations(self,directory,stages):
+        r=Runtime.__new__(Runtime);r.out=Path(directory);r.health_check=lambda:None
+        clock=[0.0];observed=[]
+        def status():
+            value={'observed_at':str(clock[0])};observed.append(value);return value
+        def http(path):
+            self.assertEqual(path,'/metrics')
+            return stages[min(int(clock[0]),len(stages)-1)]
+        def sleep(seconds):clock[0]+=seconds
+        r.http=http
+        with patch('verification.runtime.time.monotonic',lambda:clock[0]),patch('verification.runtime.time.sleep',sleep):
+            result=r.wait(status,lambda s:r.g5_metrics(s,self.total),'settle-G5',timeout=360,interval=5)
+        return result,observed,clock[0]
+    def test_unavailable_second_observation_requires_new_pair(self):
+        available=self.metrics()
+        unavailable=available.replace('pipeline_dlq_open{kind="elasticsearch"} 3\n','').replace('component="pipeline",state="unavailable"} 0','component="pipeline",state="unavailable"} 1')
+        with tempfile.TemporaryDirectory() as directory:
+            result,observed,elapsed=self.run_observations(directory,[unavailable]*5+[available])
+            self.assertEqual(elapsed,5)
+            self.assertEqual(observed,[{'observed_at':'0.0'},{'observed_at':'5.0'}])
+            self.assertEqual(result,observed[-1])
+            self.assertEqual(json.loads((Path(directory)/'g5-status.json').read_text()),result)
+            self.assertEqual((Path(directory)/'g5-metrics.prom').read_text(),available)
+            history=[json.loads(x) for x in (Path(directory)/'g5-metrics-observations.jsonl').read_text().splitlines()]
+            self.assertEqual([x['metrics'] for x in history],[unavailable,available])
+    def test_permanent_unavailability_fails_existing_deadline(self):
+        unavailable=self.metrics().replace('component="pipeline",state="unavailable"} 0','component="pipeline",state="unavailable"} 1')
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(AssertionError,'Deadline: settle-G5'):
+                self.run_observations(directory,[unavailable])
+            history=(Path(directory)/'g5-metrics-observations.jsonl').read_text().splitlines()
+            self.assertEqual(len(history),72)
+            self.assertEqual(json.loads((Path(directory)/'settle-G5-last.json').read_text())['observed_at'],'355.0')
+    def test_slow_fresh_metrics_cannot_pass_after_settle_deadline(self):
+        with tempfile.TemporaryDirectory() as directory:
+            r=Runtime.__new__(Runtime);r.out=Path(directory);r.health_check=lambda:None;clock=[0.0]
+            def http(_):clock[0]=360.0;return self.metrics()
+            r.http=http
+            with patch('verification.runtime.time.monotonic',lambda:clock[0]),patch('verification.runtime.time.sleep',lambda _:None):
+                with self.assertRaisesRegex(AssertionError,'Deadline: settle-G5'):
+                    r.wait(lambda:{'observed_at':'0'},lambda s:r.g5_metrics(s,self.total),'settle-G5',timeout=360)
+            self.assertEqual((r.out/'g5-metrics.prom').read_text(),self.metrics())
+    def test_incorrect_or_duplicate_dlq_never_passes(self):
+        good=self.metrics()
+        for bad in [good.replace('elasticsearch"} 3','elasticsearch"} '+n) for n in ('0','2','4')]+[good+'pipeline_dlq_open{kind="elasticsearch"} 3\n']:
+            with self.subTest(metrics=bad),tempfile.TemporaryDirectory() as directory:
+                with self.assertRaisesRegex(AssertionError,'Deadline: settle-G5'):
+                    self.run_observations(directory,[bad])
+    def test_header_or_wrong_staged_count_never_passes(self):
+        good=self.metrics()
+        for bad in (good.replace(f'pipeline_events_staged_total {self.total}\n',''),good.replace(str(self.total),'1000518')):
+            with self.subTest(metrics=bad),tempfile.TemporaryDirectory() as directory:
+                with self.assertRaisesRegex(AssertionError,'Deadline: settle-G5'):
+                    self.run_observations(directory,[bad])
+    def test_pending_source_cannot_pass(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(AssertionError,'Deadline: settle-G5'):
+                self.run_observations(directory,[self.metrics().replace('pipeline_source_pending 0','pipeline_source_pending 1')])
+    def test_missing_or_invalid_freshness_cannot_pass(self):
+        good=self.metrics();key='pipeline_observation_fresh_timestamp_seconds{component="pipeline"}'
+        for bad in (good.replace(key+' 1000.25\n',''),good.replace(key+' 1000.25',key+' NaN'),good.replace(key+' 1000.25',key+' 0')):
+            with self.subTest(metrics=bad),tempfile.TemporaryDirectory() as directory:
+                with self.assertRaisesRegex(AssertionError,'Deadline: settle-G5'):
+                    self.run_observations(directory,[bad])
+
 if __name__=='__main__':unittest.main()
