@@ -1,0 +1,348 @@
+{
+  "status": "SCOPED_CHECKS_PASS_FULL_SERVER_ACCEPTANCE_PENDING",
+  "scope": "Synthetic server query diagnostic and exact real PostgreSQL state-space proof; not application fault or full server acceptance",
+  "base_code": "690447c1467d5fc70d0b53ca2ce7be93b85288f8",
+  "migration_sha256": "7192d1ff2b2383260771ea70b39125c31ddb44c475b7bf716ec1e729bc534df9",
+  "diagnostic": {
+    "artifact": "observation-projection-diagnostic-20260925213908",
+    "manifest_sha256": "1e7b762706156a23d34c5709984c32493b7bb617e1d53ba9ee08dbfc4e01b8e8",
+    "rows": {
+      "members": 1000000,
+      "deliveries": 2000000,
+      "receipts": 1000000
+    },
+    "limits": {
+      "memory_bytes": 1073741824,
+      "shared_memory_bytes": 268435456,
+      "cpus": 2,
+      "run_read_ms": 8000,
+      "snapshot_read_ms": 2500
+    },
+    "fixture_deviation": "Synthetic state churn with autovacuum disabled only on owned fixture tables; not original runtime data or execution plan.",
+    "observations": [
+      {
+        "label": "projection-prototype",
+        "exit": 0,
+        "seconds": 42.442,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "label": "dirty-obligations",
+        "exit": 0,
+        "seconds": 742.604,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "label": "before-0",
+        "exit": 3,
+        "seconds": 8.158,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "label": "before-1",
+        "exit": 3,
+        "seconds": 8.139,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "label": "before-2",
+        "exit": 3,
+        "seconds": 8.519,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "label": "after-0",
+        "exit": 0,
+        "seconds": 5.793,
+        "stdout_sha256": "9df42a692a4bd655e48b45bb9c439630dbbc0b29fc9421a3d5747adc449bbaca"
+      },
+      {
+        "label": "after-1",
+        "exit": 0,
+        "seconds": 3.757,
+        "stdout_sha256": "9df42a692a4bd655e48b45bb9c439630dbbc0b29fc9421a3d5747adc449bbaca"
+      },
+      {
+        "label": "after-2",
+        "exit": 0,
+        "seconds": 3.519,
+        "stdout_sha256": "9df42a692a4bd655e48b45bb9c439630dbbc0b29fc9421a3d5747adc449bbaca"
+      },
+      {
+        "label": "small",
+        "exit": 0,
+        "seconds": 0.116,
+        "stdout_sha256": "5fe7d807181a023f50f5cce9534a8a3615d76730681e75d8bfb766eb09a283e4"
+      },
+      {
+        "label": "empty",
+        "exit": 0,
+        "seconds": 0.101,
+        "stdout_sha256": "bd5497411e775ccb1d7037eda6a65a2c848b286870768c7434e7b236783abcb1"
+      },
+      {
+        "label": "snapshot-old",
+        "exit": 3,
+        "seconds": 2.622,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "label": "snapshot-old-plan",
+        "exit": 0,
+        "seconds": 7.917,
+        "stdout_sha256": "bfaba262ed091d3a5cdd289ef1bf6e9b0dcdf1c561958a46a89ad0404b940f5f"
+      },
+      {
+        "label": "snapshot-new",
+        "exit": 0,
+        "seconds": 0.985,
+        "stdout_sha256": "34497d2e0b49ae8f1993d35842861c786d1b1ddc687e67724f3090186e1fca31"
+      },
+      {
+        "label": "snapshot-new-plan",
+        "exit": 0,
+        "seconds": 1.007,
+        "stdout_sha256": "db058198048307d99acc4624bfdf6bf0c8b961cee352b14b84623b575ee146b6"
+      }
+    ],
+    "exact_large_count": {
+      "invalid": null,
+      "required": "1000000",
+      "es_errors": "0",
+      "es_pending": "0",
+      "es_satisfied": "1000000",
+      "rabbit_pending": "0",
+      "consumer_errors": "0",
+      "consumer_pending": "0",
+      "rabbit_satisfied": "1000000",
+      "consumer_processed": "1000000"
+    },
+    "cleanup": "PASS"
+  },
+  "semantics": {
+    "status": "PASS",
+    "scope": "Synthetic state-space and concurrent real PostgreSQL projection checks; not full-service acceptance",
+    "state_combinations": 144,
+    "original_rows_sha256": "a984bce62bfdc9a5a59b0c1b963910cba1e6d9aff6a607f5ab2cde48a3285b95",
+    "migration_sha256": "7192d1ff2b2383260771ea70b39125c31ddb44c475b7bf716ec1e729bc534df9",
+    "catalog_preserved": true,
+    "exact_snapshot_preserved": true,
+    "uncommitted_visibility": true,
+    "separate_sink_concurrency": true,
+    "rollback": true,
+    "denied_writes": 12,
+    "fresh_install": true,
+    "unsupported_migration_isolation_refused": true,
+    "cleanup": "PASS"
+  },
+  "semantics_manifest_sha256": "f49be6d92269bdb3236c514ff13d44d9cf88b853f93b8d2b94694bd42876ab3a",
+  "implementation_files": {
+    "migrations/pipeline/023-observation-projections.sql": "7192d1ff2b2383260771ea70b39125c31ddb44c475b7bf716ec1e729bc534df9",
+    "src/operations/queries.ts": "ab5db2f76387f30642a8513f09d10e9ea299eb7aa56978165c170ac2111ce90c",
+    "scripts/capacity/observation-projection-check.py": "771ed6143515ad078b418b9703e90744bbe55f2721e8fca5c70d879b89b25753"
+  },
+  "limitations": [
+    "Original runtime plan/cause of the historical 505 observations remains unproved.",
+    "Projections add writes and disk space; no application throughput improvement is established by this diagnostic.",
+    "The full migration adds event timestamps and foreign keys beyond the narrow two-table prototype. Actual application validation is separate.",
+    "Current accepted million-record evidence remains attached to 1f2f3f2; the correction has not passed full server acceptance."
+  ],
+  "populated_upgrade": {
+    "status": "PASS",
+    "scope": "Real populated function/index upgrade preservation, old/new progress equivalence, rollback-only negative controls and exact content reconciliation; no large-scale timing claim",
+    "head": "690447c1467d5fc70d0b53ca2ce7be93b85288f8",
+    "developmental": true,
+    "base_code": "690447c1467d5fc70d0b53ca2ce7be93b85288f8",
+    "reconciliation": {
+      "status": "PASS",
+      "scope": "Independent frozen-fixture comparison; execution scale is reported separately",
+      "source_epoch": "620d4786-398d-4cb4-8318-716bd4ec072d",
+      "baselines": 4096,
+      "entities": 4096,
+      "historical_events": 4096,
+      "mutation_effects": 0,
+      "expected_rejected_revisions": 0,
+      "oracle": "verifier-owned commands and seed recipe, exact revisions/bytes/relations/values"
+    },
+    "comparison": [
+      {
+        "case": "healthy",
+        "new": true,
+        "old": true,
+        "full": {
+          "invalid": "0",
+          "required": "4096",
+          "es_errors": "0",
+          "es_pending": "0",
+          "es_satisfied": "4096",
+          "rabbit_pending": "0",
+          "consumer_errors": "0",
+          "consumer_pending": "0",
+          "rabbit_satisfied": "4096",
+          "consumer_processed": "4096"
+        },
+        "observed": {
+          "invalid": null,
+          "required": "4096",
+          "es_errors": "0",
+          "es_pending": "0",
+          "es_satisfied": "4096",
+          "rabbit_pending": "0",
+          "consumer_errors": "0",
+          "consumer_pending": "0",
+          "rabbit_satisfied": "4096",
+          "consumer_processed": "4096"
+        },
+        "prior_observed": {
+          "invalid": null,
+          "required": "4096",
+          "es_errors": "0",
+          "es_pending": "0",
+          "es_satisfied": "4096",
+          "rabbit_pending": "0",
+          "consumer_errors": "0",
+          "consumer_pending": "0",
+          "rabbit_satisfied": "4096",
+          "consumer_processed": "4096"
+        }
+      },
+      {
+        "case": "missing_member",
+        "new": false,
+        "old": false,
+        "full": {
+          "invalid": "0",
+          "required": "4095",
+          "es_errors": "0",
+          "es_pending": "0",
+          "es_satisfied": "4095",
+          "rabbit_pending": "0",
+          "consumer_errors": "0",
+          "consumer_pending": "0",
+          "rabbit_satisfied": "4095",
+          "consumer_processed": "4095"
+        },
+        "observed": {
+          "invalid": null,
+          "required": "4095",
+          "es_errors": "0",
+          "es_pending": "0",
+          "es_satisfied": "4095",
+          "rabbit_pending": "0",
+          "consumer_errors": "0",
+          "consumer_pending": "0",
+          "rabbit_satisfied": "4095",
+          "consumer_processed": "4095"
+        },
+        "prior_observed": {
+          "invalid": null,
+          "required": "4095",
+          "es_errors": "0",
+          "es_pending": "0",
+          "es_satisfied": "4095",
+          "rabbit_pending": "0",
+          "consumer_errors": "0",
+          "consumer_pending": "0",
+          "rabbit_satisfied": "4095",
+          "consumer_processed": "4095"
+        }
+      },
+      {
+        "case": "wrong_checkpoint",
+        "new": false,
+        "old": false,
+        "full": {
+          "invalid": "0",
+          "required": "4096",
+          "es_errors": "0",
+          "es_pending": "0",
+          "es_satisfied": "4096",
+          "rabbit_pending": "0",
+          "consumer_errors": "0",
+          "consumer_pending": "0",
+          "rabbit_satisfied": "4096",
+          "consumer_processed": "4096"
+        },
+        "observed": {
+          "invalid": null,
+          "required": "4096",
+          "es_errors": "0",
+          "es_pending": "0",
+          "es_satisfied": "4096",
+          "rabbit_pending": "0",
+          "consumer_errors": "0",
+          "consumer_pending": "0",
+          "rabbit_satisfied": "4096",
+          "consumer_processed": "4096"
+        },
+        "prior_observed": {
+          "invalid": null,
+          "required": "4096",
+          "es_errors": "0",
+          "es_pending": "0",
+          "es_satisfied": "4096",
+          "rabbit_pending": "0",
+          "consumer_errors": "0",
+          "consumer_pending": "0",
+          "rabbit_satisfied": "4096",
+          "consumer_processed": "4096"
+        }
+      },
+      {
+        "case": "wrong_batch_hash",
+        "new": false,
+        "old": false,
+        "full": {
+          "invalid": "0",
+          "required": "4096",
+          "es_errors": "0",
+          "es_pending": "0",
+          "es_satisfied": "4096",
+          "rabbit_pending": "0",
+          "consumer_errors": "0",
+          "consumer_pending": "0",
+          "rabbit_satisfied": "4096",
+          "consumer_processed": "4096"
+        },
+        "observed": {
+          "invalid": null,
+          "required": "4096",
+          "es_errors": "0",
+          "es_pending": "0",
+          "es_satisfied": "4096",
+          "rabbit_pending": "0",
+          "consumer_errors": "0",
+          "consumer_pending": "0",
+          "rabbit_satisfied": "4096",
+          "consumer_processed": "4096"
+        },
+        "prior_observed": {
+          "invalid": null,
+          "required": "4096",
+          "es_errors": "0",
+          "es_pending": "0",
+          "es_satisfied": "4096",
+          "rabbit_pending": "0",
+          "consumer_errors": "0",
+          "consumer_pending": "0",
+          "rabbit_satisfied": "4096",
+          "consumer_processed": "4096"
+        }
+      }
+    ],
+    "preserved_sha256": "4516afa3a8fdaa00c79fc94ed344a1ad1ea332ad6c9739f67b1fbbeb1fc2fa96",
+    "metadata_sha256": "4c65eb19e5552059a8fa6b5d578dac6e95286561adff76d2b5cbe155e43e2f9e",
+    "migration_sha256": "7192d1ff2b2383260771ea70b39125c31ddb44c475b7bf716ec1e729bc534df9",
+    "operational_snapshot_preserved": true,
+    "projection_exact_equality": true,
+    "projection_runtime_roles_read_only": true,
+    "cleanup": {
+      "status": "PASS",
+      "errors": []
+    },
+    "manifest_sha256": "535322620882ce891c02f93115bdf4639d1e3f44f73deb83e40a660f54608902",
+    "artifact": "kit-final-20260925215821-5311424d",
+    "preexisting_containers_preserved": 28,
+    "zero_owned_resources": true
+  }
+}

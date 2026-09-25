@@ -1,3 +1,19 @@
+// Both forms are fixed application SQL; callers cannot supply relation names.
+function pipelineSnapshot(projection: boolean) {
+  return `WITH delivery_summary AS MATERIALIZED (SELECT kind,state,disposition,count(*) n,min(created_at) oldest,${projection ? 'min(staged_at)' : 'NULL::timestamptz'} oldest_staged FROM ${projection ? 'pipeline.observation_deliveries' : 'pipeline.delivery_intents'} GROUP BY kind,state,disposition) SELECT jsonb_build_object('observed_at',clock_timestamp()::text,
+   'es_oldest_unresolved_at',${projection ? "(SELECT min(oldest_staged)::text FROM delivery_summary WHERE kind='elasticsearch' AND state<>'satisfied')" : "(SELECT min(e.staged_at)::text FROM pipeline.events e JOIN pipeline.delivery_intents d USING(event_id) WHERE d.kind='elasticsearch' AND d.state<>'satisfied')"},
+   'staged',(SELECT count(*)::text ${projection ? 'FROM pipeline.observation_events' : 'FROM pipeline.events'}),
+   'deliveries',(SELECT coalesce(jsonb_agg(to_jsonb(x)),'[]') FROM (SELECT kind sink,state,sum(n)::text count,min(oldest)::text oldest_at FROM delivery_summary GROUP BY kind,state) x),
+   'observations',(SELECT coalesce(jsonb_agg(to_jsonb(x)),'[]') FROM (SELECT state,count(*)::text count FROM ${projection ? 'pipeline.observation_receipts' : 'pipeline.consumer_observations'} GROUP BY state) x),
+   'attempts',(SELECT coalesce(jsonb_agg(to_jsonb(x)||jsonb_build_object('total',total::text)),'[]') FROM pipeline.attempt_totals x),
+   'settled',(SELECT coalesce(jsonb_agg(to_jsonb(x)),'[]') FROM (SELECT kind sink,disposition,sum(n)::text count FROM delivery_summary WHERE state='satisfied' GROUP BY kind,disposition UNION ALL SELECT 'elasticsearch','dead_letter',count(*)::text FROM pipeline.es_dead_letters) x),
+   'replays',(SELECT count(*)::text FROM pipeline.replay_requests),
+   'backfill_id',(SELECT run_id FROM pipeline.backfill_runs ORDER BY (completed_at IS NULL) DESC,created_at DESC,run_id LIMIT 1),
+   'es',(SELECT jsonb_build_object('destination_id',destination_id,'generation',generation::text,'mode',mode,'reason',reason,'index_name',index_name,'index_uuid',index_uuid,'cluster_uuid',cluster_uuid) FROM pipeline.es_target),
+   'rabbit',(SELECT jsonb_build_object('destination_id',destination_id,'generation',generation::text,'mode',mode,'reason',reason,'registration_id',registration_id,'consumer_id',consumer_id) FROM pipeline.rabbit_target)) value`;
+}
+export const projectionSnapshot = pipelineSnapshot(true);
+
 // Fixed, parameterized read surface. No request supplies SQL or a table name.
 export const queries = {
   source: {
@@ -10,17 +26,7 @@ export const queries = {
   },
   pipeline: {
     polling: `SELECT pipeline.polling_status() value`,
-    snapshot: `WITH delivery_summary AS MATERIALIZED (SELECT kind,state,disposition,count(*) n,min(created_at) oldest FROM pipeline.delivery_intents GROUP BY kind,state,disposition) SELECT jsonb_build_object('observed_at',clock_timestamp()::text,
-   'es_oldest_unresolved_at',(SELECT min(e.staged_at)::text FROM pipeline.events e JOIN pipeline.delivery_intents d USING(event_id) WHERE d.kind='elasticsearch' AND d.state<>'satisfied'),
-   'staged',(SELECT count(*)::text FROM pipeline.events),
-   'deliveries',(SELECT coalesce(jsonb_agg(to_jsonb(x)),'[]') FROM (SELECT kind sink,state,sum(n)::text count,min(oldest)::text oldest_at FROM delivery_summary GROUP BY kind,state) x),
-   'observations',(SELECT coalesce(jsonb_agg(to_jsonb(x)),'[]') FROM (SELECT state,count(*)::text count FROM pipeline.consumer_observations GROUP BY state) x),
-   'attempts',(SELECT coalesce(jsonb_agg(to_jsonb(x)||jsonb_build_object('total',total::text)),'[]') FROM pipeline.attempt_totals x),
-   'settled',(SELECT coalesce(jsonb_agg(to_jsonb(x)),'[]') FROM (SELECT kind sink,disposition,sum(n)::text count FROM delivery_summary WHERE state='satisfied' GROUP BY kind,disposition UNION ALL SELECT 'elasticsearch','dead_letter',count(*)::text FROM pipeline.es_dead_letters) x),
-   'replays',(SELECT count(*)::text FROM pipeline.replay_requests),
-   'backfill_id',(SELECT run_id FROM pipeline.backfill_runs ORDER BY (completed_at IS NULL) DESC,created_at DESC,run_id LIMIT 1),
-   'es',(SELECT jsonb_build_object('destination_id',destination_id,'generation',generation::text,'mode',mode,'reason',reason,'index_name',index_name,'index_uuid',index_uuid,'cluster_uuid',cluster_uuid) FROM pipeline.es_target),
-   'rabbit',(SELECT jsonb_build_object('destination_id',destination_id,'generation',generation::text,'mode',mode,'reason',reason,'registration_id',registration_id,'consumer_id',consumer_id) FROM pipeline.rabbit_target)) value`,
+    snapshot: pipelineSnapshot(false),
     backfill: `SELECT pipeline.backfill_status($1) value`,
     receipt: `SELECT jsonb_build_object('request_id',request_id) value FROM pipeline.operator_receipts WHERE request_id=$1`,
     entity: `SELECT jsonb_build_object('event_id',e.event_id,'entity_version',e.entity_version::text,'is_deleted',e.is_deleted,'state',d.state,'error_class',d.error_class) value FROM pipeline.events e JOIN pipeline.delivery_intents d ON d.event_id=e.event_id AND d.kind='elasticsearch' WHERE e.source_epoch=$1 AND e.entity_id=$2 ORDER BY e.entity_version DESC LIMIT 8`,

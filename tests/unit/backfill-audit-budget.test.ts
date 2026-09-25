@@ -73,17 +73,18 @@ for (const installed of [false, true]) {
       calls.push(text);
       return Promise.resolve({
         command: text.startsWith('BEGIN') ? 'BEGIN' : text,
-        rows: text.includes('to_regprocedure')
-          ? [{ present: installed }]
-          : [
-              {
-                value: {
-                  evidence_scope: installed
-                    ? 'durable_state_observation_not_revalidation'
-                    : 'historical_full_status',
+        rows:
+          text.includes('to_regprocedure') || text.includes('to_regclass')
+            ? [{ present: installed }]
+            : [
+                {
+                  value: {
+                    evidence_scope: installed
+                      ? 'durable_state_observation_not_revalidation'
+                      : 'historical_full_status',
+                  },
                 },
-              },
-            ],
+              ],
       });
     });
     try {
@@ -118,6 +119,18 @@ for (const installed of [false, true]) {
       calls.length = 0;
       await db.read('pipeline', 'snapshot');
       assert.ok(calls.includes('SET LOCAL jit=off'));
+      const statement = calls.find((text) =>
+        text.startsWith('WITH delivery_summary'),
+      );
+      assert.ok(statement);
+      assert.equal(
+        statement.includes('FROM pipeline.observation_deliveries'),
+        installed,
+      );
+      assert.equal(
+        statement.includes('FROM pipeline.delivery_intents GROUP BY'),
+        !installed,
+      );
       assert.deepEqual(
         calls.filter((c) => c.startsWith('SET LOCAL statement_timeout=')),
         ['SET LOCAL statement_timeout=2500'],

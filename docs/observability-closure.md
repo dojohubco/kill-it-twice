@@ -1,6 +1,6 @@
 # Server observation follow-up — 2026-09-26
 
-Status: authorized investigation; correction and new server acceptance pending.
+Status: correction implemented with [scoped server query/upgrade evidence](evidence/Observation-projections-2026-09-26.md); clean full server acceptance pending.
 
 [ADR 017](adr/017-transactional-observation-projections.md) records the selected narrow-state prototype before runtime implementation. The first server count diagnostic timed out at the unchanged limit; the memory experiment also failed and was rejected. Neither failed experiment is acceptance evidence.
 

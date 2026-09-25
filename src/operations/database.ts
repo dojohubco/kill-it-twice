@@ -2,7 +2,7 @@ import {
   TransactionOwner,
   type ConnectionConfig,
 } from '../internal/transaction.ts';
-import { queries } from './queries.ts';
+import { queries, projectionSnapshot } from './queries.ts';
 import { record } from './validation.ts';
 import { failureSummary } from '../internal/failure-summary.ts';
 export type Store = keyof typeof queries;
@@ -34,6 +34,13 @@ export class OperationalDatabase {
               await client.query('SET LOCAL jit=off');
             }
             let selected: string = sql;
+            if (store === 'pipeline' && name === 'snapshot') {
+              const capability = await client.query<{ present: boolean }>(
+                "SELECT to_regclass('pipeline.observation_deliveries') IS NOT NULL AS present",
+              );
+              if (capability.rows[0]?.present === true)
+                selected = projectionSnapshot;
+            }
             if (store === 'pipeline' && name === 'backfill') {
               const capability = await client.query<{ present: boolean }>(
                 "SELECT to_regprocedure('pipeline.backfill_observation(uuid)') IS NOT NULL AS present",

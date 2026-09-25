@@ -1,6 +1,6 @@
 # ADR 017: Transactional observation projections
 
-Status: selected for an isolated prototype; implementation and server acceptance pending.
+Status: implemented after the [scoped server checks](../evidence/Observation-projections-2026-09-26.md); clean full server acceptance pending. The decision was committed before implementation.
 
 ## Evidence and problem
 
