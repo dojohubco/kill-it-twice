@@ -13,6 +13,7 @@ import sys
 import time
 import uuid
 from verification.runtime import Runtime, ROOT, now, sha
+from verification.observations import summarize as observation_summary
 
 arguments=argparse.ArgumentParser()
 arguments.add_argument('--count',type=int,default=1024)
@@ -79,7 +80,7 @@ def changes(items):
 
 def settled(rejected=0,es=True,timeout=360,after=None):
     total=options.count+len(seen)
-    next_workers=0
+    next_workers=0;next_metrics=0
     def accept(s):
         dependencies=s['dependencies']
         if any(dependencies[name]['freshness']!='fresh' or not isinstance(dependencies[name]['data'],dict) for name in ('source','pipeline','consumer')):return False
@@ -93,7 +94,7 @@ def settled(rejected=0,es=True,timeout=360,after=None):
         if dependencies['source']['data']['counts']['acknowledged']!=str(len(seen)) or s['backfill']['phase']!='complete':return False
         return after(s) if after is not None else True
     def observation():
-        nonlocal next_workers
+        nonlocal next_workers,next_metrics
         # No worker is intentionally stopped during G1 drain. Fail on a real
         # worker exit instead of spending the whole large-data drain deadline.
         if phase=='G1' and time.monotonic()>=next_workers:
@@ -104,7 +105,11 @@ def settled(rejected=0,es=True,timeout=360,after=None):
                 owned=[row for row in states if row[0]==role]
                 expected=(4 if role=='backfill' else 1 if role=='capture' else 2) if large else 1
                 assert len(owned)==expected and all(row[1]=='running' for row in owned),{'phase':phase,'worker':role,'expected':expected,'observed':owned,'evidence':log.name}
-        return r.recorded_status(phase)
+        snapshot=r.recorded_status(phase)
+        if phase=='G1' and time.monotonic()>=next_metrics:
+            r.recorded_metrics(phase)
+            next_metrics=time.monotonic()+30
+        return snapshot
     return r.wait(observation,accept,'settle-'+phase,timeout,interval=5 if large else 1)
 
 def event_key(reply):
@@ -268,7 +273,11 @@ try:
     assert f'pipeline_events_staged_total {options.count+len(seen)}' in metrics.splitlines()
     browser=r.run(['node','scripts/runtime-browser.ts',r.url,str(r.out),str(options.count+len(seen))],'real-ui',timeout=90)
     browser_result=json.loads(browser.read_text());assert browser_result['mutations']==0 and browser_result['interceptedResponses']==0 and not browser_result['pageErrors']
-    r.gate('G5',{'snapshot':'g5-status.json','metrics':'g5-metrics.prom','browser':browser_result,'declared_open_dlq':3,'source_pending':0,'backfill_phase':'complete'})
+    availability=observation_summary([json.loads(line) for line in (r.out/'status-observations.jsonl').read_text().splitlines()],[json.loads(line) for line in (r.out/'load-metrics-observations.jsonl').read_text().splitlines()],options.count)
+    (r.out/'observation-availability.json').write_text(json.dumps(availability,indent=2)+'\n')
+    r.report['observation_availability']=availability;r.save()
+    assert availability['passed'],'G1 load observation availability: see observation-availability.json'
+    r.gate('G5',{'availability':availability,'snapshot':'g5-status.json','metrics':'g5-metrics.prom','browser':browser_result,'declared_open_dlq':3,'source_pending':0,'backfill_phase':'complete'})
     r.compose(['stop','-t','20',*workers],'quiesce-final',timeout=180)
     if options.count <= 4096:
         count_proof=r.json_command(['run','--rm','--no-deps','-T','inspect','node','scripts/capacity/count-proof.ts'],'declared-failure-count-equivalence')
@@ -363,7 +372,7 @@ finally:
     observed={g['id']:g['status'] for g in r.report['gates']}
     r.report['gate_report']={g:observed.get(g,'FAIL' if g==phase else 'NOT RUN') for g in ('G1','G2','G3','G4','G5')}
     r.cleanup()
-    public={key:r.report.get(key) for key in ('head','count','scope','status','phase','error','gate_report','required_cases','cleanup','measurement_error','diagnostic_error','resources','evidence_permissions','reconciliation','negative_controls','input_sha256','source_snapshot_sha256')}
+    public={key:r.report.get(key) for key in ('head','count','scope','status','phase','error','gate_report','required_cases','cleanup','measurement_error','diagnostic_error','resources','evidence_permissions','reconciliation','negative_controls','input_sha256','source_snapshot_sha256','observation_availability')}
     try:
         directory=r.out/'public';directory.mkdir()
         (directory/'final-report.json').write_text(json.dumps(public,indent=2)+'\n')

@@ -164,8 +164,22 @@ class Runtime:
             record['error']={'type':type(error).__name__}
             raise
         finally:
+            record['finished_at']=now()
             record['elapsed_ms']=round((time.monotonic()-started)*1000,3)
             path=self.out/'status-observations.jsonl'
+            assert not path.exists() or path.stat().st_size<64*1024**2
+            with path.open('a') as stream:stream.write(json.dumps(record,separators=(',',':'))+'\n')
+    def recorded_metrics(self, phase):
+        started=time.monotonic();record={'at':now(),'phase':phase}
+        try:
+            record['metrics']=self.http('/metrics')
+        except (OSError,ValueError) as error:
+            # Keep failed scrapes in the denominator; do not retry them here.
+            record['error']={'type':type(error).__name__}
+        finally:
+            record['finished_at']=now()
+            record['elapsed_ms']=round((time.monotonic()-started)*1000,3)
+            path=self.out/'load-metrics-observations.jsonl'
             assert not path.exists() or path.stat().st_size<64*1024**2
             with path.open('a') as stream:stream.write(json.dumps(record,separators=(',',':'))+'\n')
     def g5_metrics(self, snapshot, expected_staged):

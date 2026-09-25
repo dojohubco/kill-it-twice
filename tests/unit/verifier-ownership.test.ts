@@ -13,3 +13,13 @@ void test('verifier preserves ownership and requires bounded redelivery and fres
   assert.match(result.stderr, /Ran 20 tests/);
   assert.match(result.stderr, /\bOK\b/);
 });
+
+void test('load observation accounting rejects stale and incomplete evidence', async () => {
+  const result = await promisify(execFile)(
+    'python3',
+    ['-B', 'tests/final/observations_test.py'],
+    { timeout: 5000, maxBuffer: 65536 },
+  );
+  assert.match(result.stderr, /Ran 6 tests/);
+  assert.match(result.stderr, /\bOK\b/);
+});

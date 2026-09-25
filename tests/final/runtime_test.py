@@ -32,6 +32,17 @@ class StatusEvidenceTests(unittest.TestCase):
             for record in records:
                 self.assertEqual(record['phase'],'G1')
                 self.assertGreaterEqual(record['elapsed_ms'],0)
+            with patch.object(r,'http',return_value='current metrics') as call:
+                r.recorded_metrics('G1');call.assert_called_once_with('/metrics')
+            with patch.object(r,'http',side_effect=failure) as call:
+                r.recorded_metrics('G1');call.assert_called_once_with('/metrics')
+            metrics_path=r.out/'load-metrics-observations.jsonl'
+            scrapes=[json.loads(line) for line in metrics_path.read_text().splitlines()]
+            self.assertEqual(len(scrapes),2)
+            self.assertEqual(scrapes[0]['metrics'],'current metrics')
+            self.assertEqual(scrapes[1]['error'],{'type':'TimeoutError'})
+            self.assertNotIn('metrics',scrapes[1]);self.assertNotIn('private endpoint',metrics_path.read_text())
+
 
 class OwnershipTests(unittest.TestCase):
     def runtime(self,directory,project='kit-final-test'):
