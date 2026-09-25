@@ -24,3 +24,13 @@ Desktop and 320px Records screenshots were inspected. Existing axe checks found 
 - Clean `fa85cc7`, `m6-20260925195814985-4fe4defc`: the aggregate live command failed OP01 because its exact OpenAPI path inventory omitted the already implemented `/api/v1/config/polling` route. The other 23 cases passed. The actual browser read the list and selected detail automatically at 20:00:48–20:00:53 UTC, both HTTP 200, without a manual refresh, mutations or page errors. Cleanup passed and all 27 preexisting containers were preserved. This run remains FAIL as a whole.
 
 The OP01 correction adds exactly `/api/v1/config/polling: ['get', 'put']`, matching ADR 016 and the existing controller. Exact path/method equality and all existing response/auth/conflict assertions remain; GET 200 and PUT 202/401/409 are now also checked for that route. This is a stale test inventory correction, not a production API change or an ignored unexpected route. A fresh aggregate live repeat is required before reporting that command PASS.
+
+## Fresh clean live repeat — PASS
+
+`npm run test:ui:live` exited 0 at clean tested commit `9f475d035e3310a01a56f73c186cc7125cd3f4a8`. All 24 operational cases passed, including the exact OpenAPI inventory, plus the real Angular read-only browser check. The current list and selected detail both returned HTTP 200 automatically between 20:05:39.188 and 20:05:44.017 UTC, without a manual refresh, browser mutations or page errors. The browser was Chromium 153.0.8010.52 with sandboxing enabled. Actual reads used the isolated Nest/PostgreSQL/Elasticsearch service fixture, without response interception.
+
+- Aggregate evidence: `artifacts/ui/live-20260925200309402-bc14729d/evidence.json`.
+- Actual service manifest: `artifacts/m6/m6-20260925200309754-e2dc5596/run.json`, SHA256 `e65bb9579eca24c18203304cebb7c2d0b4f876277086f09d0a5f3374b3452e4e`.
+- Cleanup PASS: independently verified zero remaining containers, volumes and networks for the exact test project and its ES/RabbitMQ projects. All 27 preexisting container IDs were preserved.
+
+The UI source, browser fixtures and live-browser helper are byte-identical to verified `fa85cc7`; the intervening commit adds only the exact OpenAPI inventory entry and this report's earlier review. Later evidence-only documentation does not replace the tested identity. No new full million-row run, server deployment, hosted CI run or Optio submission is claimed by this local UI correction. Existing full acceptance and failed evidence remain intact.
