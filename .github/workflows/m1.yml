@@ -29,6 +29,25 @@ jobs:
           echo "$GITHUB_WORKSPACE/.tools/npm/node_modules/.bin" >> "$GITHUB_PATH"
       - run: node scripts/ci-step.ts npm ci --no-audit --no-fund
       - run: node scripts/ci-step.ts npm run tools:provision
+      - name: Verify provisioned browser with sandbox enabled
+        run: |
+          timeout 45s node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { realpath } from 'node:fs/promises';
+          import { chromium } from 'playwright-core';
+          import { uiBrowserExecutable } from './tests/support/ui-browser.ts';
+          const executablePath = await uiBrowserExecutable();
+          console.log(JSON.stringify({ executablePath, realPath: await realpath(executablePath), chromiumSandbox: true }));
+          const browser = await chromium.launch({ executablePath, headless: true, chromiumSandbox: true });
+          try {
+            const page = await browser.newPage();
+            await page.setContent('<h1>CI browser preflight</h1>');
+            assert.equal(await page.getByRole('heading').innerText(), 'CI browser preflight');
+            console.log(JSON.stringify({ status: 'PASS', browser: browser.version() }));
+          } finally {
+            await browser.close();
+          }
+          NODE
       - name: Provision ephemeral GitHub VM Elasticsearch prerequisite
         if: ${{ runner.environment == 'github-hosted' && runner.os == 'Linux' }}
         shell: bash
