@@ -14,6 +14,9 @@ jobs:
   fast:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    env:
+      # Packaged Chrome has Ubuntu's default AppArmor sandbox profile.
+      UI_CHROMIUM_PATH: /opt/google/chrome/chrome
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
