@@ -9,6 +9,7 @@ void test('verifier preserves ownership and requires bounded redelivery and fres
     ['-B', 'tests/final/runtime_test.py'],
     { timeout: 5000, maxBuffer: 65536 },
   );
-  assert.match(result.stderr, /Ran 19 tests/);
+  // Includes the request-failure/latency evidence regression.
+  assert.match(result.stderr, /Ran 20 tests/);
   assert.match(result.stderr, /\bOK\b/);
 });
