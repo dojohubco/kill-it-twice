@@ -575,3 +575,252 @@ void test(
       );
     }),
 );
+
+void test(
+  'U11 records and open details update automatically without losing context',
+  { timeout: 45000 },
+  async () =>
+    pageCase('U11', async (page, state) => {
+      await page.clock.install();
+      await open(page, '/records');
+      await page.getByText(entityId, { exact: true }).waitFor();
+      await page.getByLabel('Search record names').fill('Kartli');
+      await page.getByLabel('Include tombstones').check();
+      await page
+        .getByRole('button', { name: 'Search records', exact: true })
+        .click();
+      await page.getByRole('button', { name: 'Next', exact: true }).click();
+      const secondId = '9007199254740994';
+      await page
+        .getByRole('button', { name: 'Inspect record ' + secondId })
+        .click();
+      await page.locator('#record-detail-title').waitFor();
+      // Flush the focus frame from explicit inspection before testing background updates.
+      await page.clock.fastForward(32);
+      const search = page.getByLabel('Search record names');
+      await search.fill('Unsubmitted draft');
+      state.recordVersion = '9';
+      state.recordName = 'Updated without refresh';
+      await page.clock.fastForward(5100);
+      await page
+        .getByRole('heading', { name: state.recordName, exact: true })
+        .waitFor();
+      await page
+        .locator('tbody tr')
+        .filter({ hasText: state.recordName })
+        .waitFor();
+      assert.match(await page.locator('tbody').innerText(), /9/);
+      assert.equal(await search.inputValue(), 'Unsubmitted draft');
+      assert.equal(
+        await search.evaluate((el) => el === document.activeElement),
+        true,
+      );
+      assert.match(await page.locator('.pagination').innerText(), /Page 2/);
+      const listRequests = () =>
+        state.requests.filter((r) => r.path === '/api/v1/entities');
+      const entityRequests = () =>
+        state.requests.filter((r) => r.path.startsWith('/api/v1/entities'));
+      const query = new URLSearchParams(listRequests().at(-1)?.query);
+      assert.equal(query.get('q'), 'Kartli');
+      assert.equal(query.get('cursor'), 'test-only-second-page');
+      assert.equal(query.get('include_deleted'), 'true');
+      state.unavailable = true;
+      await page.clock.fastForward(5100);
+      await page
+        .getByText('Unable to refresh records', { exact: true })
+        .waitFor();
+      await page
+        .getByText(
+          'Retained details are from the last successful observation.',
+          { exact: true },
+        )
+        .waitFor();
+      assert.equal(
+        await page.locator('#record-detail-title').innerText(),
+        state.recordName,
+      );
+      await page
+        .getByRole('button', { name: 'Automatic refresh on', exact: true })
+        .click();
+      const pausedCount = entityRequests().length;
+      state.unavailable = false;
+      state.recordName = 'Manual refresh while paused';
+      await page.clock.fastForward(60000);
+      assert.equal(entityRequests().length, pausedCount);
+      await page
+        .getByRole('button', { name: 'Refresh records', exact: true })
+        .click();
+      await page
+        .getByRole('heading', { name: state.recordName, exact: true })
+        .waitFor();
+      assert.equal(
+        await page
+          .getByText('Unable to refresh records', { exact: true })
+          .count(),
+        0,
+      );
+      assert.equal(
+        await page.getByText('Last-known detail', { exact: true }).count(),
+        0,
+      );
+      await page
+        .getByRole('button', { name: 'Automatic refresh off', exact: true })
+        .click();
+      state.recordName = 'Automatic updates resumed';
+      await page.clock.fastForward(5100);
+      await page
+        .getByRole('heading', { name: state.recordName, exact: true })
+        .waitFor();
+      // Controlled visibility events exercise the same native browser listener.
+      await page.evaluate(() => {
+        Object.defineProperty(document, 'hidden', {
+          configurable: true,
+          value: true,
+        });
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+      const hiddenCount = entityRequests().length;
+      await page.clock.fastForward(30000);
+      assert.equal(entityRequests().length, hiddenCount);
+      state.recordName = 'Visible again';
+      await page.evaluate(() => {
+        Object.defineProperty(document, 'hidden', {
+          configurable: true,
+          value: false,
+        });
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+      await page
+        .getByRole('heading', { name: state.recordName, exact: true })
+        .waitFor();
+      await page
+        .getByRole('button', { name: 'Close record details', exact: true })
+        .click();
+      const detailCount = entityRequests().filter(
+        (r) => r.path !== '/api/v1/entities',
+      ).length;
+      state.recordName = 'New row after close';
+      await page.clock.fastForward(5100);
+      await page
+        .getByRole('rowheader', { name: state.recordName, exact: true })
+        .waitFor();
+      assert.equal(
+        entityRequests().filter((r) => r.path !== '/api/v1/entities').length,
+        detailCount,
+      );
+      assert.equal(await page.locator('#record-detail-title').count(), 0);
+      await page.getByRole('link', { name: 'Overview', exact: true }).click();
+      const leftCount = entityRequests().length;
+      await page.clock.fastForward(30000);
+      assert.equal(entityRequests().length, leftCount);
+      assert.equal(state.requests.filter((r) => r.method !== 'GET').length, 0);
+    }),
+);
+void test(
+  'U12 superseded reads cannot restore closed details or overwrite a new search',
+  { timeout: 30000 },
+  async () =>
+    pageCase('U12', async (page, state) => {
+      await page.clock.install();
+      await open(page, '/records');
+      await page.getByText(entityId, { exact: true }).waitFor();
+      await page
+        .getByRole('button', { name: 'Inspect record ' + entityId })
+        .click();
+      await page.locator('#record-detail-title').waitFor();
+      await page.clock.fastForward(32);
+      let releaseList: (() => Promise<void>) | undefined;
+      let releaseDetail: (() => Promise<void>) | undefined;
+      let listReads = 0;
+      let detailReads = 0;
+      await page.route('**/api/v1/entities**', async (route) => {
+        const url = new URL(route.request().url());
+        if (url.pathname === '/api/v1/entities') {
+          listReads += 1;
+          if (listReads === 1) {
+            releaseList = async () => {
+              await route.fulfill({
+                json: {
+                  data: {
+                    items: [
+                      {
+                        source_epoch: 'old',
+                        entity_id: 'old',
+                        search_fields: { name: 'Stale list response' },
+                      },
+                    ],
+                    next_cursor: null,
+                  },
+                },
+              });
+            };
+            return;
+          }
+        } else {
+          detailReads += 1;
+          if (detailReads === 1) {
+            releaseDetail = async () => {
+              await route.fulfill({
+                json: {
+                  data: {
+                    projection: {
+                      search_fields: { name: 'Stale detail response' },
+                    },
+                  },
+                },
+              });
+            };
+            return;
+          }
+        }
+        await route.fallback();
+      });
+      await page.clock.fastForward(5100);
+      // Wait for intercepted requests without advancing application timers.
+      for (let i = 0; i < 100 && (!releaseList || !releaseDetail); i++)
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      assert.ok(releaseList && releaseDetail);
+      await page.clock.fastForward(5100);
+      assert.equal(
+        listReads,
+        1,
+        'No overlapping list poll while the first read is pending',
+      );
+      assert.equal(
+        detailReads,
+        1,
+        'No overlapping detail poll while the first read is pending',
+      );
+      await page
+        .getByRole('button', { name: 'Close record details', exact: true })
+        .click();
+      state.recordName = 'Newest search result';
+      await page.getByLabel('Search record names').fill('Newest');
+      await page
+        .getByRole('button', { name: 'Search records', exact: true })
+        .click();
+      await page
+        .getByRole('rowheader', { name: state.recordName, exact: true })
+        .waitFor();
+      await releaseList();
+      await releaseDetail();
+      await page.clock.fastForward(32);
+      assert.equal(
+        await page.getByText('Stale list response', { exact: true }).count(),
+        0,
+      );
+      assert.equal(await page.locator('#record-detail-title').count(), 0);
+      assert.equal(
+        await page
+          .getByRole('rowheader', { name: state.recordName, exact: true })
+          .count(),
+        1,
+      );
+      assert.equal(
+        await page.getByRole('alert').count(),
+        0,
+        'Cancellation must not appear as an API outage',
+      );
+      assert.equal(state.requests.filter((r) => r.method !== 'GET').length, 0);
+    }),
+);

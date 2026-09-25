@@ -174,9 +174,12 @@ export interface UiFixtureState {
   empty: boolean;
   ambiguousOnce: boolean;
   configUnavailable: boolean;
+  recordVersion: string;
+  recordName: string;
   requests: {
     method: string;
     path: string;
+    query: string;
     key: string | null;
     body: string | null;
   }[];
@@ -187,6 +190,8 @@ export async function routeFixtures(page: Page): Promise<UiFixtureState> {
     empty: false,
     ambiguousOnce: false,
     configUnavailable: false,
+    recordVersion: '8',
+    recordName: 'Kartli Trading',
     requests: [],
   };
   let statusReads = 0;
@@ -197,6 +202,7 @@ export async function routeFixtures(page: Page): Promise<UiFixtureState> {
     state.requests.push({
       method: request.method(),
       path,
+      query: url.search,
       key: request.headers()['idempotency-key'] ?? null,
       body: request.postData(),
     });
@@ -235,6 +241,11 @@ export async function routeFixtures(page: Page): Promise<UiFixtureState> {
       await reply(202, { outcome: 'scheduled', data: { replayed: false } });
       return;
     }
+    const currentProjection = {
+      ...projection,
+      entity_version: state.recordVersion,
+      search_fields: { ...projection.search_fields, name: state.recordName },
+    };
     let data: unknown;
     if (path === '/api/v1/status') {
       statusReads += 1;
@@ -275,11 +286,11 @@ export async function routeFixtures(page: Page): Promise<UiFixtureState> {
           ? []
           : [
               {
-                ...projection,
+                ...currentProjection,
                 entity_id: url.searchParams.has('cursor')
                   ? '9007199254740994'
                   : entityId,
-                receiver_version: '8',
+                receiver_version: state.recordVersion,
               },
             ],
         next_cursor:
@@ -291,8 +302,8 @@ export async function routeFixtures(page: Page): Promise<UiFixtureState> {
       data = {
         observed_at: now(),
         freshness: 'realtime',
-        projection,
-        receiver_version: '8',
+        projection: { ...currentProjection, entity_id: path.split('/').at(-1) },
+        receiver_version: state.recordVersion,
         source: {
           source_epoch: epoch,
           entity_id: entityId,

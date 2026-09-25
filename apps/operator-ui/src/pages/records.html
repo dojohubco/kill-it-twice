@@ -9,7 +9,7 @@
   <button
     type="button"
     class="button secondary"
-    (click)="load()"
+    (click)="refresh()"
     [disabled]="loading()"
   >
     <kit-icon name="refresh" />Refresh records
@@ -37,7 +37,9 @@
     </button>
   </form>
   <p class="help-text">
-    Search is near realtime. Record detail uses a realtime receiver read.
+    {{workspace.automatic()?'This page and open details refresh automatically
+    every 5 seconds while visible.':'Automatic updates are paused. Use Refresh
+    records to update this page and open details.'}} Search is near realtime.
     Pagination is navigation, not a completeness proof.
   </p>
 </section>
@@ -138,12 +140,26 @@
 @if(detailLoading()){
 <p class="notice" role="status">Reading current receiver details…</p>
 }@if(detailError()){
-<p class="notice danger" role="alert">{{detailError()}}</p>
+<div class="notice danger" role="alert">
+  <strong>Unable to refresh record details</strong>
+  <p>{{detailError()}}</p>
+  @if(detail()){
+  <p class="small">
+    Retained details are from the last successful observation.
+  </p>
+  } @else {
+  <button type="button" class="text-button" (click)="closeDetail()">
+    Close record details
+  </button>
+  }
+</div>
 } @if(detail();as d){
 <section class="panel">
   <div class="section-heading">
     <div>
-      <span class="field-label">Realtime detail</span>
+      <span class="field-label"
+        >{{detailError()?'Last-known detail':'Record detail'}}</span
+      >
       <h2 id="record-detail-title" tabindex="-1">
         {{value(record(record(d['projection'])['search_fields'])['name'],'Record
         details')}}
@@ -153,7 +169,7 @@
       type="button"
       class="icon-button"
       aria-label="Close record details"
-      (click)="detail.set(null)"
+      (click)="closeDetail()"
     >
       <kit-icon name="close" />
     </button>

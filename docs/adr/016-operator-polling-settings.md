@@ -1,6 +1,6 @@
 # ADR 016: bounded operator polling settings
 
-Date: 2026-09-25. Status: accepted for the user-authorized completion of UI parameter editing and public GitHub publication; implemented with developmental real-service evidence; fresh clean full verification pending.
+Date: 2026-09-25. Status: accepted for the user-authorized completion of UI parameter editing and public GitHub publication; implemented and verified in clean full local acceptance on 2026-09-25 at `1f2f3f2d544a70b1e63d40d3a0f27d62f4249685`, including retained-runtime R08, strict 1024 and default-million G1–G5. See the [dated final report](../evidence/Final-submission-2026-09-25.md). Later UI changes have their own scoped verification and do not inherit a new million-row result.
 
 ## Problem and decision
 

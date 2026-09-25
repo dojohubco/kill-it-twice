@@ -14,6 +14,8 @@ const required = [
   'U08',
   'U09',
   'U10',
+  'U11',
+  'U12',
 ];
 const directory = resolve(
   'artifacts/ui',

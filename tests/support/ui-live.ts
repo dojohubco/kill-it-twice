@@ -154,6 +154,36 @@ export async function inspectLiveInterface(apiUrl: string) {
             .getByRole('button', { name: `Inspect record ${id}`, exact: true })
             .click();
           await page.locator('#record-detail-title').waitFor();
+          const readsBefore = paths.filter((path) =>
+            path.startsWith('/api/v1/entities'),
+          );
+          const detailPath = readsBefore.find(
+            (path) => path !== '/api/v1/entities',
+          );
+          assert.ok(detailPath);
+          // No click/reload: both responses must come from the new automatic read cycle.
+          const automaticStartedAt = new Date().toISOString();
+          const automaticResponses = await Promise.all([
+            page.waitForResponse(
+              (response) =>
+                new URL(response.url()).pathname === '/api/v1/entities' &&
+                response.request().method() === 'GET',
+              { timeout: 20000 },
+            ),
+            page.waitForResponse(
+              (response) =>
+                new URL(response.url()).pathname === detailPath &&
+                response.request().method() === 'GET',
+              { timeout: 20000 },
+            ),
+          ]);
+          for (const automatic of automaticResponses)
+            assert.equal(automatic.status(), 200);
+          assert.ok(
+            paths.filter((path) => path.startsWith('/api/v1/entities'))
+              .length >=
+              readsBefore.length + 2,
+          );
           assert.deepEqual(errors, []);
           const result = {
             scope:
@@ -161,6 +191,13 @@ export async function inspectLiveInterface(apiUrl: string) {
             browser: browser.version(),
             staged,
             inspected_entity_id: id,
+            automatic_records_refresh: {
+              started_at: automaticStartedAt,
+              finished_at: new Date().toISOString(),
+              list_status: automaticResponses[0].status(),
+              detail_status: automaticResponses[1].status(),
+              manual_refresh: false,
+            },
             api_reads: paths,
             screenshot,
             mutations: 0,
