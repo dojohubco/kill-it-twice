@@ -1,0 +1,42 @@
+{
+  "scope": "Historical accepted local run; cumulative delta over timestamped fresh observation windows, including stalls; not a new server run or steady-state benchmark",
+  "tested_commit": "1f2f3f2d544a70b1e63d40d3a0f27d62f4249685",
+  "run": "kit-final-20260925140555-a7c4a242",
+  "source_file": "status-observations.jsonl",
+  "source_sha256": "26f946b9c699647729d596ec7e8e2769dd3d86777a5549a9dfcb9a13e415c400",
+  "windows": {
+    "staged": {
+      "first_fresh": {
+        "observed_at": "2026-09-25 14:18:11.20474+00",
+        "count": 3461
+      },
+      "first_fresh_target": {
+        "observed_at": "2026-09-25 14:48:38.933826+00",
+        "count": 1000005
+      },
+      "delta": 996544,
+      "elapsed_seconds": 1827.729086,
+      "average_per_second": 545.2361663625678
+    },
+    "receipts": {
+      "first_fresh": {
+        "observed_at": "2026-09-25 14:18:11.20474+00",
+        "count": 763
+      },
+      "first_fresh_target": {
+        "observed_at": "2026-09-25 16:43:56.36796+00",
+        "count": 1000005
+      },
+      "delta": 999242,
+      "elapsed_seconds": 8745.16322,
+      "average_per_second": 114.26224701155434
+    }
+  },
+  "limitations": [
+    "Each window starts at the first recorded fresh observation; prior work is excluded.",
+    "First observed completion may follow actual completion; reported rates are window averages.",
+    "The windows end at different times and are not simultaneous stage rates.",
+    "Counters describe staging and validated receipts, not attempts or isolated scan speed.",
+    "The full run retained 505 nonfresh pipeline observations; missing observations were not relabeled zero or fresh."
+  ]
+}

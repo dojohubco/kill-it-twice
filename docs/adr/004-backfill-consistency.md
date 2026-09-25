@@ -1,5 +1,7 @@
 # ADR 004: Convergent backfill with an explicit completion boundary
 
+Reading note: the adoption-era status and future-tense verification text below are historical. Later implementation evidence is recorded in the [current acceptance matrix](../acceptance-matrix.md); the original decision and chronology are preserved.
+
 Status: accepted design; implementation verification pending.
 Origin: pre-implementation architectural review.
 

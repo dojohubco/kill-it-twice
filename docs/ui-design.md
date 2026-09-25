@@ -44,7 +44,7 @@ Use Angular 21.2 with the existing Node 24/TypeScript 5.9 toolchain, exact packa
 
 Before acceptance: compiler/template checks, typed lint, bounded network/state unit cases, real Chromium keyboard/confirmation/navigation tests, 320px/desktop and 200% text/zoom checks, reduced-motion and forced-colors checks, and an automated accessibility audit. Browser fixtures prove UI response behavior, not real distributed guarantees. A live API observation is separately identified. Do not call a source-only review a rendered approval, or claim a screen-reader/device test that did not run.
 
-A screenshot is retained as test evidence, not used as the interface. No stock imagery, external font download or generated decorative assets are required for this data-first surface. G1-G5 and large-scale acceptance remain separate incomplete tasks.
+A screenshot is retained as test evidence, not used as the interface. No stock imagery, external font download or generated decorative assets are required for this data-first surface. At this original planning stage, G1–G5 and large-scale acceptance were separate incomplete tasks. The later [2026-09-25 full acceptance](evidence/Final-submission-2026-09-25.md) and [current acceptance matrix](acceptance-matrix.md) record the executed results; the redesign evidence below has its own tested identity.
 
 ## Observation adapter refinement
 

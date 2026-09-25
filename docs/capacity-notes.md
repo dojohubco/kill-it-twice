@@ -19,7 +19,22 @@ Tested `1f2f3f2d544a70b1e63d40d3a0f27d62f4249685` passed the full local million-
 | Source / pipeline / consumer database bytes    | 2,697,221,823 / 8,779,118,271 / 2,610,075,327 |
 | Elasticsearch primary store bytes              |                                   349,479,582 |
 
-Storage was observed at 16:52:20 UTC. RSS and cgroup counters use different accounting. Database process/cgroup values, container CPU sums and unrelated host workloads are not a controlled benchmark. Pipeline cumulative sampled CPU was 51,510.814 seconds; source was 1,693.469 seconds. There were 505 nonfresh pipeline observations. Final convergence does not establish continuous availability or the original timeout's exact cause. Controlled query experiments and the populated migration 022 upgrade are scoped evidence; old failed attempts remain failed. Stop optimization after this accepted workload.
+Storage was observed at 16:52:20 UTC. RSS and cgroup counters use different accounting. Database process/cgroup values, container CPU sums and unrelated host workloads are not a controlled benchmark. Pipeline cumulative sampled CPU was 51,510.814 seconds; source was 1,693.469 seconds. There were 505 nonfresh pipeline observations. Final convergence does not establish continuous availability or the original timeout's exact cause. Controlled query experiments and the populated migration 022 upgrade are scoped evidence; old failed attempts remain failed. Optimization originally stopped after this accepted workload; the user subsequently authorized the separately tracked [server observation correction](observability-closure.md).
+
+### Measured progress windows
+
+The original run's fresh pipeline samples give the following cumulative-delta rates. The initial and final counters, exact observation timestamps and source-file SHA-256 are in [the selected window evidence](evidence/Capacity-observation-windows-2026-09-26.json).
+
+| Quantity                    | First fresh count at 14:18:11.204740 UTC | First observed target            |         Window |  Delta / elapsed time |
+| --------------------------- | ---------------------------------------: | -------------------------------- | -------------: | --------------------: |
+| Durable staging             |                                    3,461 | 1,000,005 at 14:48:38.933826 UTC | 1,827.729086 s |   **545.24 events/s** |
+| Validated consumer receipts |                                      763 | 1,000,005 at 16:43:56.367960 UTC | 8,745.163220 s | **114.26 receipts/s** |
+
+All timestamps are September 25, 2026. The numerator excludes work already present at the first fresh sample. The denominator includes intervening stalls; an observation can follow actual completion. These windows end at different times, so they are neither simultaneous stage rates nor an isolated scanner/receiver benchmark. Dividing one million by the whole `make verify` duration would mix setup, deliberate outages, exports and negative controls into a misleading throughput number.
+
+**Observed bottleneck:** actual sink delivery and consumer processing finished before pipeline receipt observation. Pipeline PostgreSQL also dominated sampled CPU. This identifies the slow completion path, not the precise execution plan responsible for the old timeouts.
+
+**Concrete improvement hypothesis:** remove repeated full-history work from operational snapshot/run-observation reads while retaining exact current counts and independent terminal validation. First measure those exact statements on the server under concurrent changes, then compare a scoped query/index correction against the same fixture. A reduction in total limiting-stage service demand of roughly one half would target **228.52 receipts/s** in an equivalent window. Extra workers alone may worsen contention. Neither the doubling nor a particular SQL cause is currently claimed proven.
 
 ## Earlier completed local acceptance, 2026-09-24
 

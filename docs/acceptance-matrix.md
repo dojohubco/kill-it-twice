@@ -1,5 +1,13 @@
 # Final acceptance matrix
 
+## Current revision and reading order
+
+The current UI implementation is `1b1ae55`; documentation-only `5b0643c` passed [hosted fast functional and UI checks](https://github.com/dojohubco/kill-it-twice/actions/runs/36186607736). [Redesign evidence](evidence/Dark-workspace-2026-09-26.md) includes the separate local real-API check. The million-record proof below belongs to `1f2f3f2`, not to a repeated million-record run after the UI changes. [Server observation follow-up](observability-closure.md) is pending its own correction and evidence.
+
+All sections explicitly titled **Historical** retain their original results, including statements about publication before it happened. They are not the current publication status. The repository is public; hosted fast CI is distinct from the local million-record acceptance.
+
+## Accepted million-record implementation
+
 **Current local acceptance: PASS** at `1f2f3f2d544a70b1e63d40d3a0f27d62f4249685` (tree `2ac270a7d5973d0f7b80aa2b94eec291e543653b`), completed 2026-09-25 17:38:20 UTC. All five parent phases, G1–G5, exact 1M + 519-effects reconciliation, five genuine negative controls and both child cleanups passed. Separate strict 1024 and retained R01–R08 passed at the same SHA. [Current report](evidence/Final-submission-2026-09-25.md) and [selected evidence](evidence/Final-submission-2026-09-25.json) supersede the earlier runtime evidence for this revision.
 
 | Current criterion                                         | Result                                                                                                            |
