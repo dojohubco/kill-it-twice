@@ -112,6 +112,7 @@ export const pipelineFiles = [
   'pipeline/018-observation-metadata.sql',
   'pipeline/019-nonwaiting-es-claim.sql',
   'pipeline/020-operator-polling.sql',
+  'pipeline/021-delivery-observation-cover.sql',
 ] as const;
 export const consumerFiles = [
   'consumer/001-consumer.sql',

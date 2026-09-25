@@ -5,11 +5,13 @@ ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'scripts'))
 from verification.runtime import Runtime,sha
 parser=argparse.ArgumentParser()
-parser.add_argument('--metadata-upgrade',action='store_true')
+upgrade=parser.add_mutually_exclusive_group()
+upgrade.add_argument('--metadata-upgrade',action='store_true')
+upgrade.add_argument('--delivery-upgrade',action='store_true')
 options=parser.parse_args()
-base='2738166ba3ee952ec68abbf8526b199cdb476276' if options.metadata_upgrade else '26548e9c07f47efab84c75175145b59f443bd5e2'
+base='ef5f63393eb0207598dcc92b8c935ee67b7c224e' if options.delivery_upgrade else ('2738166ba3ee952ec68abbf8526b199cdb476276' if options.metadata_upgrade else '26548e9c07f47efab84c75175145b59f443bd5e2')
 r=Runtime(4096);r.report.update(mode='observation-proof',base_code=base)
-r.env['KIT_IMAGE']='kill-it-twice-runtime:final-2738166ba3ee' if options.metadata_upgrade else 'kill-it-twice-runtime:capacity-26548e9c07f4'
+r.env['KIT_IMAGE']='kill-it-twice-runtime:final-ef5f63393eb0' if options.delivery_upgrade else ('kill-it-twice-runtime:final-2738166ba3ee' if options.metadata_upgrade else 'kill-it-twice-runtime:capacity-26548e9c07f4')
 (r.out/'verification.json').write_text('{"services":{}}')
 def sql(text,label,expected=(0,)):
     file=r.out/(label+'.sql');file.write_text(text+'\n')
@@ -45,12 +47,15 @@ try:
         prior_module.write_text(subprocess.check_output(['git','show',base+':src/operations/queries.ts'],cwd=ROOT,text=True))
         prior_query=json.loads(r.run(['node','--input-type=module','-e',"const {queries}=await import("+json.dumps(prior_module.as_uri())+");console.log(JSON.stringify(queries.pipeline.snapshot))"],'prior-operational-query').read_text())
     operational_before=operational_snapshot(prior_query,'operational-before')
-    metadata="SELECT jsonb_build_object('oid',oid,'owner',proowner,'acl',proacl,'config',proconfig,'security',prosecdef) FROM pg_proc WHERE oid='pipeline.backfill_progress_valid(uuid)'::regprocedure;"
+    metadata="SELECT jsonb_build_object('oid',oid,'owner',proowner,'acl',proacl,'config',proconfig,'security',prosecdef,'source',prosrc) FROM pg_proc WHERE oid IN ('pipeline.backfill_progress_valid(uuid)'::regprocedure,'pipeline.backfill_observed_counts(uuid)'::regprocedure,'pipeline.backfill_observation(uuid)'::regprocedure) ORDER BY oid;" if options.delivery_upgrade else "SELECT jsonb_build_object('oid',oid,'owner',proowner,'acl',proacl,'config',proconfig,'security',prosecdef) FROM pg_proc WHERE oid='pipeline.backfill_progress_valid(uuid)'::regprocedure;"
     catalog=sql(metadata,'metadata-before')
-    migration=ROOT/('migrations/pipeline/018-observation-metadata.sql' if options.metadata_upgrade else 'migrations/pipeline/016-observation-and-progress.sql')
+    migration=ROOT/('migrations/pipeline/021-delivery-observation-cover.sql' if options.delivery_upgrade else ('migrations/pipeline/018-observation-metadata.sql' if options.metadata_upgrade else 'migrations/pipeline/016-observation-and-progress.sql'))
     sql('BEGIN;\n'+migration.read_text()+'\nCOMMIT;','upgrade')
     indexes=ROOT/'migrations/pipeline/017-observation-indexes.sql'
-    if not options.metadata_upgrade:sql('BEGIN;\n'+indexes.read_text()+'\nCOMMIT;','observation-index-upgrade')
+    if not options.metadata_upgrade and not options.delivery_upgrade:sql('BEGIN;\n'+indexes.read_text()+'\nCOMMIT;','observation-index-upgrade')
+    if options.delivery_upgrade:
+        installed=json.loads(sql("SELECT jsonb_build_object('valid',indisvalid,'definition',pg_get_indexdef(indexrelid)) FROM pg_index WHERE indexrelid='pipeline.delivery_member_observation'::regclass;",'delivery-index').read_text())
+        assert installed['valid'] and '(kind, event_id) INCLUDE (state)' in installed['definition'],installed
     assert before.read_bytes()==snapshot('after').read_bytes()
     assert operational_before==operational_snapshot(query,'operational-after')
     assert catalog.read_bytes()==sql(metadata,'metadata-after').read_bytes()
@@ -69,14 +74,14 @@ try:
     observation=json.loads(sql("BEGIN READ ONLY;SET LOCAL ROLE pipeline_operator;SET LOCAL statement_timeout=2500;SELECT pipeline.backfill_observation(run_id) FROM pipeline.backfill_runs;ROLLBACK;",'restricted-observation').read_text())
     assert observation['evidence_scope']=='durable_state_observation_not_revalidation' and observation['counts']['invalid'] is None and observation['historical_terminal_proof'] is True
     denied=sql("BEGIN;SET LOCAL ROLE pipeline_operator;ALTER FUNCTION pipeline.backfill_progress_valid(uuid) RENAME TO bypass;ROLLBACK;",'denied',expected=(3,));assert '42501' in denied.with_name(denied.name.replace('stdout','stderr')).read_text()
-    plan=sql(reference+'BEGIN READ ONLY;'+"EXPLAIN (ANALYZE,BUFFERS,FORMAT JSON) SELECT pg_temp.reference_progress(run_id) FROM pipeline.backfill_runs;EXPLAIN (ANALYZE,BUFFERS,FORMAT JSON) SELECT pipeline.backfill_progress_valid(run_id) FROM pipeline.backfill_runs;ROLLBACK;",'plans')
+    plan=None if options.delivery_upgrade else sql(reference+'BEGIN READ ONLY;'+"EXPLAIN (ANALYZE,BUFFERS,FORMAT JSON) SELECT pg_temp.reference_progress(run_id) FROM pipeline.backfill_runs;EXPLAIN (ANALYZE,BUFFERS,FORMAT JSON) SELECT pipeline.backfill_progress_valid(run_id) FROM pipeline.backfill_runs;ROLLBACK;",'plans')
     exported=r.out/'state';exported.mkdir()
     for name in ('baselines','source','mutations','commands','work','pipeline','consumer','totals','projection','receiver'):
         log=r.compose(['run','--rm','--no-deps','-T','inspect','node','scripts/runtime/inspect.ts',name],'export-'+name,timeout=300)
         os.link(log,exported/(name+'.jsonl'))
     (exported/'failures.jsonl').write_text('');(r.out/'journal.jsonl').write_text('');(r.out/'rejections.json').write_text('[]')
     proof=r.run([sys.executable,'-B','tests/final/reconcile.py',str(exported),'--count','4096','--journal',str(r.out/'journal.jsonl'),'--rejections',str(r.out/'rejections.json')],'independent-oracle',timeout=300)
-    r.report.update(status='PASS',reconciliation=json.loads(proof.read_text()),comparison=checked,preserved_sha256=sha(before),metadata_sha256=sha(catalog),migration_sha256=sha(migration),index_migration_sha256=sha(indexes),operational_snapshot_preserved=True,plans_file=plan.name,scope='Real populated function/index upgrade preservation, old/new progress equivalence, rollback-only negative controls and exact content reconciliation; no large-scale timing claim')
+    r.report.update(status='PASS',reconciliation=json.loads(proof.read_text()),comparison=checked,preserved_sha256=sha(before),metadata_sha256=sha(catalog),migration_sha256=sha(migration),index_migration_sha256=sha(indexes),operational_snapshot_preserved=True,plans_file=plan.name if plan else None,scope='Real populated function/index upgrade preservation, old/new progress equivalence, rollback-only negative controls and exact content reconciliation; no large-scale timing claim')
     assert subprocess.check_output(['git','status','--porcelain'],cwd=ROOT,text=True)==r.dirty
     assert subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()==r.head
 except BaseException as error:r.report.update(status='FAIL',error={'type':type(error).__name__,'message':str(error)})
