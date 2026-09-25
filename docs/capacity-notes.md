@@ -1,6 +1,27 @@
 # Capacity notes
 
-## Completed local acceptance, 2026-09-24
+## Current local acceptance, 2026-09-25
+
+Tested `1f2f3f2d544a70b1e63d40d3a0f27d62f4249685` passed the full local million-record workload with 519 mutations and real G1–G5 faults, exact independent reconciliation, five genuine negative controls and cleanup. Worker/page/heap bounds are unchanged. [Current scalar evidence](evidence/Final-submission-2026-09-25.json) records per-role sampled CPU/memory, service images and phase timings. Optional 2M remains NOT RUN.
+
+| Measurement                                    |                                Current result |
+| ---------------------------------------------- | --------------------------------------------: |
+| Baseline payload bytes                         |                                 1,034,667,793 |
+| Seed and activation                            |                                     679.172 s |
+| Scan/delivery/receipt drain after fault        |                                   8,875.704 s |
+| Receiver export                                |                                     882.155 s |
+| Positive exact oracle                          |                                     318.470 s |
+| Full command through supervisor                |                                  12,973.575 s |
+| Largest observed worker process RSS high-water |                                 148,201,472 B |
+| Largest observed worker cgroup memory peak     |                                  95,920,128 B |
+| Resource samples                               |                                           833 |
+| Minimum host available memory / free disk      |            8,664,481,792 B / 68,811,968,512 B |
+| Source / pipeline / consumer database bytes    | 2,697,221,823 / 8,779,118,271 / 2,610,075,327 |
+| Elasticsearch primary store bytes              |                                   349,479,582 |
+
+Storage was observed at 16:52:20 UTC. RSS and cgroup counters use different accounting. Database process/cgroup values, container CPU sums and unrelated host workloads are not a controlled benchmark. Pipeline cumulative sampled CPU was 51,510.814 seconds; source was 1,693.469 seconds. There were 505 nonfresh pipeline observations. Final convergence does not establish continuous availability or the original timeout's exact cause. Controlled query experiments and the populated migration 022 upgrade are scoped evidence; old failed attempts remain failed. Stop optimization after this accepted workload.
+
+## Earlier completed local acceptance, 2026-09-24
 
 The default **1,000,000 distinct approximately 1-KiB baselines**, with 519 declared mutations and real failures, passed at `ecdfdb5063aa7977af6bceccdaa6b1ece3fdece7`. Full `make verify` completed all phases, G1–G5, exact disk-backed reconciliation, five corruption controls and cleanup. Worker limits remained 256 MiB, with 128-MiB Node heaps and explicit 64-record / 256-KiB pages. `make verify VERIFY_COUNT=2000000` remains optional and **NOT RUN**. The earlier adoption of 1M was prospective; old results have not been relabeled.
 

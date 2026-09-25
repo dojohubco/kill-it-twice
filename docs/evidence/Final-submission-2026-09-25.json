@@ -1,0 +1,712 @@
+{
+  "generated_at": "2026-09-25T17:40:34.630131+00:00",
+  "scope": "LOCAL default-million submission acceptance; server acceptance remains NOT RUN / interrupted",
+  "status": "PASS",
+  "tested_commit": "1f2f3f2d544a70b1e63d40d3a0f27d62f4249685",
+  "publication_performed": false,
+  "command": ["make", "verify"],
+  "count": 1000000,
+  "started_at": "2026-09-25T14:02:07.258523+00:00",
+  "finished_at": "2026-09-25T17:38:20.833579+00:00",
+  "elapsed_seconds": 12973.575056,
+  "phases": [
+    {
+      "phase": "quality",
+      "status": "PASS",
+      "exit": 0,
+      "elapsed_seconds": 48.907144
+    },
+    {
+      "phase": "ui-build",
+      "status": "PASS",
+      "exit": 0,
+      "elapsed_seconds": 4.529029
+    },
+    {
+      "phase": "ui-fixtures",
+      "status": "PASS",
+      "exit": 0,
+      "elapsed_seconds": 10.412195
+    },
+    {
+      "phase": "retained-runtime",
+      "status": "PASS",
+      "exit": 0,
+      "elapsed_seconds": 164.387674
+    },
+    {
+      "phase": "large-faults",
+      "status": "PASS",
+      "exit": 0,
+      "elapsed_seconds": 12744.828712
+    }
+  ],
+  "gates": {
+    "G1": "PASS",
+    "G2": "PASS",
+    "G3": "PASS",
+    "G4": "PASS",
+    "G5": "PASS"
+  },
+  "reconciliation": {
+    "status": "PASS",
+    "scope": "Independent frozen-fixture comparison; execution scale is reported separately",
+    "baselines": 1000000,
+    "entities": 1000515,
+    "historical_events": 1000519,
+    "mutation_effects": 519,
+    "expected_rejected_revisions": 3,
+    "oracle": "verifier-owned commands and seed recipe, exact revisions/bytes/relations/values"
+  },
+  "gate_measurements": {
+    "G1": {
+      "backfill_complete_at": "2026-09-25T16:45:41.076733+00:00",
+      "historical_terminal_proof": true,
+      "counts": {
+        "invalid": null,
+        "required": "1000005",
+        "es_errors": "0",
+        "es_pending": "0",
+        "es_satisfied": "1000005",
+        "rabbit_pending": "0",
+        "consumer_errors": "0",
+        "consumer_pending": "0",
+        "rabbit_satisfied": "1000005",
+        "consumer_processed": "1000005"
+      }
+    },
+    "G2": {
+      "consumer_delivery_count": 2,
+      "publisher_delivery_count": 2
+    },
+    "G3": {
+      "down_seconds": 60.657066950021544,
+      "mutations_while_down": 10,
+      "broker_consumer_progress": true,
+      "attempt_delta": 15,
+      "attempt_bound": 150,
+      "recovered_observation": "2026-09-25T16:50:16.801Z"
+    },
+    "G4": {
+      "operations": 500,
+      "actual_applied": 497,
+      "actual_mapper_rejections": 3,
+      "dead_letters": 3
+    },
+    "G5": {
+      "status": "PASS",
+      "browser": "153.0.8010.52",
+      "flow": "retained Compose gateway -> Overview -> Records -> exact details",
+      "interceptedResponses": 0,
+      "pageErrors": []
+    }
+  },
+  "negative_controls": [
+    {
+      "kind": "missing",
+      "exit": 1,
+      "assertion_error": true,
+      "operational_error": false,
+      "timed_out": false,
+      "output_overflow": false,
+      "elapsed_seconds": 194.843196,
+      "stderr_sha256": "5c7ba23505b0f7d15d80b5aed53040fb637962e081c245b68da02b1f8be1076a"
+    },
+    {
+      "kind": "extra",
+      "exit": 1,
+      "assertion_error": true,
+      "operational_error": false,
+      "timed_out": false,
+      "output_overflow": false,
+      "elapsed_seconds": 192.398728,
+      "stderr_sha256": "5c7ba23505b0f7d15d80b5aed53040fb637962e081c245b68da02b1f8be1076a"
+    },
+    {
+      "kind": "payload",
+      "exit": 1,
+      "assertion_error": true,
+      "operational_error": false,
+      "timed_out": false,
+      "output_overflow": false,
+      "elapsed_seconds": 234.842806,
+      "stderr_sha256": "80c490ef7c5e519e5d45440a6f9fd7064ea3745aff3f57fa46d2e8a520d25bb1"
+    },
+    {
+      "kind": "version",
+      "exit": 1,
+      "assertion_error": true,
+      "operational_error": false,
+      "timed_out": false,
+      "output_overflow": false,
+      "elapsed_seconds": 232.377856,
+      "stderr_sha256": "e1bedeff462302fbf887b06137b097fb5065aa6b459f62eb2624ba4df554b2a4"
+    },
+    {
+      "kind": "effect",
+      "exit": 1,
+      "assertion_error": true,
+      "operational_error": false,
+      "timed_out": false,
+      "output_overflow": false,
+      "elapsed_seconds": 225.138465,
+      "stderr_sha256": "5034f7dc2d3305f5fbab33b997fdcaf52325371026af87397cc7e6efac5646e9"
+    }
+  ],
+  "retained_runtime_cases": [
+    {
+      "id": "R01",
+      "status": "PASS"
+    },
+    {
+      "id": "R02",
+      "status": "PASS"
+    },
+    {
+      "id": "R03",
+      "status": "PASS"
+    },
+    {
+      "id": "R04",
+      "status": "PASS"
+    },
+    {
+      "id": "R05",
+      "status": "PASS"
+    },
+    {
+      "id": "R06",
+      "status": "PASS"
+    },
+    {
+      "id": "R07",
+      "status": "PASS"
+    },
+    {
+      "id": "R08",
+      "status": "PASS"
+    }
+  ],
+  "operator_polling": {
+    "permissions": {
+      "status": "PASS",
+      "checks": [
+        "pipeline_capture: read settings allowed, writes and history denied",
+        "pipeline_backfill: read settings allowed, writes and history denied",
+        "immutable receipts: update/delete/truncate rejected, retained exactly",
+        "SQL input bounds: rejected without changing settings"
+      ]
+    },
+    "worker_observations": {
+      "backfill": {
+        "type": "runtime_polling",
+        "role": "backfill",
+        "revision": "4",
+        "delay_ms": 900
+      },
+      "capture": {
+        "type": "runtime_polling",
+        "role": "capture",
+        "revision": "4",
+        "delay_ms": 400
+      }
+    },
+    "restart_observations": {
+      "capture": {
+        "type": "runtime_polling",
+        "role": "capture",
+        "revision": "4",
+        "delay_ms": 400
+      },
+      "backfill": {
+        "type": "runtime_polling",
+        "role": "backfill",
+        "revision": "4",
+        "delay_ms": 900
+      }
+    },
+    "settings_retained": true,
+    "browser": {
+      "status": "PASS",
+      "scope": "Real settings browser/API, no intercepted responses",
+      "checks": [
+        "operator authorization",
+        "HTTP input bounds",
+        "native numeric validation",
+        "draft survives observation refresh",
+        "confirmation cancel without mutation",
+        "keyboard confirmation",
+        "same-key original receipt",
+        "changed-key-input conflict",
+        "stale revision conflict",
+        "concurrent edit has exactly one winner",
+        "old retry does not overwrite newer settings",
+        "browser reload persistence",
+        "320px and 200-percent text reflow"
+      ],
+      "audits": [
+        {
+          "width": 1280,
+          "violations": 0
+        },
+        {
+          "width": 320,
+          "violations": 0
+        }
+      ],
+      "pageErrors": [],
+      "interceptedResponses": 0
+    }
+  },
+  "operational_pipeline_nonfresh_samples": 505,
+  "cleanup": {
+    "retained-runtime": {
+      "status": "PASS",
+      "errors": []
+    },
+    "large-faults": {
+      "status": "PASS",
+      "errors": []
+    }
+  },
+  "preexisting_containers_preserved": true,
+  "postrun_owned_container_query": "Zero containers independently queried for both full-submission child projects",
+  "source_unchanged_clean_at_completion": true,
+  "preexisting_container_count_verified": 27,
+  "oracle_stdout_sha256_verified": "1341bf4f62de928202a915d260d9fbfd2d24626a876071e5df0378361fec7c29",
+  "timings_seconds": {
+    "seed_and_activation": 679.1720226519974,
+    "scan_drain_after_fault": 8875.703824944008
+  },
+  "command_measurements": [
+    {
+      "label": "export-baselines",
+      "started_at": "2026-09-25T16:52:20.347258+00:00",
+      "finished_at": "2026-09-25T16:52:57.480596+00:00",
+      "exit": 0,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 27676672,
+      "cpu_user_seconds": 2.3944290000000024,
+      "cpu_system_seconds": 10.625943
+    },
+    {
+      "label": "export-source",
+      "started_at": "2026-09-25T16:52:57.563084+00:00",
+      "finished_at": "2026-09-25T16:53:33.706703+00:00",
+      "exit": 0,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 27140096,
+      "cpu_user_seconds": 2.3952229999999943,
+      "cpu_system_seconds": 10.634840000000004
+    },
+    {
+      "label": "export-mutations",
+      "started_at": "2026-09-25T16:53:33.754211+00:00",
+      "finished_at": "2026-09-25T16:53:35.165788+00:00",
+      "exit": 0,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 26939392,
+      "cpu_user_seconds": 0.11248600000000408,
+      "cpu_system_seconds": 0.07627600000000001
+    },
+    {
+      "label": "export-commands",
+      "started_at": "2026-09-25T16:53:35.207622+00:00",
+      "finished_at": "2026-09-25T16:53:36.468766+00:00",
+      "exit": 0,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 27557888,
+      "cpu_user_seconds": 0.12734999999999985,
+      "cpu_system_seconds": 0.05920799999999815
+    },
+    {
+      "label": "export-work",
+      "started_at": "2026-09-25T16:53:36.518518+00:00",
+      "finished_at": "2026-09-25T16:53:37.879748+00:00",
+      "exit": 0,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 26865664,
+      "cpu_user_seconds": 0.11874199999999746,
+      "cpu_system_seconds": 0.05925500000000028
+    },
+    {
+      "label": "export-pipeline",
+      "started_at": "2026-09-25T16:53:37.919507+00:00",
+      "finished_at": "2026-09-25T16:56:12.705196+00:00",
+      "exit": 0,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 28246016,
+      "cpu_user_seconds": 3.4143320000000017,
+      "cpu_system_seconds": 14.644823000000002
+    },
+    {
+      "label": "export-consumer",
+      "started_at": "2026-09-25T16:56:12.750696+00:00",
+      "finished_at": "2026-09-25T16:57:43.116550+00:00",
+      "exit": 0,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 27406336,
+      "cpu_user_seconds": 3.0958830000000006,
+      "cpu_system_seconds": 14.104067
+    },
+    {
+      "label": "export-totals",
+      "started_at": "2026-09-25T16:57:43.159389+00:00",
+      "finished_at": "2026-09-25T16:57:58.791118+00:00",
+      "exit": 0,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 26894336,
+      "cpu_user_seconds": 1.2926009999999977,
+      "cpu_system_seconds": 4.03191799999999
+    },
+    {
+      "label": "export-projection",
+      "started_at": "2026-09-25T16:57:58.840381+00:00",
+      "finished_at": "2026-09-25T16:58:16.629094+00:00",
+      "exit": 0,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 26697728,
+      "cpu_user_seconds": 1.298684999999999,
+      "cpu_system_seconds": 4.656980000000004
+    },
+    {
+      "label": "export-receiver",
+      "started_at": "2026-09-25T16:58:16.670447+00:00",
+      "finished_at": "2026-09-25T17:12:58.825212+00:00",
+      "exit": 0,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 28295168,
+      "cpu_user_seconds": 7.335911000000003,
+      "cpu_system_seconds": 24.265804000000003
+    },
+    {
+      "label": "independent-oracle",
+      "started_at": "2026-09-25T17:12:59.162978+00:00",
+      "finished_at": "2026-09-25T17:18:17.633317+00:00",
+      "exit": 0,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 29245440,
+      "cpu_user_seconds": 263.863516,
+      "cpu_system_seconds": 39.932145000000006
+    },
+    {
+      "label": "independent-oracle",
+      "started_at": "2026-09-25T17:18:32.052678+00:00",
+      "finished_at": "2026-09-25T17:21:46.895874+00:00",
+      "exit": 1,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 38551552,
+      "cpu_user_seconds": 147.622007,
+      "cpu_system_seconds": 30.688466000000005
+    },
+    {
+      "label": "independent-oracle",
+      "started_at": "2026-09-25T17:22:00.075257+00:00",
+      "finished_at": "2026-09-25T17:25:12.473985+00:00",
+      "exit": 1,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 38764544,
+      "cpu_user_seconds": 145.31210600000003,
+      "cpu_system_seconds": 30.101517
+    },
+    {
+      "label": "independent-oracle",
+      "started_at": "2026-09-25T17:25:25.986395+00:00",
+      "finished_at": "2026-09-25T17:29:20.829201+00:00",
+      "exit": 1,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 39243776,
+      "cpu_user_seconds": 184.99321700000007,
+      "cpu_system_seconds": 36.80679300000003
+    },
+    {
+      "label": "independent-oracle",
+      "started_at": "2026-09-25T17:29:33.881903+00:00",
+      "finished_at": "2026-09-25T17:33:26.259759+00:00",
+      "exit": 1,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 39448576,
+      "cpu_user_seconds": 181.47245199999998,
+      "cpu_system_seconds": 34.73802899999998
+    },
+    {
+      "label": "independent-oracle",
+      "started_at": "2026-09-25T17:33:38.340406+00:00",
+      "finished_at": "2026-09-25T17:37:23.478871+00:00",
+      "exit": 1,
+      "timed_out": false,
+      "output_overflow": false,
+      "process_peak_rss_bytes": 39464960,
+      "cpu_user_seconds": 176.56993699999998,
+      "cpu_system_seconds": 33.14425299999999
+    }
+  ],
+  "storage": {
+    "observed_at": "2026-09-25T16:52:20.282Z",
+    "databases": [
+      {
+        "database": "source_m1",
+        "bytes": "2697221823"
+      },
+      {
+        "database": "pipeline_m2b",
+        "bytes": "8779118271"
+      },
+      {
+        "database": "consumer_m4",
+        "bytes": "2610075327"
+      }
+    ],
+    "baseline_payload": {
+      "entities": "1000000",
+      "total_bytes": "1034667793",
+      "minimum_bytes": "1021",
+      "maximum_bytes": "1036",
+      "average_bytes": "1034.6677930000000000"
+    },
+    "elasticsearch": {
+      "primary_store_bytes": "349479582",
+      "lucene_documents": "1000512",
+      "note": "Physical index statistic; independent exported documents prove logical correctness"
+    }
+  },
+  "resources": {
+    "status": "OBSERVED",
+    "samples": 833,
+    "interval_seconds": 15,
+    "scope": "Read-only observed process and cgroup peaks; explicitly disappeared containers are recorded without invented peaks; process exit between samples can omit a final high-water value, and host memory includes unrelated workloads",
+    "by_role": {
+      "inspect": {
+        "sampled_containers": 8,
+        "configured_limits_bytes": [268435456],
+        "maximum_cgroup_peak_bytes": 74924032,
+        "maximum_process_rss_high_water_bytes": 129519616,
+        "sum_maximum_observed_container_cpu_usec": 488170432
+      },
+      "ui": {
+        "sampled_containers": 1,
+        "configured_limits_bytes": [134217728],
+        "maximum_cgroup_peak_bytes": 112095232,
+        "maximum_process_rss_high_water_bytes": 106467328,
+        "sum_maximum_observed_container_cpu_usec": 337406578
+      },
+      "consumer": {
+        "sampled_containers": 2,
+        "configured_limits_bytes": [268435456],
+        "maximum_cgroup_peak_bytes": 76668928,
+        "maximum_process_rss_high_water_bytes": 131710976,
+        "sum_maximum_observed_container_cpu_usec": 1131133747
+      },
+      "publisher": {
+        "sampled_containers": 2,
+        "configured_limits_bytes": [268435456],
+        "maximum_cgroup_peak_bytes": 80891904,
+        "maximum_process_rss_high_water_bytes": 136609792,
+        "sum_maximum_observed_container_cpu_usec": 804123767
+      },
+      "es-worker": {
+        "sampled_containers": 2,
+        "configured_limits_bytes": [268435456],
+        "maximum_cgroup_peak_bytes": 95920128,
+        "maximum_process_rss_high_water_bytes": 148201472,
+        "sum_maximum_observed_container_cpu_usec": 914116555
+      },
+      "backfill": {
+        "sampled_containers": 4,
+        "configured_limits_bytes": [268435456],
+        "maximum_cgroup_peak_bytes": 68718592,
+        "maximum_process_rss_high_water_bytes": 123375616,
+        "sum_maximum_observed_container_cpu_usec": 957828950
+      },
+      "control-api": {
+        "sampled_containers": 1,
+        "configured_limits_bytes": [268435456],
+        "maximum_cgroup_peak_bytes": 78614528,
+        "maximum_process_rss_high_water_bytes": 132501504,
+        "sum_maximum_observed_container_cpu_usec": 43510536
+      },
+      "capture": {
+        "sampled_containers": 1,
+        "configured_limits_bytes": [268435456],
+        "maximum_cgroup_peak_bytes": 44965888,
+        "maximum_process_rss_high_water_bytes": 97869824,
+        "sum_maximum_observed_container_cpu_usec": 103033389
+      },
+      "observer": {
+        "sampled_containers": 2,
+        "configured_limits_bytes": [268435456],
+        "maximum_cgroup_peak_bytes": 51777536,
+        "maximum_process_rss_high_water_bytes": 104579072,
+        "sum_maximum_observed_container_cpu_usec": 1290611725
+      },
+      "elasticsearch": {
+        "sampled_containers": 1,
+        "configured_limits_bytes": [2147483648],
+        "maximum_cgroup_peak_bytes": 1884737536,
+        "maximum_process_rss_high_water_bytes": 1269760,
+        "sum_maximum_observed_container_cpu_usec": 769825935
+      },
+      "source": {
+        "sampled_containers": 1,
+        "configured_limits_bytes": [1073741824],
+        "maximum_cgroup_peak_bytes": 1073750016,
+        "maximum_process_rss_high_water_bytes": 33415168,
+        "sum_maximum_observed_container_cpu_usec": 1693469300
+      },
+      "pipeline": {
+        "sampled_containers": 1,
+        "configured_limits_bytes": [1073741824],
+        "maximum_cgroup_peak_bytes": 1074016256,
+        "maximum_process_rss_high_water_bytes": 33648640,
+        "sum_maximum_observed_container_cpu_usec": 51510814428
+      },
+      "rabbitmq": {
+        "sampled_containers": 1,
+        "configured_limits_bytes": [1073741824],
+        "maximum_cgroup_peak_bytes": 321859584,
+        "maximum_process_rss_high_water_bytes": 165588992,
+        "sum_maximum_observed_container_cpu_usec": 1721813622
+      },
+      "toxiproxy": {
+        "sampled_containers": 1,
+        "configured_limits_bytes": [134217728],
+        "maximum_cgroup_peak_bytes": 19558400,
+        "maximum_process_rss_high_water_bytes": 14888960,
+        "sum_maximum_observed_container_cpu_usec": 219045283
+      },
+      "seed": {
+        "sampled_containers": 1,
+        "configured_limits_bytes": [268435456],
+        "maximum_cgroup_peak_bytes": 56012800,
+        "maximum_process_rss_high_water_bytes": 105607168,
+        "sum_maximum_observed_container_cpu_usec": 78846178
+      },
+      "writer": {
+        "sampled_containers": 1,
+        "configured_limits_bytes": [268435456],
+        "maximum_cgroup_peak_bytes": 43540480,
+        "maximum_process_rss_high_water_bytes": 95412224,
+        "sum_maximum_observed_container_cpu_usec": 1372221
+      }
+    },
+    "minimum_host_available_memory_bytes": 8664481792,
+    "minimum_host_free_disk_bytes": 68811968512,
+    "cpu_scope": "Sum of maximum sampled cumulative cgroup counters per container; not exact whole-host CPU or an uncontended benchmark"
+  },
+  "tools_observed_during_closure": {
+    "node": "24.19.0",
+    "npm": "12.0.2",
+    "docker": "29.7.2",
+    "compose": "5.5.1",
+    "python": "3.14.7",
+    "git": "2.55.0"
+  },
+  "service_images_from_recorded_inspections": {
+    "inspect": {
+      "reference": "kill-it-twice-runtime:final-1f2f3f2d544a",
+      "image_id": "sha256:f34756a587e901dd287155aef3735f78f9627323a941670b2aa40fe3606a4e98"
+    },
+    "ui": {
+      "reference": "kill-it-twice-runtime:final-1f2f3f2d544a",
+      "image_id": "sha256:f34756a587e901dd287155aef3735f78f9627323a941670b2aa40fe3606a4e98"
+    },
+    "consumer": {
+      "reference": "kill-it-twice-runtime:final-1f2f3f2d544a",
+      "image_id": "sha256:f34756a587e901dd287155aef3735f78f9627323a941670b2aa40fe3606a4e98"
+    },
+    "publisher": {
+      "reference": "kill-it-twice-runtime:final-1f2f3f2d544a",
+      "image_id": "sha256:f34756a587e901dd287155aef3735f78f9627323a941670b2aa40fe3606a4e98"
+    },
+    "es-worker": {
+      "reference": "kill-it-twice-runtime:final-1f2f3f2d544a",
+      "image_id": "sha256:f34756a587e901dd287155aef3735f78f9627323a941670b2aa40fe3606a4e98"
+    },
+    "backfill": {
+      "reference": "kill-it-twice-runtime:final-1f2f3f2d544a",
+      "image_id": "sha256:f34756a587e901dd287155aef3735f78f9627323a941670b2aa40fe3606a4e98"
+    },
+    "control-api": {
+      "reference": "kill-it-twice-runtime:final-1f2f3f2d544a",
+      "image_id": "sha256:f34756a587e901dd287155aef3735f78f9627323a941670b2aa40fe3606a4e98"
+    },
+    "capture": {
+      "reference": "kill-it-twice-runtime:final-1f2f3f2d544a",
+      "image_id": "sha256:f34756a587e901dd287155aef3735f78f9627323a941670b2aa40fe3606a4e98"
+    },
+    "observer": {
+      "reference": "kill-it-twice-runtime:final-1f2f3f2d544a",
+      "image_id": "sha256:f34756a587e901dd287155aef3735f78f9627323a941670b2aa40fe3606a4e98"
+    },
+    "initializer": {
+      "reference": "kill-it-twice-runtime:final-1f2f3f2d544a",
+      "image_id": "sha256:f34756a587e901dd287155aef3735f78f9627323a941670b2aa40fe3606a4e98"
+    },
+    "elasticsearch": {
+      "reference": "docker.elastic.co/elasticsearch/elasticsearch:9.5.4@sha256:82ac14f43fe701992e601f4cc81e1c0d7dbc5a2576d8cd736006452925df4026",
+      "image_id": "sha256:82ac14f43fe701992e601f4cc81e1c0d7dbc5a2576d8cd736006452925df4026"
+    },
+    "source": {
+      "reference": "postgres:18.6-bookworm@sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af",
+      "image_id": "sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af"
+    },
+    "pipeline": {
+      "reference": "postgres:18.6-bookworm@sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af",
+      "image_id": "sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af"
+    },
+    "rabbitmq": {
+      "reference": "rabbitmq:4.3.6-management@sha256:de62d9901fb73aaa8767b9c1e9ea32f2938f69d1b83e430f7c5ca854081d2128",
+      "image_id": "sha256:de62d9901fb73aaa8767b9c1e9ea32f2938f69d1b83e430f7c5ca854081d2128"
+    },
+    "realm": {
+      "reference": "docker.elastic.co/elasticsearch/elasticsearch:9.5.4@sha256:82ac14f43fe701992e601f4cc81e1c0d7dbc5a2576d8cd736006452925df4026",
+      "image_id": "sha256:82ac14f43fe701992e601f4cc81e1c0d7dbc5a2576d8cd736006452925df4026"
+    },
+    "provision": {
+      "reference": "postgres:18.6-bookworm@sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af",
+      "image_id": "sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af"
+    },
+    "toxiproxy": {
+      "reference": "ghcr.io/shopify/toxiproxy:2.12.0@sha256:9378ed52a28bc50edc1350f936f518f31fa95f0d15917d6eb40b8e376d1a214e",
+      "image_id": "sha256:9378ed52a28bc50edc1350f936f518f31fa95f0d15917d6eb40b8e376d1a214e"
+    }
+  },
+  "manifest_references": {
+    "submission": {
+      "path": "artifacts/final/kit-final-20260925140207-f2af0220/run.json",
+      "sha256": "d8e0cedb5899152062e63d448c39d9e7d2ee8348398d3f7b146c1a9b2c1b727a"
+    },
+    "retained-runtime": {
+      "path": "artifacts/runtime/kit-verify-20260925140311-522b326c/run.json",
+      "sha256": "495ca93b91c4eaa20b7c08a7466f1d383646f0e3e83be6d3ead95ac60b73bed6"
+    },
+    "large-faults": {
+      "path": "artifacts/final/kit-final-20260925140555-a7c4a242/run.json",
+      "sha256": "7fdedcc6aea24b079ce60340aa8c1c6aa734be71fc39289fb116f69607e5dc1f"
+    }
+  },
+  "strict_supervisor_result_sha256": "394f55c6af791ac875fba6231a0b8ec7180a68db0a9435d19f360d052cc168b0",
+  "raw_evidence_policy": "Raw manifests, configuration, database exports, payload logs and Docker environment remain outside the sanitized bundle; original evidence is retained locally",
+  "limitations": [
+    "Optional 2M and hosted CI were not executed at the time of this local acceptance report; later hosted publication CI is recorded separately",
+    "The original real slow-query plan and precise cause remain unproved; controlled query experiments and eventual convergence do not prove continuous availability",
+    "Shared production server full acceptance was interrupted before service gates; local PASS does not change that result",
+    "Operational status freshness is recorded separately from eventual terminal convergence; no continuous availability claim is made",
+    "Recreated server demo has four previously failed workers; preserved without repair in this closure"
+  ]
+}

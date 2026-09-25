@@ -2,7 +2,7 @@
 
 Current authorization: final submission closure in [docs/acceptance-closure.md](docs/acceptance-closure.md). Historical milestone boundaries below describe their original scope. `make verify` is now the real million-entity acceptance entry; historical captures no longer invoke or expect failure from the retired placeholder. The user subsequently authorized UI parameter editing and publication to the existing public GitHub repository; see ADR 016. Sending an application remains unauthorized.
 
-Closure evidence: the full local default-1M submission and separate 1024 functional check passed at `ecdfdb5063aa7977af6bceccdaa6b1ece3fdece7` on 2026-09-24, including independent reconciliation, negative controls and cleanup. See [the dated final report](docs/evidence/Final-submission-2026-09-24.md). Later documentation changes do not redefine the tested identity. Stop optimization after this accepted workload; server acceptance, hosted CI and optional 2M remain separate unproved scopes.
+Closure evidence: full local default-1M submission and strict 1024 functional verification passed at `1f2f3f2d544a70b1e63d40d3a0f27d62f4249685` on 2026-09-25, including real UI polling controls (R08), all fault gates, exact independent reconciliation, five genuine negative controls and both child cleanups. See [the dated final report](docs/evidence/Final-submission-2026-09-25.md). Later documentation changes and published/hosted-CI identities remain separate. Stop optimization after this accepted workload; server acceptance and optional 2M remain unproved. The public GitHub push is authorized; sending a careers application is not.
 
 ## Before work
 

@@ -1,0 +1,118 @@
+{
+  "observed_at": "2026-09-25T14:05:13.233269+00:00",
+  "scope": "LOCAL strict 1024 functional evidence only; current full1M acceptance is separately RUNNING",
+  "status": "PASS",
+  "head": "1f2f3f2d544a70b1e63d40d3a0f27d62f4249685",
+  "tree": "2ac270a7d5973d0f7b80aa2b94eec291e543653b",
+  "project": "kit-final-20260925135607-cda513b8",
+  "finished_at": "2026-09-25T14:02:06.984476+00:00",
+  "count": 1024,
+  "manifest_sha256": "81c8c95a720768ed788f1b0a758a54ebafa5ddc5e0f89c8219571a068ad7c3f3",
+  "supervisor_result_sha256": "13d1cc7719184eff364269501102529db21bf35e73c2a32f08ac7a456ca2d510",
+  "gates": {
+    "G1": "PASS",
+    "G2": "PASS",
+    "G3": "PASS",
+    "G4": "PASS",
+    "G5": "PASS"
+  },
+  "reconciliation": {
+    "status": "PASS",
+    "scope": "Independent frozen-fixture comparison; execution scale is reported separately",
+    "source_epoch": "197663b5-0b81-4eee-a2fd-e622d3693e06",
+    "baselines": 1024,
+    "entities": 1539,
+    "historical_events": 1543,
+    "mutation_effects": 519,
+    "expected_rejected_revisions": 3,
+    "oracle": "verifier-owned commands and seed recipe, exact revisions/bytes/relations/values"
+  },
+  "negative_controls": [
+    {
+      "kind": "missing",
+      "exit": 1,
+      "genuine_assertion": true,
+      "stderr_sha256": "5c7ba23505b0f7d15d80b5aed53040fb637962e081c245b68da02b1f8be1076a"
+    },
+    {
+      "kind": "extra",
+      "exit": 1,
+      "genuine_assertion": true,
+      "stderr_sha256": "5c7ba23505b0f7d15d80b5aed53040fb637962e081c245b68da02b1f8be1076a"
+    },
+    {
+      "kind": "payload",
+      "exit": 1,
+      "genuine_assertion": true,
+      "stderr_sha256": "80c490ef7c5e519e5d45440a6f9fd7064ea3745aff3f57fa46d2e8a520d25bb1"
+    },
+    {
+      "kind": "version",
+      "exit": 1,
+      "genuine_assertion": true,
+      "stderr_sha256": "e1bedeff462302fbf887b06137b097fb5065aa6b459f62eb2624ba4df554b2a4"
+    },
+    {
+      "kind": "effect",
+      "exit": 1,
+      "genuine_assertion": true,
+      "stderr_sha256": "5034f7dc2d3305f5fbab33b997fdcaf52325371026af87397cc7e6efac5646e9"
+    }
+  ],
+  "resources": {
+    "status": "OBSERVED",
+    "samples": 54,
+    "errors": []
+  },
+  "g5": {
+    "browser": {
+      "status": "PASS",
+      "flow": "retained Compose gateway -> Overview -> Records -> exact details",
+      "browser": "153.0.8010.52",
+      "browserPath": "repository Playwright acceptance runner; separate from interactive browser checks",
+      "interceptedResponses": 0,
+      "appliedStylesheets": [
+        {
+          "loaded": true,
+          "media": "",
+          "handler": null
+        }
+      ],
+      "expectedStaged": "1543",
+      "record": "Inspect record 1",
+      "requests": [
+        "/api/v1/status",
+        "/api/v1/config",
+        "/api/v1/entities",
+        "/api/v1/entities/197663b5-0b81-4eee-a2fd-e622d3693e06/1"
+      ],
+      "mutations": 0,
+      "pageErrors": [],
+      "screenshots": [
+        "runtime-overview.png",
+        "runtime-record.png",
+        "runtime-mobile.png"
+      ]
+    },
+    "observations": 1,
+    "status_metrics_pair_preserved": true,
+    "exact_metrics_values": {
+      "staged": 1543,
+      "source_pending": 0,
+      "elasticsearch_dlq": 3
+    },
+    "status_sha256": "9fe628399f64ee0cb5c956d81b7b17e763ef7db341b1b71e9bfef2d8f37a42b1",
+    "metrics_sha256": "2b762b39c25b2cfaa19d6ab930c034498fe92a2e930d9b25da851ec90980884e",
+    "scrape_history_sha256": "4b460301c183d75c403166a1026ac1d2b17af4100534467bcbc933de77d2bb28"
+  },
+  "cleanup": {
+    "status": "PASS",
+    "errors": []
+  },
+  "owned_remaining": [],
+  "preexisting_count": 27,
+  "preexisting_missing": [],
+  "source_and_clone_clean": true,
+  "full1M": "RUNNING; no acceptance claim",
+  "public_publication": "PENDING"
+}
