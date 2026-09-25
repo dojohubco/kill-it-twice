@@ -167,6 +167,7 @@ void test(name('OP01'), async () => {
     '/api/v1/events/{eventId}': ['get'],
     '/api/v1/failures': ['get'],
     '/api/v1/config': ['get'],
+    '/api/v1/config/polling': ['get', 'put'],
     '/api/v1/failures/elasticsearch/{eventId}/replay': ['post'],
     '/api/v1/simulations/source-change': ['post'],
     '/api/v1/simulations/corrupt-record': ['post'],
