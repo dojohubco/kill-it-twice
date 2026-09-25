@@ -2,6 +2,8 @@
 
 Status: authorized investigation; correction and new server acceptance pending.
 
+[ADR 017](adr/017-transactional-observation-projections.md) records the selected narrow-state prototype before runtime implementation. The first server count diagnostic timed out at the unchanged limit; the memory experiment also failed and was rejected. Neither failed experiment is acceptance evidence.
+
 The accepted `1f2f3f2` million-record run converged exactly and passed G1–G5, but recorded 505 nonfresh pipeline observations. A final fresh sample does not prove that a dashboard remains useful during load. The original slow-query execution plan was not captured; the specific cause must not be invented retrospectively.
 
 The user authorized correcting this limitation on the existing server, clarifying the reviewer documentation, committing and publishing completed changes, and keeping the local checkout current. The server checkout was first fast-forwarded from `ecdfdb5` to `5b0643c`. This did not change existing running images or retained data.
