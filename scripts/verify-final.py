@@ -104,11 +104,7 @@ def settled(rejected=0,es=True,timeout=360,after=None):
                 owned=[row for row in states if row[0]==role]
                 expected=(4 if role=='backfill' else 1 if role=='capture' else 2) if large else 1
                 assert len(owned)==expected and all(row[1]=='running' for row in owned),{'phase':phase,'worker':role,'expected':expected,'observed':owned,'evidence':log.name}
-        value=r.status()
-        path=r.out/'status-observations.jsonl'
-        assert not path.exists() or path.stat().st_size<64*1024**2
-        with path.open('a') as stream:stream.write(json.dumps({'at':now(),'data':value},separators=(',',':'))+'\n')
-        return value
+        return r.recorded_status(phase)
     return r.wait(observation,accept,'settle-'+phase,timeout,interval=5 if large else 1)
 
 def event_key(reply):

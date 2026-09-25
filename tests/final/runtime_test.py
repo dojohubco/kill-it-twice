@@ -9,6 +9,30 @@ ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'scripts'))
 from verification.runtime import Runtime, cleanup_owned_resources, validate_compose_identity
 
+class StatusEvidenceTests(unittest.TestCase):
+    def test_records_success_and_request_failure_without_hiding_or_retrying_it(self):
+        with tempfile.TemporaryDirectory() as directory:
+            r=Runtime.__new__(Runtime);r.out=Path(directory)
+            value={'observed_at':'original-timestamp','dependencies':{'pipeline':{'freshness':'unavailable'}}}
+            with patch.object(r,'status',return_value=value) as call:
+                self.assertIs(r.recorded_status('G1'),value)
+                call.assert_called_once_with()
+            failure=TimeoutError('private endpoint must not be recorded')
+            with patch.object(r,'status',side_effect=failure) as call:
+                with self.assertRaises(TimeoutError) as caught:r.recorded_status('G1')
+                self.assertIs(caught.exception,failure)
+                call.assert_called_once_with()
+            path=r.out/'status-observations.jsonl'
+            records=[json.loads(line) for line in path.read_text().splitlines()]
+            self.assertEqual(len(records),2)
+            self.assertEqual(records[0]['data'],value)
+            self.assertEqual(records[1]['error'],{'type':'TimeoutError'})
+            self.assertNotIn('data',records[1])
+            self.assertNotIn('private endpoint',path.read_text())
+            for record in records:
+                self.assertEqual(record['phase'],'G1')
+                self.assertGreaterEqual(record['elapsed_ms'],0)
+
 class OwnershipTests(unittest.TestCase):
     def runtime(self,directory,project='kit-final-test'):
         r=Runtime.__new__(Runtime)

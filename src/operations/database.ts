@@ -4,6 +4,7 @@ import {
 } from '../internal/transaction.ts';
 import { queries } from './queries.ts';
 import { record } from './validation.ts';
+import { failureSummary } from '../internal/failure-summary.ts';
 export type Store = keyof typeof queries;
 export class OperationalDatabase {
   readonly configs: Record<Store, ConnectionConfig>;
@@ -50,7 +51,21 @@ export class OperationalDatabase {
           }),
       }),
     );
-    return owner.transaction((w) => w.read());
+    const started = performance.now();
+    try {
+      return await owner.transaction((w) => w.read());
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          event: 'observation_failed',
+          store,
+          operation: name,
+          elapsed_ms: Math.round(performance.now() - started),
+          failure: failureSummary(error),
+        }),
+      );
+      throw error;
+    }
   }
   async #write(store: Store, sql: string, args: unknown[]) {
     const owner = new TransactionOwner(

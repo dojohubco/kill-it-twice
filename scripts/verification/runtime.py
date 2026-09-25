@@ -151,6 +151,23 @@ class Runtime:
             data=response.read(limit+1); assert len(data)<=limit
             return data.decode('utf8')
     def status(self): return json.loads(self.http('/api/v1/status'))['data']
+    def recorded_status(self, phase):
+        started=time.monotonic()
+        record={'at':now(),'phase':phase}
+        try:
+            value=self.status()
+            record['data']=value
+            return value
+        except (OSError,ValueError) as error:
+            # Preserve failed requests as well as successful HTTP responses.
+            # Error messages may contain endpoints; the exception class is sufficient.
+            record['error']={'type':type(error).__name__}
+            raise
+        finally:
+            record['elapsed_ms']=round((time.monotonic()-started)*1000,3)
+            path=self.out/'status-observations.jsonl'
+            assert not path.exists() or path.stat().st_size<64*1024**2
+            with path.open('a') as stream:stream.write(json.dumps(record,separators=(',',':'))+'\n')
     def g5_metrics(self, snapshot, expected_staged):
         # This callback runs inside G5's existing 360-second settle wait. An
         # unavailable scrape is evidence to retain, never a zero or a PASS.
