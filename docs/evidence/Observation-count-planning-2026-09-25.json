@@ -1,0 +1,55 @@
+{
+  "generated_at": "2026-09-25T10:17:57.945340+00:00",
+  "scope": "Real populated 4096 forward migration regression, not full million-entity acceptance",
+  "base_commit": "cbf7bf56e1679d40bfb797e8cf1808a14ccb45f4",
+  "migration": "migrations/pipeline/022-plan-observation-counts.sql",
+  "migration_sha256": "105d292a6349fb6807df0d32e0978df9a167efa2de57f8795f26955ef61a60e9",
+  "status": "PASS",
+  "manifest": "artifacts/final/kit-final-20260925101419-d34637f6/run.json",
+  "manifest_sha256": "a13c6fbaecfcf41b58f426603cc88dc97460c8954b082a43312c061500903f52",
+  "cleanup": {
+    "status": "PASS",
+    "errors": []
+  },
+  "owned_containers_remaining": 0,
+  "aggregate_query_unchanged": true,
+  "count_language_transition": {
+    "before": "sql",
+    "after": "plpgsql"
+  },
+  "operational_snapshot_preserved": true,
+  "durable_bytes_sha256": "d1045e4b27bd644d3e32075fc35802eaa94b4f41dbee91e10bf3264d71e64f4d",
+  "preserved_catalog_sha256": "4c65eb19e5552059a8fa6b5d578dac6e95286561adff76d2b5cbe155e43e2f9e",
+  "cases": [
+    {
+      "case": "healthy",
+      "terminal_validation": true,
+      "old_new_counts_equal": true
+    },
+    {
+      "case": "missing_member",
+      "terminal_validation": false,
+      "old_new_counts_equal": true
+    },
+    {
+      "case": "wrong_checkpoint",
+      "terminal_validation": false,
+      "old_new_counts_equal": true
+    },
+    {
+      "case": "wrong_batch_hash",
+      "terminal_validation": false,
+      "old_new_counts_equal": true
+    }
+  ],
+  "reconciliation": {
+    "status": "PASS",
+    "scope": "Independent frozen-fixture comparison; execution scale is reported separately",
+    "baselines": 4096,
+    "entities": 4096,
+    "historical_events": 4096,
+    "mutation_effects": 0,
+    "expected_rejected_revisions": 0,
+    "oracle": "verifier-owned commands and seed recipe, exact revisions/bytes/relations/values"
+  }
+}

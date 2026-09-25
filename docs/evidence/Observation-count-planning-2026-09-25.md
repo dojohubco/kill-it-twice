@@ -1,0 +1,15 @@
+# Observation count statement planning, 2026-09-25
+
+The default-million run at `cbf7bf56e1679d40bfb797e8cf1808a14ccb45f4` passed G1 but failed G2 with `Deadline: settle-G2`. Saved PostgreSQL logs identify `backfill_observed_counts` inside the timed-out observation. G3–G5, reconciliation and negative controls did not run. Both owned installations cleaned up; the original execution plan and slow subexpression were not captured.
+
+Migration 022 keeps the exact aggregate, joins and missing/pending rules from 016, using a fixed PL/pgSQL `EXECUTE` statement with `USING id`. The parameter is bound, never interpolated. Each invocation plans that statement for the supplied run. No query deadline, planner setting, privilege or terminal validator changes. PostgreSQL documents this execution behavior in [PL/pgSQL statements](https://www.postgresql.org/docs/18/plpgsql-statements.html#PLPGSQL-STATEMENTS-EXECUTING-DYN).
+
+A controlled synthetic fixture used 1,000,000 members, two delivery rows per member and approximately 1 KiB receipt bodies. Two state-update cycles left dirty pages; autovacuum was disabled only on those isolated fixture tables. The PostgreSQL container had no network or published ports and retained its 1 GiB limit. Every observation retained the 8-second deadline and disabled JIT, matching operational reads.
+
+The original SQL-language function timed out on three observations. The fixed original-query `EXECUTE` variant returned exact counts in 6.313, 6.593 and 6.558 seconds; 32-member and empty observations each took 0.116 seconds. Twelve mixed-size observations on one persistent backend and all 144 supported-state/missing-obligation combinations passed. The captured synthetic nested plan launched two workers. Cleanup passed. These results do not establish the original runtime plan or guarantee full-service acceptance.
+
+Separate LEFT aggregates, `SELECT INTO`, RETURN-subquery and UNION alternatives failed required bounded checks and were rejected. Their failed artifacts remain retained locally. The selected comparison is `artifacts/capacity/observation-statement-forms-20260925094459`; reproducible selected-form regression is `python3 scripts/capacity/observation-counts-benchmark.py --dirty`.
+
+The real populated upgrade used the committed cbf7bf5 application image, seeded 4,096 entities, waited for actual completion and quiesced only its owned workers. `python3 scripts/capacity/observation-check.py --counts-upgrade` passed: identical durable row bytes and operational aggregates, preserved function identity/owner/ACL/configuration and terminal-function source, exact old/new counts, rollback-only missing-member/checkpoint/batch-hash controls, restricted operator access and independent content reconciliation. Cleanup passed with zero owned containers. [Selected evidence](Observation-count-planning-2026-09-25.json) records hashes and scope.
+
+New clean-commit functional and default-million acceptance remain required. Historical passing smaller fixtures or earlier code do not supply those results. Publication remains pending that acceptance.
