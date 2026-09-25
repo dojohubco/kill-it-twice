@@ -68,7 +68,9 @@ export async function inspectLiveInterface(apiUrl: string) {
             ? 'text/javascript'
             : extname(path) === '.css'
               ? 'text/css'
-              : 'text/html',
+              : extname(path) === '.woff2'
+                ? 'font/woff2'
+                : 'text/html',
       });
       response.end(bytes);
     })().catch(() => {

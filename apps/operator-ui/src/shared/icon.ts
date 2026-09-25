@@ -1,5 +1,7 @@
 import { Component, computed, input } from '@angular/core';
 const paths: Record<string, string> = {
+  server: 'M4 3h16v7H4z M4 14h16v7H4z M7 6h.01 M7 17h.01',
+  schema: 'M8 4H4v16h4 M16 4h4v16h-4 M10 8l-3 4 3 4 M14 8l3 4-3 4',
   overview: 'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',
   backfill: 'M4 6h16 M4 12h16 M4 18h10 M17 16l3 3-3 3',
   records: 'M5 3h14v18H5z M8 7h8 M8 11h8 M8 15h5',
@@ -19,8 +21,8 @@ const paths: Record<string, string> = {
   selector: 'kit-icon',
   standalone: true,
   template: `<svg
-    width="18"
-    height="18"
+    width="16"
+    height="16"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"

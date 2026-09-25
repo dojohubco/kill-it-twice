@@ -9,9 +9,10 @@
 >
   @if(actions.current();as action){
   <div class="dialog-heading">
-    <span class="dialog-symbol" [class.danger]="action.danger"
-      ><kit-icon [name]="action.danger?'failures':'check'" /></span
-    ><button
+    <h2 id="action-title">
+      <kit-icon [name]="action.danger?'failures':'check'" />{{action.title}}
+    </h2>
+    <button
       type="button"
       class="icon-button"
       aria-label="Close confirmation"
@@ -21,47 +22,50 @@
       <kit-icon name="close" />
     </button>
   </div>
-  <h2 id="action-title">{{action.title}}</h2>
-  <p id="action-description" class="muted">{{action.description}}</p>
-  <div class="request-identity">
-    <span class="field-label">Idempotency key</span
-    ><code>{{action.requestKey}}</code
-    ><small>One key is retained for this action and any retry.</small>
-  </div>
-  @if(!actions.api.operator()){
-  <p class="notice warning">
-    Operator access is required. Close this dialog and connect using the
-    run-local token.
-  </p>
-  } @if(actions.error();as error){
-  <div class="notice danger" role="alert">
-    <strong
-      >{{error.ambiguous?'Outcome not confirmed':'Action not accepted'}}</strong
-    >
-    <p>{{error.instruction}}</p>
-    @if(error.ambiguous){
-    <p>
-      The action may have committed. A retry will use the same request and key.
-      Closing this dialog does not cancel that action.
+  <div class="dialog-body">
+    <p id="action-description" class="muted">{{action.description}}</p>
+    <div class="request-identity">
+      <span class="field-label">Idempotency key</span
+      ><code>{{action.requestKey}}</code
+      ><small>One key is retained for this action and any retry.</small>
+    </div>
+    @if(!actions.api.operator()){
+    <p class="notice warning">
+      Operator access is required. Close this dialog and connect using the
+      run-local token.
     </p>
-    }@if(error.requestId){<small>Request <code>{{error.requestId}}</code></small
-    >}
+    } @if(actions.error();as error){
+    <div class="notice danger" role="alert">
+      <strong
+        >{{error.ambiguous?'Outcome not confirmed':'Action not
+        accepted'}}</strong
+      >
+      <p>{{error.instruction}}</p>
+      @if(error.ambiguous){
+      <p>
+        The action may have committed. A retry will use the same request and
+        key. Closing this dialog does not cancel that action.
+      </p>
+      }@if(error.requestId){<small
+        >Request <code>{{error.requestId}}</code></small
+      >}
+    </div>
+    } @if(actions.accepted();as accepted){
+    <div class="notice success" role="status">
+      <strong
+        >{{accepted.outcome==='already_applied'?'Original request
+        recovered':'Request accepted'}}</strong
+      >
+      <p>
+        This confirms the control request, not end-to-end delivery. Check the
+        current operational state.
+      </p>
+      @if(accepted.requestId){<small
+        >Request <code>{{accepted.requestId}}</code></small
+      >}
+    </div>
+    }
   </div>
-  } @if(actions.accepted();as accepted){
-  <div class="notice success" role="status">
-    <strong
-      >{{accepted.outcome==='already_applied'?'Original request
-      recovered':'Request accepted'}}</strong
-    >
-    <p>
-      This confirms the control request, not end-to-end delivery. Check the
-      current operational state.
-    </p>
-    @if(accepted.requestId){<small
-      >Request <code>{{accepted.requestId}}</code></small
-    >}
-  </div>
-  }
   <footer class="dialog-actions">
     <button
       type="button"

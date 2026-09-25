@@ -1,30 +1,52 @@
-<a class="skip-link" href="#main-content">Skip to content</a>
-<div class="workspace-shell">
-  <aside class="sidebar" [class.open]="menu()">
-    <a routerLink="/overview" class="brand" aria-label="Kill It Twice overview"
-      ><span class="brand-mark" aria-hidden="true">k<span>²</span></span
-      ><span>Kill It Twice<small>Replication workspace</small></span></a
-    >
-    <span class="nav-label">WORKSPACE</span>
-    <nav aria-label="Workspace">
-      @for(link of links;track link.path){<a
+<ng-template #navigation>
+  <a class="brand" routerLink="/overview" (click)="closeMenu()">
+    <span class="brand-mark" aria-hidden="true">k<span>²</span></span>
+    <span>Kill It Twice<small>Replication workspace</small></span>
+  </a>
+  <nav aria-label="Workspace">
+    <div class="nav-group">
+      <span class="nav-label">Workspace</span>
+      @for(link of links.slice(0,4);track link.path){
+      <a
         [routerLink]="link.path"
         routerLinkActive="selected"
         ariaCurrentWhenActive="page"
-        ><kit-icon [name]="link.icon" /><span>{{link.title}}</span></a
+        (click)="closeMenu()"
+      >
+        <kit-icon [name]="link.icon" /><span>{{link.title}}</span> </a
       >}
-    </nav>
-    <div class="sidebar-bottom">
-      <div class="local-indicator">
-        <span class="status-dot neutral" aria-hidden="true"></span> Local
-        environment
-      </div>
-      <p>At-least-once transport.<br />Independent receiver outcomes.</p>
-      <a href="/api/v1/openapi.json" target="_blank" rel="noopener"
-        >API schema <span class="sr-only">(opens in a new tab)</span
-        ><kit-icon name="arrow"
-      /></a>
     </div>
+    <div class="nav-group">
+      <span class="nav-label">Manage</span>
+      @for(link of links.slice(4);track link.path){
+      <a
+        [routerLink]="link.path"
+        routerLinkActive="selected"
+        ariaCurrentWhenActive="page"
+        (click)="closeMenu()"
+      >
+        <kit-icon [name]="link.icon" /><span>{{link.title}}</span> </a
+      >}
+    </div>
+  </nav>
+  <div class="sidebar-bottom">
+    <a href="/api/v1/openapi.json" target="_blank" rel="noopener">
+      <kit-icon name="schema" /> API schema
+      <span class="sr-only">(opens in a new tab)</span><kit-icon name="arrow" />
+    </a>
+    <div class="environment-card">
+      <kit-icon name="server" />
+      <div>
+        <span>Local environment</span
+        ><small>Independent receiver outcomes</small>
+      </div>
+    </div>
+  </div>
+</ng-template>
+<a class="skip-link" href="#main-content">Skip to content</a>
+<div class="workspace-shell">
+  <aside class="sidebar" aria-label="Workspace sidebar">
+    <ng-container [ngTemplateOutlet]="navigation" />
   </aside>
   <div class="workspace-main">
     <header class="topbar">
@@ -34,12 +56,13 @@
           class="icon-button menu-button"
           aria-label="Toggle workspace navigation"
           [attr.aria-expanded]="menu()"
+          aria-controls="mobile-navigation"
           (click)="toggleMenu()"
         >
           <kit-icon name="menu" /></button
         ><span class="breadcrumb"
           >Workspace <span aria-hidden="true">/</span>
-          <strong>Operations</strong></span
+          <strong>{{activePage()}}</strong></span
         >
       </div>
       <div class="topbar-actions">
@@ -103,6 +126,27 @@
     </footer>
   </div>
 </div>
+<dialog
+  #navigationDialog
+  id="mobile-navigation"
+  class="navigation-dialog"
+  aria-label="Workspace navigation"
+  (keydown)="dialogKeyboard($event)"
+  (cancel)="closeMenu()"
+  (click)="navigationBackdrop($event)"
+>
+  <button
+    type="button"
+    class="icon-button navigation-close"
+    aria-label="Close workspace navigation"
+    (click)="closeMenu()"
+  >
+    <kit-icon name="close" />
+  </button>
+  <div class="mobile-sidebar">
+    <ng-container [ngTemplateOutlet]="navigation" />
+  </div>
+</dialog>
 <p class="sr-only" role="status" aria-live="polite">{{announcement()}}</p>
 <dialog
   #accessDialog
@@ -113,8 +157,8 @@
   (cancel)="closeAccess()"
 >
   <div class="dialog-heading">
-    <span class="dialog-symbol"><kit-icon name="lock" /></span
-    ><button
+    <h2 id="access-title"><kit-icon name="lock" />Connect operator access</h2>
+    <button
       type="button"
       class="icon-button"
       aria-label="Close operator access"
@@ -123,34 +167,37 @@
       <kit-icon name="close" />
     </button>
   </div>
-  <h2 id="access-title">Connect operator access</h2>
-  <p id="access-description" class="muted">
-    Use the run-local token from the private control configuration. It stays
-    only in memory and is cleared when this page closes or reloads.
-  </p>
-  <form (submit)="submitAccess($event)">
-    <label for="operator-token">Operator token</label
-    ><input
-      id="operator-token"
-      name="token"
-      type="password"
-      autocomplete="off"
-      spellcheck="false"
-      required
-      minlength="32"
-      maxlength="1024"
-      [attr.aria-invalid]="accessError()?true:null"
-      aria-describedby="token-hint access-error"
-    /><small id="token-hint"
-      >The server authorizes each action. Setting a token is not a verified
-      sign-in.</small
-    >
-    <p id="access-error" class="error-text" role="alert">{{accessError()}}</p>
-    <footer class="dialog-actions">
-      <button type="button" class="button secondary" (click)="closeAccess()">
-        Cancel</button
-      ><button type="submit" class="button">Use token</button>
-    </footer>
-  </form>
+  <div class="dialog-body">
+    <p id="access-description" class="muted">
+      Use the run-local token from the private control configuration. It stays
+      only in memory and is cleared when this page closes or reloads.
+    </p>
+    <form id="operator-access-form" (submit)="submitAccess($event)">
+      <label for="operator-token">Operator token</label
+      ><input
+        id="operator-token"
+        name="token"
+        type="password"
+        autocomplete="off"
+        spellcheck="false"
+        required
+        minlength="32"
+        maxlength="1024"
+        [attr.aria-invalid]="accessError()?true:null"
+        aria-describedby="token-hint access-error"
+      /><small id="token-hint"
+        >The server authorizes each action. Setting a token is not a verified
+        sign-in.</small
+      >
+      <p id="access-error" class="error-text" role="alert">{{accessError()}}</p>
+    </form>
+  </div>
+  <footer class="dialog-actions">
+    <button type="button" class="button secondary" (click)="closeAccess()">
+      Cancel</button
+    ><button type="submit" form="operator-access-form" class="button">
+      Use token
+    </button>
+  </footer>
 </dialog>
 <kit-action-dialog />

@@ -1,6 +1,6 @@
 # Operator workspace design
 
-Status: implementation plan; browser evidence pending.
+Status: implemented operator workspace. The original plan and subsequent refinements are retained below; the current presentation is the dark redesign described at the end of this document.
 
 ## Scope and information hierarchy
 
@@ -65,3 +65,11 @@ The real retained-runtime R08 case covers save/cancel, native validation, keyboa
 The original assignment requires changes to appear without manually refreshing Records. Refresh the current bounded search page and selected detail every five seconds after the read cycle, using the existing workspace Auto-refresh toggle. Pause automatic work in hidden tabs, refresh on return, and cancel requests/timers on navigation. Manual refresh works while paused. Search and page changes cancel superseded reads; closing or changing a detail invalidates its old response.
 
 Keep existing rows and detail during background reads, retain timestamps and label failed observations as last-known until a successful read. Only explicit inspection moves focus. Keep drafts, filters, cursors and the open detail stable across background cycles; repeated loading announcements and decorative animation would distract, so background reads use existing timestamps/error text. Reuse all existing layout, type, color and focus tokens. The browser fixture inventory adds U11 (automatic changes, pause, visibility, failure/recovery and cleanup) and U12 (delayed response races). These establish frontend behavior separately from the prior full backend acceptance.
+
+## Dark workspace redesign — 2026-09-26
+
+All six routes use an explicit dark theme, independent of the operating-system preference. Semantic tokens distinguish the neutral sidebar, workspace, raised headings, fields, table rows and transient dialogs. Purple actions, readable text states and achromatic separators share one control vocabulary. The 254px desktop sidebar and 58px identity band use grouped navigation; narrow screens use a native modal navigation sheet. There is no desktop collapse or theme switch.
+
+Geist Variable is pinned and bundled locally; the browser makes no third-party font requests. The font license is distributed with the build. Knip lists this one CSS-only dependency explicitly because its import scanner does not follow the stylesheet import; rendered checks verify that the bundled font loads. Controls use compact pill actions, 8px fields and data surfaces, 12px dialog corners, named icons and persistent focus outlines. Tables keep their semantic columns in independently scrollable regions. Dialog headings and actions stay reachable while the body scrolls. No backend contract, data polling, authorization or mutation-confirmation rule changes with this presentation.
+
+Verification must cover the actual six routes at desktop and 320px widths, dark appearance under light system preference, local font loading, mobile navigation focus and Escape, short dialogs, reduced motion, forced colors, enlarged text, automatic Records refresh and same-key recovery. This scoped UI verification remains separate from the historical million-row acceptance.

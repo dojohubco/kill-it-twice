@@ -38,5 +38,6 @@
     "tests/**/*.ts",
     "*.js",
     "apps/**/*.ts"
-  ]
+  ],
+  "ignoreDependencies": ["@fontsource-variable/geist"]
 }

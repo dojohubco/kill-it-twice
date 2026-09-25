@@ -52,7 +52,9 @@ before(async () => {
             ? 'text/javascript'
             : extname(file) === '.css'
               ? 'text/css'
-              : 'text/html',
+              : extname(file) === '.woff2'
+                ? 'font/woff2'
+                : 'text/html',
         );
         res.end(bytes);
       } catch {
@@ -102,7 +104,7 @@ async function pageCase(
 ): Promise<void> {
   const context = await browser.newContext({
       viewport: { width: 1440, height: 1000 },
-      colorScheme: 'light',
+      colorScheme: 'dark',
     }),
     page = await context.newPage(),
     errors: string[] = [];
@@ -252,6 +254,16 @@ void test(
         name: 'Start a backfill run?',
       });
       await dialog.waitFor();
+      await page.screenshot({
+        path: resolve(output, 'confirmation-desktop.png'),
+      });
+      const dialogAudit = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+        .analyze();
+      assert.deepEqual(
+        dialogAudit.violations.map((v) => v.id),
+        [],
+      );
       state.ambiguousOnce = true;
       await dialog
         .getByRole('button', { name: 'Start backfill', exact: true })
@@ -392,7 +404,24 @@ void test(
         await page
           .getByRole('button', { name: 'Connect operator', exact: true })
           .waitFor();
-        await page.locator('body').click({ position: { x: 10, y: 10 } });
+        await page.locator('main .page-description').click();
+        assert.equal(
+          await page.locator('main h1').innerText(),
+          path.charAt(0).toUpperCase() + path.slice(1),
+        );
+        await page.evaluate(() => document.fonts.ready);
+        assert.equal(
+          await page.evaluate(() =>
+            document.fonts.check('14px "Geist Variable"'),
+          ),
+          true,
+        );
+        assert.equal(
+          await page.evaluate(
+            () => getComputedStyle(document.documentElement).colorScheme,
+          ),
+          'dark',
+        );
         const audit = await new AxeBuilder({ page })
           .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
           .analyze();
@@ -410,6 +439,53 @@ void test(
           fullPage: true,
         });
       }
+      await page.emulateMedia({ colorScheme: 'light' });
+      await page.setViewportSize({ width: 320, height: 760 });
+      for (const path of [
+        'overview',
+        'backfill',
+        'records',
+        'failures',
+        'simulations',
+        'configuration',
+      ]) {
+        await open(page, '/' + path);
+        assert.equal(
+          await page.evaluate(
+            () => getComputedStyle(document.documentElement).colorScheme,
+          ),
+          'dark',
+          'The workspace remains dark under a light system preference.',
+        );
+        assert.equal(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth,
+          ),
+          true,
+          path,
+        );
+        const audit = await new AxeBuilder({ page })
+          .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+          .analyze();
+        audits.push({
+          path,
+          viewport: 320,
+          systemPreference: 'light',
+          violations: audit.violations,
+        });
+        assert.deepEqual(
+          audit.violations.map((v) => ({
+            id: v.id,
+            nodes: v.nodes.map((n) => n.target),
+          })),
+          [],
+          path + ' at 320px',
+        );
+        await page.screenshot({
+          path: resolve(output, path + '-mobile.png'),
+          fullPage: true,
+        });
+      }
       await writeFile(
         resolve(output, 'accessibility.json'),
         JSON.stringify(audits, null, 2),
@@ -424,6 +500,53 @@ void test(
       await page.setViewportSize({ width: 320, height: 760 });
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await open(page);
+      await page
+        .getByRole('button', { name: 'Toggle workspace navigation' })
+        .click();
+      const navigation = page.getByRole('dialog', {
+        name: 'Workspace navigation',
+      });
+      await navigation.waitFor();
+      const navigationAudit = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+        .analyze();
+      assert.deepEqual(
+        navigationAudit.violations.map((v) => v.id),
+        [],
+      );
+      await page.mouse.click(300, 200);
+      await navigation.waitFor({ state: 'hidden' });
+      await page
+        .getByRole('button', { name: 'Toggle workspace navigation' })
+        .click();
+      await page.setViewportSize({ width: 1280, height: 760 });
+      await navigation.waitFor({ state: 'hidden' });
+      await page.setViewportSize({ width: 320, height: 760 });
+      await page
+        .getByRole('button', { name: 'Toggle workspace navigation' })
+        .click();
+
+      await page.screenshot({
+        path: resolve(output, 'navigation-320.png'),
+        fullPage: false,
+      });
+      for (let i = 0; i < 12; i++) {
+        await page.keyboard.press('Tab');
+        assert.equal(
+          await navigation.evaluate((el) =>
+            el.contains(document.activeElement),
+          ),
+          true,
+        );
+      }
+      await page.keyboard.press('Escape');
+      await navigation.waitFor({ state: 'hidden' });
+      assert.equal(
+        await page
+          .getByRole('button', { name: 'Toggle workspace navigation' })
+          .evaluate((el) => el === document.activeElement),
+        true,
+      );
       await page
         .getByRole('button', { name: 'Toggle workspace navigation' })
         .click();
@@ -446,6 +569,23 @@ void test(
         name: 'Connect operator access',
       });
       await dialog.waitFor();
+      await page.setViewportSize({ width: 320, height: 360 });
+      await page.getByLabel('Operator token', { exact: true }).focus();
+      const dialogBounds = await dialog.boundingBox();
+      const actionsBounds = await dialog
+        .locator('.dialog-actions')
+        .boundingBox();
+      assert.ok(
+        dialogBounds &&
+          actionsBounds &&
+          actionsBounds.y >= 0 &&
+          actionsBounds.y + actionsBounds.height <= 360,
+      );
+      await page.screenshot({
+        path: resolve(output, 'access-dialog-short.png'),
+        fullPage: true,
+      });
+      await page.setViewportSize({ width: 320, height: 760 });
       for (let i = 0; i < 12; i++) {
         await page.keyboard.press('Tab');
         assert.equal(
@@ -565,6 +705,17 @@ void test(
             viewport: { width: innerWidth, height: innerHeight },
             bodyFont: getComputedStyle(document.body).fontFamily,
             fontSize: getComputedStyle(document.body).fontSize,
+            colorScheme: getComputedStyle(document.documentElement).colorScheme,
+            fonts: Array.from(document.fonts).map((font) => ({
+              family: font.family,
+              status: font.status,
+            })),
+            sidebarWidth: document
+              .querySelector('.sidebar')
+              ?.getBoundingClientRect().width,
+            topbarHeight: document
+              .querySelector('.topbar')
+              ?.getBoundingClientRect().height,
             focusControls: document.querySelectorAll('button,a,input,select')
               .length,
             runningAnimations: document.getAnimations().length,

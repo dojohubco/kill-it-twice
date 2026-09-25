@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { dialogKeyboard } from './shared/dialog-keyboard';
 import {
   Component,
@@ -24,7 +25,14 @@ import { ActionDialog } from './shared/action-dialog';
 @Component({
   selector: 'kit-root',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, Icon, ActionDialog],
+  imports: [
+    RouterOutlet,
+    RouterLink,
+    RouterLinkActive,
+    NgTemplateOutlet,
+    Icon,
+    ActionDialog,
+  ],
   templateUrl: './app.html',
 })
 export class AppComponent {
@@ -34,6 +42,9 @@ export class AppComponent {
   readonly router = inject(Router);
   readonly destroy = inject(DestroyRef);
   readonly menu = signal(false);
+  readonly activePage = signal('Overview');
+  readonly navigationDialog =
+    viewChild<ElementRef<HTMLDialogElement>>('navigationDialog');
   readonly accessError = signal('');
   readonly announcement = signal('');
   readonly timestamp = timestamp;
@@ -49,6 +60,14 @@ export class AppComponent {
   ];
   constructor() {
     this.workspace.start();
+    const desktop = matchMedia('(min-width: 1024px)');
+    const closeOnDesktop = () => {
+      if (desktop.matches) this.closeMenu();
+    };
+    desktop.addEventListener('change', closeOnDesktop);
+    this.destroy.onDestroy(() =>
+      desktop.removeEventListener('change', closeOnDesktop),
+    );
     this.destroy.onDestroy(() => this.workspace.stop());
     this.router.events
       .pipe(
@@ -56,7 +75,12 @@ export class AppComponent {
         takeUntilDestroyed(this.destroy),
       )
       .subscribe((event) => {
-        this.menu.set(false);
+        this.closeMenu();
+        this.activePage.set(
+          this.links.find(
+            (link) => link.path === event.urlAfterRedirects.split('?')[0],
+          )?.title ?? 'Workspace',
+        );
         if (event.id > 1)
           requestAnimationFrame(() =>
             document.querySelector<HTMLElement>('main h1')?.focus(),
@@ -64,11 +88,29 @@ export class AppComponent {
       });
   }
   toggleMenu(): void {
-    this.menu.update((v) => !v);
-    if (this.menu())
-      requestAnimationFrame(() =>
-        document.querySelector<HTMLElement>('.sidebar nav a')?.focus(),
-      );
+    if (this.menu()) {
+      this.closeMenu();
+      return;
+    }
+    this.navigationDialog()?.nativeElement.showModal();
+    this.menu.set(true);
+  }
+  closeMenu(): void {
+    this.navigationDialog()?.nativeElement.close();
+    this.menu.set(false);
+  }
+  navigationBackdrop(event: MouseEvent): void {
+    if (event.target !== this.navigationDialog()?.nativeElement) return;
+    const bounds =
+      this.navigationDialog()?.nativeElement.getBoundingClientRect();
+    if (
+      bounds &&
+      (event.clientX < bounds.left ||
+        event.clientX > bounds.right ||
+        event.clientY < bounds.top ||
+        event.clientY > bounds.bottom)
+    )
+      this.closeMenu();
   }
   access(): void {
     if (this.api.operator()) {

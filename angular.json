@@ -25,6 +25,13 @@
                 "maximumWarning": "650kB",
                 "maximumError": "900kB"
               }
+            ],
+            "assets": [
+              {
+                "glob": "LICENSE",
+                "input": "node_modules/@fontsource-variable/geist",
+                "output": "licenses/geist"
+              }
             ]
           },
           "configurations": {
