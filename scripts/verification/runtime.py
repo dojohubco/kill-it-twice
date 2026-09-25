@@ -162,6 +162,18 @@ class Runtime:
             time.sleep(interval)
         (self.out/(label+'-last.json')).write_text(json.dumps(last,indent=2))
         raise AssertionError('Deadline: '+label)
+    def consumer_redelivery(self, event_id):
+        # Durable counters may already be settled before the restarted process
+        # receives the unacknowledged message. Observe the real replay itself.
+        def observe():
+            path=self.out/'consumer-trace.jsonl'
+            rows=[json.loads(line) for line in path.read_text().splitlines() if line.strip()] if path.exists() else []
+            delivered=[row['data'] for row in rows if row['type']=='consumer-delivery' and row['data']['message_id']==event_id]
+            committed=[result for row in rows if row['type']=='consumer-commit' for result in row['data']['result'] if result['event_id']==event_id and result['status']=='already_processed']
+            return {'deliveries':delivered,'duplicate_commits':committed}
+        evidence=self.wait(observe,lambda value:len(value['deliveries'])>=2 and any(row['redelivered'] for row in value['deliveries']) and bool(value['duplicate_commits']),'consumer-redelivery',timeout=15)
+        assert len({row['wire_sha256'] for row in evidence['deliveries']})==1, 'Consumer redelivery wire bytes changed'
+        return evidence
     def control(self, role, boundary='', record=False):
         token=str(uuid.uuid4())
         (self.out/(role+'-control.json')).write_text(json.dumps({'boundary':boundary,'token':token,'record':record}))

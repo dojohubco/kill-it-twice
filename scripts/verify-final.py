@@ -207,10 +207,11 @@ try:
     hit=r.boundary(token);key=event_key(one);before=event(key)
     assert len(before['consumer']['inbox'])==len(before['consumer']['effects'])==1
     consumer_kill=r.kill('consumer',hit);r.control('consumer',record=True);r.start('consumer');settled()
+    replay=r.consumer_redelivery(key)
     after=event(key);assert before['consumer']==after['consumer']
-    delivered=[x['data'] for x in trace('consumer') if x['type']=='consumer-delivery' and x['data']['message_id']==key]
+    delivered=replay['deliveries']
     assert len(delivered)>=2 and len({x['wire_sha256'] for x in delivered})==1 and any(x['redelivered'] for x in delivered)
-    consumer_evidence={'fault':consumer_kill,'event':key,'deliveries':delivered,'retained_effect':after['consumer'],'healthy':healthy}
+    consumer_evidence={'fault':consumer_kill,'event':key,'deliveries':delivered,'duplicate_commits':replay['duplicate_commits'],'retained_effect':after['consumer'],'healthy':healthy}
     healthy_token=start_role('publisher','publisher.after_confirm.before_local_commit',True)
     one=changes([request('create',payload={'name':'Healthy publisher control','country':'GE','loyalty_points':3})])[0]
     healthy=r.boundary(healthy_token);release(healthy_token);settled()

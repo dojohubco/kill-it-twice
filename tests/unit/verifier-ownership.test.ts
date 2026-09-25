@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { test } from 'node:test';
-void test('verifier refuses demo cleanup, foreign resources and wrong Compose projects', async () => {
+void test('verifier preserves ownership and requires bounded real redelivery evidence', async () => {
   const result = await promisify(execFile)(
     'python3',
     ['-B', 'tests/final/runtime_test.py'],
     { timeout: 5000, maxBuffer: 65536 },
   );
-  assert.match(result.stderr, /Ran 6 tests/);
+  assert.match(result.stderr, /Ran 12 tests/);
   assert.match(result.stderr, /\bOK\b/);
 });

@@ -1,0 +1,43 @@
+{
+  "observed_at": "2026-09-25T10:31:59.742023+00:00",
+  "tested_commit": "91d606b29426c100fe58b6909bcc6526db05880a",
+  "scope": "Failed clean 1024 functional acceptance; full1M not started",
+  "status": "FAIL",
+  "gate_report": {
+    "G1": "PASS",
+    "G2": "FAIL",
+    "G3": "NOT RUN",
+    "G4": "NOT RUN",
+    "G5": "NOT RUN"
+  },
+  "manifest": "artifacts/final/kit-final-20260925102205-acddad9c/run.json",
+  "manifest_sha256": "b5618dc5cb1c4a6da3da0a24d1bd9118dd5116592ceb0913b4805488459aff1e",
+  "error": {
+    "phase": "G2",
+    "type": "AssertionError",
+    "message": ""
+  },
+  "cleanup": {
+    "status": "PASS",
+    "errors": []
+  },
+  "preexisting_containers_preserved": 27,
+  "owned_containers_remaining": 0,
+  "failed_clone_clean": true,
+  "reconciliation": "NOT RUN",
+  "negative_controls": "NOT RUN",
+  "saved_final_consumer_evidence": {
+    "target_deliveries": 2,
+    "same_wire_hash": true,
+    "redelivery_seen": true,
+    "commit_outcomes": ["processed", "already_processed"],
+    "before_after_inbox_effects_equal": true
+  },
+  "timing": {
+    "after_event_read_finished_at": "2026-09-25T10:24:17.844494+00:00",
+    "failure_diagnostics_started_at": "2026-09-25T10:24:17.854228+00:00",
+    "consumer_worker_start_log": "2026-09-25T10:24:17.772261138Z",
+    "redelivery_completion_log": "2026-09-25T10:24:17.908762680Z"
+  },
+  "diagnosis": "Immediate trace assertion follows already-satisfied durable counters; final trace contains required duplicate after the assertion. Must wait for actual redelivery and duplicate commit before comparing unchanged durable effect. No count-query timeout in retained PG diagnostic."
+}
