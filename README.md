@@ -110,7 +110,7 @@ These guarantees assume intact retained storage, controlled source privileges, t
 
 ## Operator use and recovery
 
-![Current dark operator overview](docs/images/operator-overview.png)
+![Current dark operator overview](docs/images/operator-overview.jpg)
 
 Current interface captured on 2026-09-26 against the retained local demo with 257 records.
 
