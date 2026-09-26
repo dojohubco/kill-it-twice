@@ -2,7 +2,7 @@
 
 ## Current revision and reading order
 
-The current UI implementation is `1b1ae55`; documentation-only `5b0643c` passed [hosted fast functional and UI checks](https://github.com/dojohubco/kill-it-twice/actions/runs/36186607736). [Redesign evidence](evidence/Dark-workspace-2026-09-26.md) includes the separate local real-API check. The million-record proof below belongs to `1f2f3f2`, not to a repeated million-record run after the UI changes. [Server observation follow-up](observability-closure.md) is pending its own correction and evidence.
+Start with the [assignment review guide](assignment-review.md) for the original requirements, implementation links and evidence identities. Application revision `812a1b7` passed [hosted quality, real 1024 functional and UI checks](https://github.com/dojohubco/kill-it-twice/actions/runs/36194928143). The [UI redesign evidence](evidence/Dark-workspace-2026-09-26.md) and [observation projection evidence](evidence/Observation-projections-2026-09-26.md) retain their own scopes. The full local million-record proof below belongs to `1f2f3f2`.
 
 All sections explicitly titled **Historical** retain their original results, including statements about publication before it happened. They are not the current publication status. The repository is public; hosted fast CI is distinct from the local million-record acceptance.
 

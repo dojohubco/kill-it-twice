@@ -11,7 +11,7 @@ A retained local replication application: PostgreSQL source and outbox, resumabl
 3. **Reproduce full acceptance:** run `make verify` from a clean checkout. The measured million-record run took **3 h 36 min**; allow at least **8 GiB available RAM and 80 GiB free disk**. It creates isolated resources and verifies cleanup. Time varies with hardware and other workloads.
 4. **Inspect the engineering decisions:** the diagram and decision table below lead to the detailed ADRs; the gate table links to dated evidence. [SPEC history](https://github.com/dojohubco/kill-it-twice/commits/main/SPEC.md) shows the pre-code specification and subsequent changes.
 
-Current limitations and previous failures stay visible. Historical reports describe their own tested revision, not the status of every later commit.
+For the complete requirement-to-evidence map, use the [assignment review guide](docs/assignment-review.md). Every report identifies its tested revision and execution environment.
 
 ## Prerequisites and quick start
 
@@ -62,7 +62,7 @@ Run final acceptance from clean committed code after installation. `make verify`
 | G4   | One actual 500-operation bulk, 497 successes and three independently predeclared mapping rejections with retained DLQ evidence.                                                                                 | **PASS**        |
 | G5   | Real status/metrics/browser observations of progress, useful throughput, lag, failures and dependency/data health.                                                                                              | **PASS**        |
 
-These results were observed on 2026-09-25 at tested commit `1f2f3f2d544a70b1e63d40d3a0f27d62f4249685`; see the [full local acceptance report](docs/evidence/Final-submission-2026-09-25.md) for the exact run, reconciliation, negative controls, resources and cleanup. They are not a claim that later UI changes reran the million-row workload.
+These results were observed on 2026-09-25 at tested commit `1f2f3f2d544a70b1e63d40d3a0f27d62f4249685`; see the [full local acceptance report](docs/evidence/Final-submission-2026-09-25.md) for the exact run, reconciliation, negative controls, resources and cleanup. The [assignment review guide](docs/assignment-review.md) separately identifies the current source, UI checks and hosted validation.
 
 Exports and the independent disk-backed oracle compare exact identity sets, versions, payloads, tombstones, event history, source ACKs, receipts and business effects. Five corrupt-export controls must be detected. Full terminal run validation remains mandatory; short status observations explicitly do not revalidate integrity, and unknown fields remain unknown. Failed phases and unattempted gates are distinct. Cleanup failure makes the entire command nonzero.
 
@@ -70,28 +70,37 @@ Reports, input hashes, source snapshots, commands, fault markers, exports, resou
 
 ## Architecture and commit boundaries
 
+Read the solid arrows from top to bottom: source changes and backfill pages join the same durable pipeline, then reach two independent receivers. The dotted line is the operator's control and observation path.
+
 ```mermaid
-flowchart LR
-  S[PostgreSQL source entities] -->|same transaction| O[Immutable outbox]
-  S --> B[Bounded keyset backfill]
-  O --> C[Incremental claim and capture]
-  C -->|pipeline COMMIT first| P[Canonical events and independent obligations]
-  B -->|one COMMIT| P
-  B --> K[Durable checkpoints and finite fence]
-  P -->|then source ACK| O
-  P --> E[Elasticsearch external versions and tombstones]
-  P -->|persistent mandatory publish| R[RabbitMQ quorum queue]
-  R -->|publisher confirm| P
-  R --> U[Independent consumer database]
-  U --> I[Inbox + projection + business effect COMMIT]
-  I -->|then individual ACK| R
-  I -->|exact receipt observation| P
-  E --> D[Retained ES DLQ and attempts]
-  D -->|audited same-event replay| P
-  R --> Q[Consumer quarantine, inspection only]
-  P --> A[Restricted control API and metrics]
-  A --> UI[Angular operator UI]
+flowchart TB
+  Source["Source PostgreSQL<br/>Rows + immutable outbox"]
+  Transfer["Backfill + incremental capture<br/>Concurrent, bounded workers"]
+  Pipeline["Pipeline PostgreSQL<br/>Events + sink obligations<br/>Checkpoints + Elasticsearch DLQ"]
+  Search["Elasticsearch<br/>Versioned search + tombstones"]
+  Broker["RabbitMQ<br/>Durable event stream"]
+  Consumer["Consumer PostgreSQL<br/>Inbox + projection + business effects"]
+  Operator["Angular operator UI<br/>Status, records, controls, simulations"]
+  API["NestJS control API<br/>Restricted commands + metrics"]
+
+  Source --> Transfer --> Pipeline
+  Pipeline -->|per-item delivery| Search
+  Pipeline -->|confirmed publication| Broker
+  Broker -->|delivery and redelivery| Consumer
+  Operator --> API
+  API -.->|observe and control| Pipeline
 ```
+
+The API observes source, pipeline, consumer, search and broker health; the dotted edge summarizes that control plane. It never carries replicated records between receivers. Elasticsearch DLQ records live in the **pipeline database**, alongside attempts and replay audit history.
+
+| Boundary          | What becomes durable together                            | What happens afterward                         |
+| ----------------- | -------------------------------------------------------- | ---------------------------------------------- |
+| Source mutation   | Row version and immutable outbox after-image             | Incremental capture can claim it               |
+| Backfill page     | Canonical events, obligations, membership and checkpoint | Resume begins from that committed checkpoint   |
+| Captured mutation | Pipeline event and both sink obligations                 | The source event can be acknowledged as staged |
+| Consumer delivery | Inbox deduplication, projection and business effects     | Individual RabbitMQ ACK                        |
+
+An Elasticsearch item rejection retains its own DLQ entry while successful items settle. Audited replay reuses the original event and preserves the other receiver's progress. Publisher confirmation and consumer completion are deliberately separate boundaries.
 
 Source and pipeline are separate PostgreSQL services/transaction domains. The consumer owns a separate database and credentials on the state service. Source mutations commit their immutable after-images atomically. Backfill pages commit staging and checkpoint evidence together. A finite source fence closes a run without preventing later incremental capture.
 
