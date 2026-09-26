@@ -30,17 +30,10 @@
     </div>
   </nav>
   <div class="sidebar-bottom">
-    <a href="/api/v1/openapi.json" target="_blank" rel="noopener">
-      <kit-icon name="schema" /> API schema
-      <span class="sr-only">(opens in a new tab)</span><kit-icon name="arrow" />
+    <a href="/api/v1/openapi.json" download="kill-it-twice-openapi.json">
+      <kit-icon name="schema" /> Download API schema
+      <kit-icon name="arrow" />
     </a>
-    <div class="environment-card">
-      <kit-icon name="server" />
-      <div>
-        <span>Local environment</span
-        ><small>Independent receiver outcomes</small>
-      </div>
-    </div>
   </div>
 </ng-template>
 <a class="skip-link" href="#main-content">Skip to content</a>
@@ -102,9 +95,9 @@
           operational API'}}</strong
         >
         <p>
-          {{workspace.snapshot()?'Showing the last observation, not current
-          health. Refresh after the service recovers.':'Start the local control
-          API and refresh. No operational data is being substituted.'}}
+          {{workspace.snapshot()?'Showing last-known data. Retry when the
+          service is available.':'Start the local API, then retry the
+          connection.'}}
         </p>
         <button
           type="button"
@@ -119,9 +112,7 @@
       <router-outlet />
     </main>
     <footer class="workspace-footer">
-      <span
-        >{{api.operator()?'Operator token held in memory':'Read-only
-        mode'}}</span
+      <span>{{api.operator()?'Operator token set':'Read-only mode'}}</span
       ><span>Last response: {{timestamp(workspace.receivedAt())}}</span>
     </footer>
   </div>
@@ -169,8 +160,8 @@
   </div>
   <div class="dialog-body">
     <p id="access-description" class="muted">
-      Use the run-local token from the private control configuration. It stays
-      only in memory and is cleared when this page closes or reloads.
+      Enter your operator token. It is cleared when you close or reload this
+      page.
     </p>
     <form id="operator-access-form" (submit)="submitAccess($event)">
       <label for="operator-token">Operator token</label
@@ -185,10 +176,7 @@
         maxlength="1024"
         [attr.aria-invalid]="accessError()?true:null"
         aria-describedby="token-hint access-error"
-      /><small id="token-hint"
-        >The server authorizes each action. Setting a token is not a verified
-        sign-in.</small
-      >
+      /><small id="token-hint">Get the token with make operator-token.</small>
       <p id="access-error" class="error-text" role="alert">{{accessError()}}</p>
     </form>
   </div>

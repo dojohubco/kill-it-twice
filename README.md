@@ -110,6 +110,10 @@ These guarantees assume intact retained storage, controlled source privileges, t
 
 ## Operator use and recovery
 
+![Current dark operator overview](docs/images/operator-overview.png)
+
+Current interface captured on 2026-09-26 against the retained local demo with 257 records.
+
 All six operator pages use a dark workspace with compact navigation, controls and data tables. See [dark workspace verification](docs/evidence/Dark-workspace-2026-09-26.md) for desktop/mobile, accessibility and real-API checks.
 
 The UI opens read-only. Connect the installation token only for an intended command. Overview separates staging, broker confirmation and consumer effects; missing/last-known observations are labeled. Records provides search, current details and exact identifiers. The current result page and open detail refresh every five seconds after the previous read cycle finishes, while the tab is visible and Auto-refresh is on. Search, pagination and keyboard focus are preserved; failed reads retain visibly last-known data. Refresh records also updates the open detail when automatic updates are paused. See [Records verification](docs/evidence/Records-live-updates-2026-09-25.md) for the scoped browser and real-API evidence. Backfill supports start, pause and resume; pause is admission control, so in-flight pages may still commit. Request acceptance is shown as scheduling, not completed delivery.

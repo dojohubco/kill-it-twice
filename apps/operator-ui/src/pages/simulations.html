@@ -1,9 +1,7 @@
 <div class="page-heading">
   <div>
     <h1 tabindex="-1">Simulations</h1>
-    <p class="page-description">
-      Exercise real local failure paths without hiding durable work.
-    </p>
+    <p class="page-description">Test source changes and receiver outages.</p>
   </div>
   <button
     type="button"
@@ -16,10 +14,7 @@
 </div>
 <div class="notice warning">
   <strong>These controls change the local system.</strong>
-  <p>
-    No command runs when this page opens. Every write requires operator access
-    and an explicit confirmation. Refresh the observations after an action.
-  </p>
+  <p>Connect operator access and confirm an action to run a simulation.</p>
 </div>
 @if(error()){
 <p class="notice danger" role="alert">
@@ -29,9 +24,7 @@
 <section class="panel">
   <div class="section-heading">
     <h2>Receiver connections</h2>
-    <span class="muted small"
-      >{{loading()?'Loading…':'Configured routes only'}}</span
-    >
+    @if(loading()){<span class="muted small" role="status">Loading…</span>}
   </div>
   <div class="two-column">
     @for(sink of ['elasticsearch','rabbitmq'];track sink){
@@ -73,9 +66,7 @@
   <div class="section-heading">
     <div>
       <h2>Source fixture commands</h2>
-      <p class="muted small">
-        Sixteen named fixtures; no arbitrary payload or SQL execution.
-      </p>
+      <p class="muted small">Choose one of sixteen test records.</p>
     </div>
   </div>
   <form (submit)="source($event)">
@@ -159,8 +150,8 @@
   </div>
   @if(!records(result()?.['fixtures']).length){
   <p class="empty-inline">
-    {{error()?'Fixture state is unknown.':'No named fixtures have been observed.
-    Create one to begin an explicit simulation.'}}
+    {{error()?'Fixture state is unknown.':'No test records yet. Create one to
+    begin.'}}
   </p>
   }
 </section>

@@ -78,7 +78,7 @@ export class SimulationsPage {
     this.actions.open({
       title: `${operation[0]?.toUpperCase()}${operation.slice(1)} ${fixture}?`,
       description:
-        'This makes a real source command in the named local fixture. Normal capture and independent receiver processing still apply.',
+        'Change the selected test record and send the new revision through the pipeline.',
       label: `${operation[0]?.toUpperCase()}${operation.slice(1)} fixture`,
       path: '/api/v1/simulations/source-change',
       method: 'POST',
@@ -90,7 +90,7 @@ export class SimulationsPage {
     this.actions.open({
       title: `Insert invalid mapped data in ${this.chosen()}?`,
       description:
-        'The fixture must already exist. This creates a new source-valid revision with an invalid Elasticsearch integer field. The real receiver may reject it; the consumer still handles valid source events.',
+        'Create an invalid search field on an existing test record to trigger an Elasticsearch rejection. Other deliveries continue.',
       label: 'Create corrupt revision',
       path: '/api/v1/simulations/corrupt-record',
       method: 'POST',
@@ -105,7 +105,7 @@ export class SimulationsPage {
     this.actions.open({
       title: `${state === 'connected' ? 'Reconnect' : 'Disconnect'} ${sink === 'elasticsearch' ? 'Elasticsearch' : 'RabbitMQ'} route?`,
       description:
-        'Change only the configured local Toxiproxy route. This is a real network simulation, not a server shutdown or deletion of durable work.',
+        'Change the receiver connection. Queued and staged work is retained.',
       label: state === 'connected' ? 'Reconnect route' : 'Disconnect route',
       path: `/api/v1/simulations/network/${sink}`,
       method: 'PUT',

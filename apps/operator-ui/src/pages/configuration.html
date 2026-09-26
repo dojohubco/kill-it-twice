@@ -27,10 +27,9 @@
     </button>
   </div>
   <p class="help-text" id="polling-help">
-    Use 50–30,000 milliseconds. Shorter waits can increase database load; longer
-    waits can delay new work. Settings survive restarts. Workers check for
-    changes between iterations, caching reads for up to five seconds. An
-    existing wait or in-flight work finishes first.
+    Use 50–30,000 ms. Shorter intervals increase database load; longer intervals
+    delay new work. Changes are saved across restarts and apply after current
+    work or waits finish.
   </p>
   @if(pollingLoading()){
   <p role="status">Loading saved intervals…</p>
@@ -61,8 +60,7 @@
           aria-describedby="capture-poll-help"
         />
         <small id="capture-poll-help"
-          >Wait between bounded source-capture cycles. Required, 50–30,000
-          ms.</small
+          >Wait between source checks. Required, 50–30,000 ms.</small
         >
       </div>
       <div class="field">
@@ -88,8 +86,7 @@
     </div>
     <p class="help-text" role="status">
       {{dirty()?'Unsaved changes. Review and save, or discard and
-      reload.':'Showing saved intervals. Saving does not confirm that every
-      worker has applied them.'}}
+      reload.':'Saved intervals. Workers apply changes between cycles.'}}
     </p>
     <button
       class="button"
@@ -118,16 +115,15 @@
   } }
 </section>
 <div class="notice">
-  <strong>Identity is not an editable preference.</strong>
+  <strong>Connection settings</strong>
   <p>
-    Source epoch, pipeline identity and receiver registration are immutable
-    here. Connections, credentials and proxy routes require controlled
-    configuration and restart.
+    System identities are read-only. Change connections and credentials in the
+    runtime configuration, then restart.
   </p>
 </div>
 @if(!ws.configurationFresh() && ws.configuration()){
 <p class="notice warning" role="status">
-  Configuration is last-known, not a fresh receiver observation.
+  Showing last-known configuration. Refresh to try again.
 </p>
 } @if(ws.configuration();as c){
 <section class="panel">
@@ -195,20 +191,13 @@
     </div>
     }
   </dl>
-  <p class="help-text">
-    These describe the existing backend contract. This interface does not invent
-    a save operation for immutable limits.
-  </p>
 </section>
 <section class="panel">
-  <h2>Browser observation</h2>
+  <h2>Browser settings</h2>
   <div class="setting-row">
     <div>
       <h3>Automatic refresh</h3>
-      <p>
-        Refresh visible overview observations approximately every five seconds
-        with no overlapping cycle. Hidden tabs pause automatic work.
-      </p>
+      <p>Refresh while this tab is visible, about every five seconds.</p>
     </div>
     <button
       type="button"
@@ -222,20 +211,14 @@
   <div class="setting-row">
     <div>
       <h3>Operator access</h3>
-      <p>
-        The token stays in this page's memory only. Reloading or disconnecting
-        clears it. Server authorization is checked on every mutation.
-      </p>
+      <p>Reloading this page or disconnecting clears your token.</p>
     </div>
     <kit-badge [state]="ws.api.operator()?'token configured':'read only'" />
   </div>
   <div class="setting-row">
     <div>
       <h3>Consumer quarantine replay</h3>
-      <p>
-        Not supported by this contract. Invalid retained deliveries cannot be
-        force-published through the interface.
-      </p>
+      <p>Quarantined messages are available for inspection only.</p>
     </div>
     <span class="badge neutral">Inspection only</span>
   </div>
@@ -244,9 +227,6 @@
 <section class="panel empty-state">
   <kit-icon name="configuration" />
   <h2>Configuration unavailable</h2>
-  <p>
-    Connect the local API and refresh. No receiver identity or configuration is
-    substituted.
-  </p>
+  <p>Start the local API, then refresh configuration.</p>
 </section>
 }

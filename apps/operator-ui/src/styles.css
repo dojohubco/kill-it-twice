@@ -323,22 +323,6 @@ strong {
 .sidebar-bottom > a kit-icon:last-child {
   margin-inline-start: auto;
 }
-.environment-card {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  border-block-start: 1px solid var(--color-border);
-  padding: 16px 8px 4px;
-  font-size: 12px;
-}
-.environment-card > kit-icon {
-  color: var(--color-text-muted);
-}
-.environment-card small {
-  display: block;
-  font-size: 11px;
-  line-height: 18px;
-}
 .workspace-main {
   min-width: 0;
   display: flex;

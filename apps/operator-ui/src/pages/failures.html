@@ -2,8 +2,7 @@
   <div>
     <h1 tabindex="-1">Failures</h1>
     <p class="page-description">
-      Inspect current failures without losing their history or another
-      receiver's success.
+      Inspect failed deliveries and replay eligible Elasticsearch events.
     </p>
   </div>
   <button
@@ -16,11 +15,10 @@
   </button>
 </div>
 <div class="notice">
-  <strong>History is not an open-failure count.</strong>
+  <strong>Current failures and history</strong>
   <p>
-    A current ES failure can also have a historical entry below. Consumer
-    quarantine and blocked source work are inspectable but are not replayable
-    here.
+    Includes open failures and previous attempts. Replay is available for
+    eligible Elasticsearch failures.
   </p>
 </div>
 @if(error()){
@@ -32,7 +30,7 @@
 }
 <section class="panel table-panel" [attr.aria-busy]="loading()">
   <div class="section-heading">
-    <h2>Failure evidence</h2>
+    <h2>Failure records</h2>
     <span class="muted small"
       >{{loading()?'Loading…':timestamp(result()?.['observed_at'])}}</span
     >
@@ -41,7 +39,7 @@
     class="table-scroll"
     tabindex="0"
     role="region"
-    aria-label="Failure evidence records"
+    aria-label="Failure records"
   >
     <table>
       <thead>
@@ -81,13 +79,12 @@
   <div class="empty-state">
     <kit-icon name="check" />
     <h3>
-      {{error()?'Failure evidence is unavailable':'No failure records in this
+      {{error()?'Failure records is unavailable':'No failure records in this
       page'}}
     </h3>
     <p>
-      {{error()?'Restore the dependency and refresh; unavailable is not an empty
-      queue.':'This is a bounded observation, not proof that every worker is
-      active.'}}
+      {{error()?'Check the service connection, then refresh.':'Refresh to check
+      for new failures.'}}
     </p>
   </div>
   }
@@ -116,7 +113,7 @@
 <section class="panel">
   <div class="section-heading">
     <div>
-      <span class="field-label">Selected evidence</span>
+      <span class="field-label">Selected record</span>
       <h2 id="failure-detail-title" tabindex="-1">
         {{label(item['classification'])}}
       </h2>
@@ -155,10 +152,7 @@
         maxlength="128"
         required
         placeholder="What was checked or repaired?"
-      /><small
-        >Replay retains the original bytes and audit evidence. The server
-        rechecks the selected attempt.</small
-      >
+      /><small>Describe what was checked or repaired before replay.</small>
     </div>
     <button type="submit" class="button" [disabled]="!api.operator()">
       Review replay
@@ -169,19 +163,18 @@
   }} @else{
   <p class="notice warning">
     Replay is not available for this record: {{label(item['replay_reason'])}}.
-    No force-recovery action is exposed.
   </p>
   } @if(item['event_id']){<button
     type="button"
     class="button secondary"
     (click)="details()"
   >
-    Load bounded event evidence</button
+    Load event details</button
   >}@if(evidenceError()){
   <p class="notice danger" role="alert">{{evidenceError()}}</p>
   }@if(evidence();as e){
   <details open>
-    <summary>Canonical metadata and recent attempt evidence</summary>
+    <summary>Event metadata and recent attempts</summary>
     <pre>{{jsonText(e)}}</pre>
   </details>
   }

@@ -16,7 +16,7 @@ At clean dc98ecd, the captured sequence completed npm ci, make verify-ui, test:u
 
 The live browser ran Chromium 152.0.7977.82 through an owned read-only HTTP transport to the actual isolated Nest/PostgreSQL/Elasticsearch service fixture. It observed 37 staged events, browsed receiver records and inspected entity 1. No API response was intercepted with fabricated data; no browser-driven mutation was performed. The separate confirmation/idempotency tests use explicitly isolated HTTP responses. Both service profiles completed their owned cleanup.
 
-![Actual read-only browser against the isolated service fixture](../images/operator-overview.png)
+![Actual read-only browser against the isolated service fixture](../images/operator-overview-2026-09-21.png)
 
 The screenshot contains synthetic test-business data processed by real services. It is not production or benchmark evidence.
 

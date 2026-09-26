@@ -118,7 +118,7 @@ export class FailuresPage {
     this.actions.open({
       title: 'Replay this Elasticsearch failure?',
       description:
-        'Schedule the same immutable event for the current failure attempt. Unchanged invalid source data may fail again. RabbitMQ and consumer results are not reset.',
+        'Retry this Elasticsearch delivery. If the cause is unchanged, it may fail again. RabbitMQ and consumer results are preserved.',
       label: 'Schedule replay',
       path:
         '/api/v1/failures/elasticsearch/' +

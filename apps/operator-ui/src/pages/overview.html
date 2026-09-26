@@ -2,7 +2,7 @@
   <div>
     <h1 tabindex="-1">Overview</h1>
     <p class="page-description">
-      Follow the data. See what is waiting and what has actually completed.
+      Monitor replication, delivery and backfill progress.
     </p>
   </div>
   <button
@@ -16,24 +16,20 @@
 </div>
 <section class="system-summary" aria-labelledby="system-heading">
   <div>
-    <span class="field-label">Current observation</span>
+    <span class="field-label">System status</span>
     <h2 id="system-heading">
       {{ws.error()?'Live status
       unavailable':ws.snapshot()?label(ws.snapshot()?.['health']):ws.loading()?'Connecting
       to the pipeline':'Waiting for an observation'}}
     </h2>
     <p>
-      {{ws.error()?'Last-known values may still be visible. They do not
-      establish current health.':'Each component is observed independently. A
-      healthy connection does not mean all work has completed.'}}
+      {{ws.error()?'Showing last-known values. Refresh to check current
+      status.':'Connection health and delivery progress across the pipeline.'}}
     </p>
   </div>
   <kit-badge [state]="ws.error()?'unknown':ws.snapshot()?.['health']" />
 </section>
-<ol
-  class="pipeline-flow"
-  aria-label="Independent pipeline component observations"
->
+<ol class="pipeline-flow" aria-label="Pipeline components">
   @for(stage of stages;track stage.id){
   <li>
     <span class="flow-step" aria-hidden="true">{{$index+1}}</span>
@@ -45,16 +41,13 @@
   </li>
   }
 </ol>
-<section
-  class="metric-grid"
-  aria-label="Distinct event counts and useful throughput"
->
+<section class="metric-grid" aria-label="Event counts and throughput">
   <article class="metric">
     <span class="field-label">Staged events</span
     ><strong class="metric-number"
       >{{count(ws.data('pipeline')['staged'])}}</strong
     ><span class="metric-rate">{{rate('staged')}}</span
-    ><small>Durable local events, not entities</small>
+    ><small>Events saved to the pipeline</small>
   </article>
   <article class="metric">
     <span class="field-label">Search obligations satisfied</span
@@ -68,17 +61,14 @@
     ><strong class="metric-number"
       >{{count(delivery('rabbitmq',['satisfied']))}}</strong
     ><span class="metric-rate">{{rate('rabbitmq')}}</span
-    ><small>Acceptance is not consumer processing</small>
+    ><small>Messages accepted by RabbitMQ</small>
   </article>
   <article class="metric">
     <span class="field-label">Consumer processed</span
     ><strong class="metric-number"
       >{{count(ws.data('consumer')['processed'])}}</strong
     ><span class="metric-rate">{{rate('consumer')}}</span
-    ><small
-      >{{count(ws.data('consumer')['effects'])}} mutation effects; baselines add
-      none</small
-    >
+    ><small>{{count(ws.data('consumer')['effects'])}} mutation effects</small>
   </article>
 </section>
 <div class="two-column">
@@ -114,10 +104,7 @@
         <dd>{{count(run['range_count'])}}</dd>
       </div>
     </dl>
-    <p class="help-text">
-      Reading every page is not the same as both receivers and the consumer
-      finishing.
-    </p>
+
     } @else{
     <div class="empty-inline">
       <kit-icon name="backfill" />
@@ -127,7 +114,7 @@
       </h3>
       <p>
         {{ws.snapshot()?'Start a run when the source and receiver bindings are
-        ready.':'Connect the API to inspect actual run progress.'}}
+        ready.':'Connect the API to view progress.'}}
       </p>
       <a routerLink="/backfill" class="inline-link">Open backfill</a>
     </div>
@@ -160,19 +147,12 @@
         <dd>{{count(ws.data('consumer')['quarantine'])}}</dd>
       </div>
     </dl>
-    <p class="help-text">
-      Source-recorded age includes time before commit. Quarantine is not a
-      successful business effect.
-    </p>
   </section>
 </div>
 <section class="panel" aria-labelledby="delivery-heading">
   <div class="section-heading">
     <div>
       <h2 id="delivery-heading">Delivery backlog</h2>
-      <p class="muted small">
-        Independent obligations keep one receiver from resetting another.
-      </p>
     </div>
   </div>
   <div
@@ -209,7 +189,3 @@
     </table>
   </div>
 </section>
-<p class="view-note">
-  Worker liveness is not inferred from these observations. No heartbeat evidence
-  is exposed by this interface.
-</p>

@@ -27,13 +27,10 @@
     <div class="request-identity">
       <span class="field-label">Idempotency key</span
       ><code>{{action.requestKey}}</code
-      ><small>One key is retained for this action and any retry.</small>
+      ><small>Retries use this same key.</small>
     </div>
     @if(!actions.api.operator()){
-    <p class="notice warning">
-      Operator access is required. Close this dialog and connect using the
-      run-local token.
-    </p>
+    <p class="notice warning">Connect operator access before continuing.</p>
     } @if(actions.error();as error){
     <div class="notice danger" role="alert">
       <strong
@@ -56,10 +53,7 @@
         >{{accepted.outcome==='already_applied'?'Original request
         recovered':'Request accepted'}}</strong
       >
-      <p>
-        This confirms the control request, not end-to-end delivery. Check the
-        current operational state.
-      </p>
+      <p>The request was accepted. Check progress on the relevant page.</p>
       @if(accepted.requestId){<small
         >Request <code>{{accepted.requestId}}</code></small
       >}

@@ -1,9 +1,7 @@
 <div class="page-heading">
   <div>
     <h1 tabindex="-1">Backfill</h1>
-    <p class="page-description">
-      A resumable scan, a fixed completion boundary, and independent delivery.
-    </p>
+    <p class="page-description">Start, pause and monitor backfill runs.</p>
   </div>
   <button type="button" class="button secondary" (click)="latest()">
     <kit-icon name="refresh" />Show latest run
@@ -46,10 +44,7 @@
           required
           maxlength="36"
           autocomplete="off"
-        /><small
-          >The API exposes a latest run and explicit run lookup, not a full run
-          list.</small
-        >
+        /><small>Enter a run ID to view its progress.</small>
       </div>
       <button type="submit" class="button secondary" [disabled]="loading()">
         {{loading()?'Loading…':'Inspect run'}}
@@ -83,17 +78,14 @@
   @if(r['blocked']){
   <div class="notice danger">
     <strong>Progress is blocked</strong>
-    <p>
-      {{label(r['blocked_reason'])}}. Inspect the range evidence below; do not
-      reset the checkpoint to skip it.
-    </p>
+    <p>{{label(r['blocked_reason'])}}. Inspect the blocked range below.</p>
   </div>
   }
   <div class="metric-grid three">
     <article class="metric">
       <span class="field-label">Scan observations</span
       ><strong class="metric-number">{{count(r['scan_observations'])}}</strong
-      ><small>Not a receiver completion count</small>
+      ><small>Source records scanned</small>
     </article>
     <article class="metric">
       <span class="field-label">Required events</span
@@ -101,8 +93,8 @@
         >{{r['required_sealed']?count(record(r['counts'])['required']):'Not
         sealed'}}</strong
       ><small
-        >{{r['required_sealed']?'Finite run membership':'No reliable final
-        denominator yet'}}</small
+        >{{r['required_sealed']?'Total events in this run':'Total available
+        after scanning'}}</small
       >
     </article>
     <article class="metric">
@@ -127,15 +119,12 @@
       <dd>{{timestamp(r['completed_at'])}}</dd>
     </div>
   </dl>
-  <p class="help-text">
-    A completed-with-errors outcome remains historical even when later repairs
-    improve its obligations.
-  </p>
+  <p class="help-text">Completion records the outcome when the run finished.</p>
 </section>
 <section class="panel">
   <div class="section-heading">
     <h2>Range checkpoints</h2>
-    <span class="muted small">Exact source keys, not percentage estimates</span>
+    <span class="muted small">Last saved source key per range</span>
   </div>
   <div
     class="table-scroll"
@@ -200,7 +189,7 @@
     </article>
   </div>
   <details>
-    <summary>Inspect the bounded run observation</summary>
+    <summary>Run details</summary>
     <pre>{{jsonText(r)}}</pre>
   </details>
 </section>

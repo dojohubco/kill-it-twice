@@ -50,7 +50,7 @@ export class BackfillPage {
     this.actions.open({
       title: 'Start a backfill run?',
       description:
-        'Create a finite current-state scan. Incremental capture remains independent. Receiver and consumer work must drain before completion.',
+        'Scan the source and deliver its records to the receivers. New source changes continue to be captured.',
       label: 'Start backfill',
       path: '/api/v1/backfills',
       method: 'POST',
@@ -64,7 +64,7 @@ export class BackfillPage {
     this.actions.open({
       title: paused ? 'Pause new page admission?' : 'Resume this backfill?',
       description: paused
-        ? 'An in-flight bounded page may still commit. Pausing does not roll back completed work or stop independent capture.'
+        ? 'The current page may finish before pausing. Saved progress is retained and new source changes continue to be captured.'
         : 'Continue from the retained checkpoints. Existing events and receiver outcomes are preserved.',
       label: paused ? 'Request pause' : 'Resume backfill',
       path: `/api/v1/backfills/${encodeURIComponent(value(r['run_id']))}/${paused ? 'pause' : 'resume'}`,

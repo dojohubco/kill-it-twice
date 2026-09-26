@@ -37,9 +37,7 @@ export class Api {
   #token = '';
   unlock(token: string): void {
     if (token.length < 32 || token.length > 1024 || /[\r\n]/.test(token))
-      throw new Error(
-        'Use the run-local token from the private control configuration.',
-      );
+      throw new Error('Enter a valid operator token from make operator-token.');
     this.#token = token;
     this.operator.set(true);
   }

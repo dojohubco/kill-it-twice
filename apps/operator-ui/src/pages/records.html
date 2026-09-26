@@ -39,8 +39,8 @@
   <p class="help-text">
     {{workspace.automatic()?'This page and open details refresh automatically
     every 5 seconds while visible.':'Automatic updates are paused. Use Refresh
-    records to update this page and open details.'}} Search is near realtime.
-    Pagination is navigation, not a completeness proof.
+    records to update this page and open details.'}} Recent changes may take a
+    moment to appear in search.
   </p>
 </section>
 @if(error()){
@@ -203,12 +203,8 @@
     <pre>{{jsonText(d['projection'])}}</pre>
   </details>
   <details>
-    <summary>Recent pipeline evidence (up to eight revisions)</summary>
+    <summary>Recent pipeline revisions (up to eight)</summary>
     <pre>{{jsonText(d['pipeline'])}}</pre>
   </details>
-  <p class="help-text">
-    This view shows the API's bounded projection and recent evidence, not the
-    complete source payload or history.
-  </p>
 </section>
 }

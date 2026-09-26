@@ -200,10 +200,9 @@ void test(
         .getByRole('button', { name: 'Refresh configuration', exact: true })
         .click();
       await page
-        .getByText(
-          'Configuration is last-known, not a fresh receiver observation.',
-          { exact: true },
-        )
+        .getByText('Showing last-known configuration. Refresh to try again.', {
+          exact: true,
+        })
         .waitFor();
     }),
 );
@@ -310,7 +309,10 @@ void test(
         .getByRole('button', { name: 'Request pause', exact: true })
         .click();
       await dialog.getByText('Request accepted', { exact: true }).waitFor();
-      assert.match(await dialog.innerText(), /not end-to-end delivery/);
+      assert.match(
+        await dialog.innerText(),
+        /The request was accepted\. Check progress on the relevant page\./,
+      );
       await dialog.getByRole('button', { name: 'Done' }).click();
       assert.equal(
         await page.getByText('Scanning', { exact: true }).count(),

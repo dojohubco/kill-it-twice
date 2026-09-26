@@ -138,9 +138,7 @@ export class AppComponent {
       this.api.unlock(typeof token === 'string' ? token : '');
       form.reset();
       this.closeAccess();
-      this.announcement.set(
-        'Operator token set for this page session. The server validates each action.',
-      );
+      this.announcement.set('Operator token set for this session.');
     } catch (e) {
       this.accessError.set(e instanceof Error ? e.message : 'Check the token.');
     }
